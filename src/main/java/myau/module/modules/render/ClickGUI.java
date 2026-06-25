@@ -1,0 +1,28 @@
+package myau.module.modules.render;
+
+import myau.module.Module;
+import myau.property.properties.BooleanProperty;
+import myau.ui.clickgui.miau.ClickGui;
+import net.minecraft.client.Minecraft;
+import org.lwjgl.input.Keyboard;
+
+public class ClickGUI extends Module {
+  private static final Minecraft mc = Minecraft.getMinecraft();
+  private ClickGui clickGui;
+
+  public final BooleanProperty blur = new BooleanProperty("Blur", true);
+
+  public ClickGUI() {
+    super("ClickGUI", false);
+    setKey(Keyboard.KEY_RSHIFT);
+  }
+
+  @Override
+  public void onEnabled() {
+    setEnabled(false);
+    if (clickGui == null) {
+      clickGui = new ClickGui();
+    }
+    mc.displayGuiScreen(clickGui);
+  }
+}
