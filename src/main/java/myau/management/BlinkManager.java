@@ -51,6 +51,7 @@ public class BlinkManager {
         return false;
       }
       this.blinking = false;
+      this.blinkModule = BlinkModules.NONE;
       if (Minecraft.getMinecraft().getNetHandler() != null && this.blinkedPackets.isEmpty()) {
         return true;
       }
@@ -58,7 +59,6 @@ public class BlinkManager {
         PacketUtil.sendPacketNoEvent(blinkedPacket);
       }
       this.blinkedPackets.clear();
-      this.blinkModule = BlinkModules.NONE;
     }
     return true;
   }

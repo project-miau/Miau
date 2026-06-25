@@ -236,7 +236,14 @@ public class Myau {
     if (targetManager.file.exists()) {
       targetManager.load();
     }
-    Runtime.getRuntime().addShutdownHook(new Thread(config::save));
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  if (moduleManager != null && propertyManager != null) {
+                    config.save();
+                  }
+                }));
 
     try (InputStreamReader reader =
         new InputStreamReader(

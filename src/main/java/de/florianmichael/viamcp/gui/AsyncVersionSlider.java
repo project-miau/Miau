@@ -26,9 +26,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.MathHelper;
 
 public class AsyncVersionSlider extends GuiButton {
-  private float dragValue =
-      (float) ViaLoadingBase.PROTOCOLS.indexOf(ViaLoadingBase.getInstance().getTargetVersion())
-          / ViaLoadingBase.PROTOCOLS.size();
+  private float dragValue;
 
   private final List<ProtocolVersion> values;
   private float sliderValue;
@@ -38,6 +36,9 @@ public class AsyncVersionSlider extends GuiButton {
     super(buttonId, x, y, Math.max(widthIn, 110), heightIn, "");
     this.values = new ArrayList<>(ViaLoadingBase.PROTOCOLS);
     Collections.reverse(values);
+    this.dragValue =
+        (float) this.values.indexOf(ViaLoadingBase.getInstance().getTargetVersion())
+            / (this.values.size() - 1);
     this.sliderValue = dragValue;
     this.displayString = values.get((int) (this.sliderValue * (values.size() - 1))).getName();
   }
@@ -116,7 +117,7 @@ public class AsyncVersionSlider extends GuiButton {
 
   public void setVersion(int protocol) {
     this.dragValue =
-        (float) this.values.indexOf(ProtocolVersion.getProtocol(protocol)) / this.values.size();
+        (float) this.values.indexOf(ProtocolVersion.getProtocol(protocol)) / (this.values.size() - 1);
     this.sliderValue = this.dragValue;
     this.displayString = values.get((int) (this.sliderValue * (values.size() - 1))).getName();
   }

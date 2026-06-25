@@ -25,6 +25,11 @@ public class RotationManager {
   }
 
   private void applyRotation(float partialTicks) {
+    if (Float.isNaN(this.lastUpdate)
+        || Float.isNaN(this.yawDelta)
+        || Float.isNaN(this.pitchDelta)) {
+      return;
+    }
     if (mc.thePlayer != null
         && !Float.isNaN(this.yawDelta)
         && !Float.isNaN(this.pitchDelta)

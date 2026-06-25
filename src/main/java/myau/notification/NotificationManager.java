@@ -44,9 +44,6 @@ public class NotificationManager {
         (myau.module.modules.render.HUD)
             myau.Myau.moduleManager.modules.get(myau.module.modules.render.HUD.class);
     if (hud == null || !hud.isEnabled() || !hud.showNotifications.getValue()) {
-      synchronized (notifications) {
-        notifications.clear();
-      }
       return;
     }
 
