@@ -117,6 +117,7 @@ public class KillAura extends Module {
   public final FloatProperty attackRange;
   public final FloatProperty swingRange;
   public final FloatProperty cps;
+  public final FloatProperty autoBlockCps;
   public final ModeProperty rotations;
   public final PercentProperty smoothing;
   public final IntProperty angleStep;
@@ -211,6 +212,13 @@ public class KillAura extends Module {
         }
       }
       return (long) ((1 / speed * 20 - 1) * 50);
+    }
+    if (this.isBlocking && this.autoBlock.getValue() != 0) {
+      return (long)
+          (1000.0F
+              / RandomUtil.nextLong(
+                  this.autoBlockCps.getValue().intValue(),
+                  this.autoBlockCps.getSecondValue().intValue()));
     }
     return 1000L
         / RandomUtil.nextLong(this.cps.getValue().intValue(), this.cps.getSecondValue().intValue());
@@ -870,6 +878,14 @@ public class KillAura extends Module {
     this.attackRange = new FloatProperty("attack-range", 3.0F, 3.0F, 6.0F);
     this.swingRange = new FloatProperty("swing-range", 3.5F, 3.0F, 6.0F);
     this.cps = new FloatProperty("aps", 14.0F, 14.0F, 1.0F, 20.0F);
+    this.autoBlockCps =
+        new FloatProperty(
+            "autoblock-aps",
+            8.0F,
+            10.0F,
+            1.0F,
+            10.0F,
+            () -> this.autoBlock.getValue() != 0);
     this.rotations =
         new ModeProperty(
             "rotations", 1, new String[] {"NONE", "LEGIT/NORMAL", "SNAP", "NCP", "AUTISTIC"});
@@ -1091,7 +1107,8 @@ public class KillAura extends Module {
                       break;
                     case 1:
                       if (this.isPlayerBlocking()) {
-                        if (Myau.moduleManager.modules.get(NoSlow.class).isEnabled()) {
+                        if (Myau.moduleManager.modules.get(NoSlow.class).isEnabled()
+                            && !this.isNoSlowAntiSwitchActive()) {
                           int randomSlot = new Random().nextInt(9);
                           while (randomSlot == mc.thePlayer.inventory.currentItem) {
                             randomSlot = new Random().nextInt(9);
@@ -1297,7 +1314,7 @@ public class KillAura extends Module {
                   } else if (!this.isPlayerBlocking() || this.smartUpdatedNCPAutoBlock.getValue()) {
                     if (this.smartBlockRate.getValue() >= 100
                         || new Random().nextInt(100) < this.smartBlockRate.getValue()) {
-                      if (this.smartSwitchStartBlock.getValue()) {
+                      if (this.smartSwitchStartBlock.getValue() && !this.isNoSlowAntiSwitchActive()) {
                         PacketUtil.sendPacket(new C09PacketHeldItemChange((item + 1) % 9));
                         PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
                       }
@@ -1344,8 +1361,10 @@ public class KillAura extends Module {
                 if (mc.thePlayer.inventory.currentItem == item
                     && !Myau.playerStateManager.digging
                     && !Myau.playerStateManager.placing) {
-                  PacketUtil.sendPacket(new C09PacketHeldItemChange(item % 8 + 1));
-                  PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
+                  if (!this.isNoSlowAntiSwitchActive()) {
+                    PacketUtil.sendPacket(new C09PacketHeldItemChange(item % 8 + 1));
+                    PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
+                  }
                   swap = true;
                 }
                 Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);

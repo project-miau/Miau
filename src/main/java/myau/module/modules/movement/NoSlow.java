@@ -2,6 +2,8 @@ package myau.module.modules.movement;
 
 import java.util.ArrayList;
 import java.util.List;
+import myau.Myau;
+import myau.module.modules.combat.KillAura;
 import myau.event.EventTarget;
 import myau.event.impl.PacketEvent;
 import myau.event.impl.RightClickMouseEvent;
@@ -76,9 +78,12 @@ public class NoSlow extends Module {
       return false;
     }
     net.minecraft.item.ItemStack heldItem = mc.thePlayer.getHeldItem();
-    return heldItem != null
-        && heldItem.getItem() instanceof net.minecraft.item.ItemSword
-        && mc.thePlayer.isUsingItem();
+    if (heldItem == null || !(heldItem.getItem() instanceof net.minecraft.item.ItemSword)) {
+      return false;
+    }
+    KillAura aura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
+    boolean auraBlocking = aura != null && aura.isEnabled() && aura.isPlayerBlocking();
+    return mc.thePlayer.isUsingItem() || auraBlocking;
   }
 
   public boolean isAnyActive() {

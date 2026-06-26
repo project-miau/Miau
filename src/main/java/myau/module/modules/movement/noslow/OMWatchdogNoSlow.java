@@ -57,10 +57,12 @@ public class OMWatchdogNoSlow extends NoSlowMode {
     }
 
     if (this.getParent().isSwordActive()) {
-      int currentSlot = mc.thePlayer.inventory.currentItem;
-      PacketUtil.sendPacket(
-          new C09PacketHeldItemChange(currentSlot % 7 + (int) (Math.random() * 2) + 1));
-      PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot));
+      if (!this.getParent().antiSwitch.getValue()) {
+        int currentSlot = mc.thePlayer.inventory.currentItem;
+        PacketUtil.sendPacket(
+            new C09PacketHeldItemChange(currentSlot % 7 + (int) (Math.random() * 2) + 1));
+        PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot));
+      }
 
       float multiplier = this.getParent().getMotionMultiplier();
       mc.thePlayer.movementInput.moveForward *= multiplier;

@@ -56,9 +56,11 @@ public class OMNewNCPNoSlow extends NoSlowMode {
     if (this.disable > 10
         && !BadPacketsComponent.bad(false, true, true, false, false)
         && (aura == null || aura.getTarget() == null)) {
-      int currentSlot = mc.thePlayer.inventory.currentItem;
-      PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot % 8 + 1));
-      PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot));
+      if (!this.getParent().antiSwitch.getValue()) {
+        int currentSlot = mc.thePlayer.inventory.currentItem;
+        PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot % 8 + 1));
+        PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot));
+      }
       PacketUtil.sendPacket(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
     }
   }
