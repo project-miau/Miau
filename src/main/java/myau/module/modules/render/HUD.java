@@ -89,7 +89,6 @@ public class HUD extends Module {
   public final FloatProperty roundingRadius =
       new FloatProperty("Rounding Radius", 1.0F, 0.0F, 10.0F);
 
-  // Hàm lấy Component tự động
   private InterfaceComponent getComponent(Module module) {
     return components.computeIfAbsent(module, InterfaceComponent::new);
   }
@@ -142,11 +141,11 @@ public class HUD extends Module {
     Themes theme = Themes.getCurrentTheme();
 
     switch (this.colorAnimation.getValue()) {
-      case 0: // STATIC
+      case 0:
         return theme.getFirstColor();
-      case 1: // FADE
+      case 1:
         return theme.getAccentColor(new Vector2d(0, yPos));
-      case 2: // RAINBOW
+      case 2:
         return ColorUtil.rainbow((int) (time * 500 / 6));
       default:
         return Color.white;
@@ -242,15 +241,14 @@ public class HUD extends Module {
     float currentYExhibition = (float) this.offsetY.getValue() + 1.0F * this.scale.getValue();
     float currentYNormal = (float) this.offsetY.getValue() + 1.0F * this.scale.getValue();
 
-    // AutoFit on the Left Side
     if (this.posX.getValue() == 0) {
-      if (this.posY.getValue() == 0) { // Top Left: Avoid Watermark
+      if (this.posY.getValue() == 0) {
         if (this.showWatermark.getValue()) {
           float watermarkHeight = getFont().getFontHeight() + 6.0F;
           currentYExhibition += watermarkHeight;
           currentYNormal += watermarkHeight;
         }
-      } else { // Bottom Left: Avoid Coordinates
+      } else {
         float bottomOffset = 0.0F;
         if (this.hudMode.getValue() == 1
             && this.showCoordinates.getValue()
@@ -313,13 +311,12 @@ public class HUD extends Module {
       long l = System.currentTimeMillis();
 
       if (this.shaders.getValue()) {
-        // Bloom pass: soft glow
+
         myau.util.shader.BlurUtils.prepareBloom();
         renderElements(l, delta, animatingComponents, sr);
         myau.util.shader.BlurUtils.bloomEnd(
             bloomCompression.getValue().intValue(), bloomRadius.getValue());
 
-        // Blur pass: frosted-glass
         myau.util.shader.BlurUtils.prepareBlur();
         renderElements(l, delta, animatingComponents, sr);
         myau.util.shader.BlurUtils.blurEnd(
@@ -345,7 +342,7 @@ public class HUD extends Module {
       }
     }
 
-    if (this.hudMode.getValue() == 1) { // Exhibition mode
+    if (this.hudMode.getValue() == 1) {
       if (this.showCoordinates.getValue() && mc.thePlayer != null) {
         String posX2 = String.valueOf(Math.round(mc.thePlayer.posX));
         String posY2 = String.valueOf(Math.round(mc.thePlayer.posY));
@@ -365,7 +362,6 @@ public class HUD extends Module {
       GlStateManager.pushMatrix();
       GlStateManager.scale(this.scale.getValue(), this.scale.getValue(), 0.0F);
 
-      // 4. Render Exhibition Mode
       for (InterfaceComponent component : animatingComponents) {
         Module module = component.module;
         String moduleName = this.getModuleName(module);
@@ -591,7 +587,6 @@ public class HUD extends Module {
       GlStateManager.popMatrix();
     }
 
-    // Render Potion Effects
     if (mc.thePlayer != null) {
       java.util.Collection<net.minecraft.potion.PotionEffect> effects =
           mc.thePlayer.getActivePotionEffects();
