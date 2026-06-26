@@ -147,8 +147,6 @@ public class KillAura extends Module {
   public final BooleanProperty targetSilverfish = new BooleanProperty("target-silverfish", false);
   public final BooleanProperty targetTeams = new BooleanProperty("target-teams", true);
 
-
-
   // HitSelect state
   private boolean hsSprintState = false;
   private boolean hsSet = false;
@@ -1441,6 +1439,7 @@ public class KillAura extends Module {
           }
           if (attack) {
             attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
+          }
         }
         if (swap) {
           if (attacked) {
@@ -1802,7 +1801,7 @@ public class KillAura extends Module {
           if (player.hurtTime > 0) {
             color = new Color(16733525); // red
           } else {
-            color = new Color(5635925);  // green
+            color = new Color(5635925); // green
           }
 
           RenderUtil.enableRenderState();
@@ -1879,7 +1878,6 @@ public class KillAura extends Module {
     this.hsSavedSlowdown = 0;
     this.hsAttackTime = -1L;
     this.hsCurrentShouldAttack = false;
-
   }
 
   @Override
@@ -1910,8 +1908,6 @@ public class KillAura extends Module {
     return new String[] {
       CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, this.mode.getModeString())
     };
-  }
-
   }
 
   private long getPing() {
