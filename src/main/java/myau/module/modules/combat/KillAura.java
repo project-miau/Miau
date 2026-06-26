@@ -150,8 +150,6 @@ public class KillAura extends Module {
   public final BooleanProperty targetSilverfish = new BooleanProperty("target-silverfish", false);
   public final BooleanProperty targetTeams = new BooleanProperty("target-teams", true);
 
-<<<<<<< HEAD
-=======
   private static final int KD_DIRECTIONS = 24;
   private static final int KD_VOID_RINGS = 7;
   private static final int KD_VOID_DEPTH = 8;
@@ -172,7 +170,6 @@ public class KillAura extends Module {
 
   private int kdHitCounter = 0;
 
->>>>>>> 39727357af0e559a2b8ba93d7b26a8f03abfc6d4
   // HitSelect state
   private boolean hsSprintState = false;
   private boolean hsSet = false;
@@ -1852,14 +1849,8 @@ public class KillAura extends Module {
         } else if (this.showTarget.getValue() == 3) {
           boolean wasHurtRecently = false;
           if (player.hurtTime > 0) {
-<<<<<<< HEAD
-            color = new Color(16733525); // red
-          } else {
-            color = new Color(5635925); // green
-=======
             wasHurtRecently = true;
             this.ticks = 0;
->>>>>>> 39727357af0e559a2b8ba93d7b26a8f03abfc6d4
           }
           if (this.ticks <= 23) {
             wasHurtRecently = true;
@@ -1980,10 +1971,7 @@ public class KillAura extends Module {
     this.hsSavedSlowdown = 0;
     this.hsAttackTime = -1L;
     this.hsCurrentShouldAttack = false;
-<<<<<<< HEAD
-=======
     this.kdHitCounter = 0;
->>>>>>> 39727357af0e559a2b8ba93d7b26a8f03abfc6d4
   }
 
   @Override
@@ -2016,8 +2004,6 @@ public class KillAura extends Module {
     };
   }
 
-<<<<<<< HEAD
-=======
   private float getTacticalKDYaw(EntityPlayer target, float currentYaw) {
     float voidPushYaw = this.scanVoidPushKD(target, currentYaw);
     if (!Float.isNaN(voidPushYaw)) {
@@ -2225,7 +2211,6 @@ public class KillAura extends Module {
     return currentYaw + offset;
   }
 
->>>>>>> 39727357af0e559a2b8ba93d7b26a8f03abfc6d4
   private long getPing() {
     if (mc.getNetHandler() != null
         && mc.thePlayer != null
