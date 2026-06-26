@@ -3,9 +3,17 @@ package myau.module.modules.combat.velocity;
 import myau.event.impl.PacketEvent;
 import myau.mixin.IAccessorS12PacketEntityVelocity;
 import myau.module.modules.combat.Velocity;
+import myau.property.properties.PercentProperty;
 import net.minecraft.network.play.server.S12PacketEntityVelocity;
 
 public class StandardVelocity extends VelocityMode {
+
+  public final PercentProperty horizontal = new PercentProperty("horizontal", 0);
+  public final PercentProperty vertical = new PercentProperty("vertical", 100);
+  public final PercentProperty explosionHorizontal =
+      new PercentProperty("explosions-horizontal", 100);
+  public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100);
+
   public StandardVelocity(String name, Velocity parent) {
     super(name, parent);
   }
@@ -17,14 +25,18 @@ public class StandardVelocity extends VelocityMode {
       if (event.getPacket() instanceof S12PacketEntityVelocity) {
         S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
         if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
-          double horizontal = parent.horizontal.getValue();
-          double vertical = parent.vertical.getValue();
+          double horizontal = this.horizontal.getValue();
+          double vertical = this.vertical.getValue();
 
           if (horizontal == 0) {
+            IAccessorS12PacketEntityVelocity accessor = (IAccessorS12PacketEntityVelocity) packet;
+            accessor.setMotionX(0);
             if (vertical != 0) {
-              mc.thePlayer.motionY = packet.getMotionY() / 8000.0D;
+              accessor.setMotionY((int) (packet.getMotionY() * vertical / 100));
+            } else {
+              accessor.setMotionY(0);
             }
-            event.setCancelled(true);
+            accessor.setMotionZ(0);
             return;
           }
 
