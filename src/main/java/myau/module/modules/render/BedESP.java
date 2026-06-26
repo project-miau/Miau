@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import myau.event.EventTarget;
 import myau.event.impl.LoadWorldEvent;
+import myau.event.impl.PacketEvent;
 import myau.event.impl.Render3DEvent;
 import myau.event.impl.TickEvent;
 import myau.event.types.EventType;
@@ -140,6 +141,12 @@ public class BedESP extends Module {
     lastRenderedBedPairs.clear();
     lastDefenseToolMode = false;
     clearDefenseState();
+  }
+
+  @EventTarget
+  public void onPacket(PacketEvent event) {
+    if (event.getType() != EventType.RECEIVE) return;
+    SharedBlockHighlightCache.get().handlePacket(event);
   }
 
   public int getScanSpeedBudget() {

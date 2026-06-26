@@ -1,27 +1,32 @@
 package myau.clientanticheat.combat.killaura;
 
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Queue;
 import myau.clientanticheat.CheckBuffer;
 import myau.clientanticheat.ClientAntiCheatContext;
 import myau.clientanticheat.PlayerCheckData;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
-import net.minecraft.world.World;
 
+/**
+ * KillAura extra checks — attack rate, wide-angle silent aim, and hit accuracy. Flick/pre-attack
+ * patterns removed (handled better by KillAuraUnifiedCheck's burstMachine).
+ */
 public class KillAuraRotationSpeed {
   private final Map<String, Long> lastAttackTicks = new HashMap<>();
   private final Map<String, CheckBuffer> rateBuffers = new HashMap<>();
   private final Map<String, CheckBuffer> aimBuffers = new HashMap<>();
-  private final Map<String, CheckBuffer> linearAimBuffers = new HashMap<>();
+  private final Map<String, CheckBuffer> accuracyBuffers = new HashMap<>();
+  private final Map<String, Queue<Double>> hitAccuracySamples = new HashMap<>();
+
+  private static final int ACCURACY_SAMPLE_SIZE = 20;
+  private static final double HIGH_ACCURACY_THRESHOLD = 0.92D;
 
   public void check(
-      EntityPlayer player,
-      World world,
-      PlayerCheckData data,
-      long currentTick,
-      ClientAntiCheatContext context) {
+      EntityPlayer player, PlayerCheckData data, long currentTick, ClientAntiCheatContext context) {
     String name = player.getName();
     if (name == null || data == null || data.recentlyTeleported()) return;
 
@@ -30,23 +35,28 @@ public class KillAuraRotationSpeed {
       return;
     }
 
-    EntityPlayer target = this.nearestTarget(player, world, 6.0D);
-    if (target == null) return;
+    EntityPlayer target = data.nearestTarget;
+    if (target == null || data.nearestTargetDistance > 6.0D) {
+      this.decay(name);
+      return;
+    }
 
-    CheckBuffer rateBuffer = this.rateBuffers.computeIfAbsent(name, key -> new CheckBuffer());
-    CheckBuffer aimBuffer = this.aimBuffers.computeIfAbsent(name, key -> new CheckBuffer());
-    CheckBuffer linearAimBuffer =
-        this.linearAimBuffers.computeIfAbsent(name, key -> new CheckBuffer());
+    CheckBuffer rateBuffer = this.rateBuffers.computeIfAbsent(name, k -> new CheckBuffer());
+    CheckBuffer aimBuffer = this.aimBuffers.computeIfAbsent(name, k -> new CheckBuffer());
+    CheckBuffer accuracyBuffer = this.accuracyBuffers.computeIfAbsent(name, k -> new CheckBuffer());
 
     long lastAttack = this.lastAttackTicks.getOrDefault(name, currentTick - 20L);
     long delay = currentTick - lastAttack;
     this.lastAttackTicks.put(name, currentTick);
+
+    // ── Attack speed (rate) ────────────────────────────────────────
     if (delay > 0L && delay < 3L) {
       rateBuffer.flag(1.0D, 999.0D);
     } else {
       rateBuffer.decay(0.35D);
     }
 
+    // ── Wide-angle silent aim ──────────────────────────────────────
     float yawError =
         Math.abs(MathHelper.wrapAngleTo180_float(this.yawTo(player, target) - player.rotationYaw));
     float pitchError = Math.abs(this.pitchTo(player, target) - player.rotationPitch);
@@ -56,20 +66,46 @@ public class KillAuraRotationSpeed {
       aimBuffer.decay(0.45D);
     }
 
-    if (data.yawDelta > 0.0F && Math.abs(data.yawAcceleration) < 0.01F) {
-      linearAimBuffer.flag(1.0D, 6.0D);
-    } else {
-      linearAimBuffer.decay(0.2D);
+    // ── Hit accuracy ───────────────────────────────────────────────
+    Queue<Double> accuracySamples =
+        this.hitAccuracySamples.computeIfAbsent(name, k -> new ArrayDeque<>());
+    double totalAngleError = yawError + pitchError;
+    double accuracy = Math.max(0.0, 1.0 - (totalAngleError / 90.0));
+    accuracySamples.add(accuracy);
+
+    if (accuracySamples.size() >= ACCURACY_SAMPLE_SIZE) {
+      double avgAccuracy = 0.0;
+      for (double sample : accuracySamples) {
+        avgAccuracy += sample;
+      }
+      avgAccuracy /= accuracySamples.size();
+
+      boolean highAccuracy = avgAccuracy > HIGH_ACCURACY_THRESHOLD;
+
+      double varianceSum = 0.0;
+      for (double sample : accuracySamples) {
+        varianceSum += (sample - avgAccuracy) * (sample - avgAccuracy);
+      }
+      double variance = varianceSum / accuracySamples.size();
+      boolean lowVariance = variance < 0.002D;
+
+      if (highAccuracy || (lowVariance && avgAccuracy > 0.85D)) {
+        accuracyBuffer.flag(highAccuracy ? 1.5D : 1.0D, 999.0D);
+      } else {
+        accuracyBuffer.decay(0.2D);
+      }
+      accuracySamples.clear();
     }
 
+    // ── Fire signals ───────────────────────────────────────────────
     if (rateBuffer.get() > 4.0D && aimBuffer.get() > 2.0D) {
-      context.receiveSignal(name, "KillAura (Aim)");
+      context.receiveSignal(name, "KillAura", "aim rate", (int) rateBuffer.get());
       rateBuffer.reset();
       aimBuffer.reset();
     }
-    if (linearAimBuffer.get() > 4.0D) {
-      context.receiveSignal(name, "KillAura (Robotic Aim)");
-      linearAimBuffer.reset();
+    if (accuracyBuffer.get() > 3.0D) {
+      context.receiveSignal(name, "KillAura", "accuracy", (int) accuracyBuffer.get());
+      accuracyBuffer.reset();
     }
   }
 
@@ -78,29 +114,16 @@ public class KillAuraRotationSpeed {
     if (rate != null) rate.decay(0.15D);
     CheckBuffer aim = this.aimBuffers.get(name);
     if (aim != null) aim.decay(0.15D);
-    CheckBuffer linear = this.linearAimBuffers.get(name);
-    if (linear != null) linear.decay(0.1D);
+    CheckBuffer accuracy = this.accuracyBuffers.get(name);
+    if (accuracy != null) accuracy.decay(0.1D);
   }
 
   public void reset() {
     this.lastAttackTicks.clear();
     this.rateBuffers.clear();
     this.aimBuffers.clear();
-    this.linearAimBuffers.clear();
-  }
-
-  private EntityPlayer nearestTarget(EntityPlayer player, World world, double maxDistance) {
-    EntityPlayer nearest = null;
-    double best = maxDistance * maxDistance;
-    for (EntityPlayer target : world.playerEntities) {
-      if (target == player || target.isDead || target.getName() == null) continue;
-      double distance = player.getDistanceSqToEntity(target);
-      if (distance < best) {
-        best = distance;
-        nearest = target;
-      }
-    }
-    return nearest;
+    this.accuracyBuffers.clear();
+    this.hitAccuracySamples.clear();
   }
 
   private float yawTo(EntityPlayer player, EntityPlayer target) {

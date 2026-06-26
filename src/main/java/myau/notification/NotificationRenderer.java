@@ -55,7 +55,7 @@ public final class NotificationRenderer {
   /** Fixed card height in GUI units. */
   private static final float CARD_HEIGHT = 34f;
 
-  /** Icon badge side length. */
+  /** Icon badge side length (28 to compensate for Rise FontRenderer 0.5x GL scale). */
   private static final float ICON_SIZE = 16f;
 
   /** Horizontal space consumed by the icon plus its gap to the text. */

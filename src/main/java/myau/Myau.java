@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Objects;
 import me.ksyz.accountmanager.AccountManager;
+import myau.clientanticheat.NametagOverlayRenderer;
 import myau.command.CommandManager;
 import myau.command.commands.*;
 import myau.config.Config;
@@ -29,6 +30,7 @@ import myau.module.modules.render.*;
 import myau.notification.NotificationManager;
 import myau.property.Property;
 import myau.property.PropertyManager;
+import net.minecraftforge.common.MinecraftForge;
 import org.lwjgl.opengl.Display;
 
 public class Myau {
@@ -109,6 +111,7 @@ public class Myau {
     moduleManager.modules.put(AutoReconnect.class, new AutoReconnect());
     moduleManager.modules.put(AutoTool.class, new AutoTool());
     moduleManager.modules.put(AutoWeapon.class, new AutoWeapon());
+    moduleManager.modules.put(AutoSwap.class, new AutoSwap());
     moduleManager.modules.put(AutoBedDef.class, new AutoBedDef());
     moduleManager.modules.put(BedNuker.class, new BedNuker());
     moduleManager.modules.put(BedESP.class, new BedESP());
@@ -166,7 +169,6 @@ public class Myau {
     moduleManager.modules.put(NoSlow.class, new NoSlow());
     moduleManager.modules.put(Panic.class, new Panic());
     moduleManager.modules.put(Piercing.class, new Piercing());
-    moduleManager.modules.put(TimerRange.class, new TimerRange());
     moduleManager.modules.put(ProjectileAimBot.class, new ProjectileAimBot());
     moduleManager.modules.put(MouseRawInput.class, new MouseRawInput());
     moduleManager.modules.put(Reach.class, new Reach());
@@ -257,6 +259,7 @@ public class Myau {
     }
     Display.setTitle(ClientInfo.getDisplayVersion());
 
+    MinecraftForge.EVENT_BUS.register(new NametagOverlayRenderer());
     AccountManager.init();
     ViaMCP.create();
   }

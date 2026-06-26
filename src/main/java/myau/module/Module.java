@@ -52,9 +52,10 @@ public abstract class Module {
   public void setEnabled(boolean enabled) {
     if (this.enabled != enabled) {
       this.enabled = enabled;
+      HUD hud = (HUD) Myau.moduleManager.modules.get(HUD.class);
+      boolean showNotif = hud == null || hud.notifications.getValue();
       if (enabled) {
         this.onEnabled();
-        // Static helper: uses DEFAULT_DURATION (3000 ms) automatically
         NotificationManager.notify(this.getName(), "Module enabled.", NotificationType.ENABLED);
       } else {
         this.onDisabled();

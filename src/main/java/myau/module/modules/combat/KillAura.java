@@ -117,6 +117,7 @@ public class KillAura extends Module {
   public final FloatProperty attackRange;
   public final FloatProperty swingRange;
   public final FloatProperty cps;
+  public final FloatProperty autoBlockCps;
   public final ModeProperty rotations;
   public final PercentProperty smoothing;
   public final IntProperty angleStep;
@@ -211,6 +212,13 @@ public class KillAura extends Module {
         }
       }
       return (long) ((1 / speed * 20 - 1) * 50);
+    }
+    if (this.isBlocking && this.autoBlock.getValue() != 0) {
+      return (long)
+          (1000.0F
+              / RandomUtil.nextLong(
+                  this.autoBlockCps.getValue().intValue(),
+                  this.autoBlockCps.getSecondValue().intValue()));
     }
     return 1000L
         / RandomUtil.nextLong(this.cps.getValue().intValue(), this.cps.getSecondValue().intValue());
@@ -637,7 +645,7 @@ public class KillAura extends Module {
         && TeamUtil.isTarget((EntityPlayer) entityLivingBase);
   }
 
-  // ─── Target Validation (inlined from Targets.java) ─────────────
+  // --- Target Validation (inlined from Targets.java) -------------
 
   private boolean isValid(EntityLivingBase entityLivingBase) {
     if (entityLivingBase == null || mc.theWorld == null || mc.thePlayer == null) {
@@ -870,6 +878,9 @@ public class KillAura extends Module {
     this.attackRange = new FloatProperty("attack-range", 3.0F, 3.0F, 6.0F);
     this.swingRange = new FloatProperty("swing-range", 3.5F, 3.0F, 6.0F);
     this.cps = new FloatProperty("aps", 14.0F, 14.0F, 1.0F, 20.0F);
+    this.autoBlockCps =
+        new FloatProperty(
+            "autoblock-aps", 8.0F, 10.0F, 1.0F, 10.0F, () -> this.autoBlock.getValue() != 0);
     this.rotations =
         new ModeProperty(
             "rotations", 1, new String[] {"NONE", "LEGIT/NORMAL", "SNAP", "NCP", "AUTISTIC"});
@@ -1091,7 +1102,8 @@ public class KillAura extends Module {
                       break;
                     case 1:
                       if (this.isPlayerBlocking()) {
-                        if (Myau.moduleManager.modules.get(NoSlow.class).isEnabled()) {
+                        if (Myau.moduleManager.modules.get(NoSlow.class).isEnabled()
+                            && !this.isNoSlowAntiSwitchActive()) {
                           int randomSlot = new Random().nextInt(9);
                           while (randomSlot == mc.thePlayer.inventory.currentItem) {
                             randomSlot = new Random().nextInt(9);
@@ -1297,7 +1309,8 @@ public class KillAura extends Module {
                   } else if (!this.isPlayerBlocking() || this.smartUpdatedNCPAutoBlock.getValue()) {
                     if (this.smartBlockRate.getValue() >= 100
                         || new Random().nextInt(100) < this.smartBlockRate.getValue()) {
-                      if (this.smartSwitchStartBlock.getValue()) {
+                      if (this.smartSwitchStartBlock.getValue()
+                          && !this.isNoSlowAntiSwitchActive()) {
                         PacketUtil.sendPacket(new C09PacketHeldItemChange((item + 1) % 9));
                         PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
                       }
@@ -1344,8 +1357,10 @@ public class KillAura extends Module {
                 if (mc.thePlayer.inventory.currentItem == item
                     && !Myau.playerStateManager.digging
                     && !Myau.playerStateManager.placing) {
-                  PacketUtil.sendPacket(new C09PacketHeldItemChange(item % 8 + 1));
-                  PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
+                  if (!this.isNoSlowAntiSwitchActive()) {
+                    PacketUtil.sendPacket(new C09PacketHeldItemChange(item % 8 + 1));
+                    PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
+                  }
                   swap = true;
                 }
                 Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
@@ -1447,9 +1462,9 @@ public class KillAura extends Module {
               event.setPervRotation(rotations[0], 1);
             }
           }
-          // ════════════════════════════════════════
+          // ----------------------------------------
           //  KNOCKBACK DISPLACEMENT INTERCEPT
-          // ════════════════════════════════════════
+          // ----------------------------------------
           if (attack
               && this.tacticalKD.getValue()
               && this.target.getEntity() instanceof EntityPlayer) {
@@ -1458,7 +1473,7 @@ public class KillAura extends Module {
             float kdYaw = this.getTacticalKDYaw(kdTarget, event.getNewYaw());
             float kdPitch = this.getTacticalKDPitch(kdTarget, event.getNewPitch());
 
-            // Raycast verification — revert to normal if KD yaw would miss
+            // Raycast verification - revert to normal if KD yaw would miss
             if (RayCastUtil.getEntityIntercept(
                     kdTarget, kdYaw, kdPitch, this.attackRange.getValue())
                 != null) {
@@ -2126,7 +2141,7 @@ public class KillAura extends Module {
   private Float scanNearWallKD(EntityPlayer target, float aimYaw) {
     if (mc.thePlayer == null) return null;
 
-    // Direction vector from player → target
+    // Direction vector from player ? target
     final double dx = target.posX - mc.thePlayer.posX;
     final double dz = target.posZ - mc.thePlayer.posZ;
     final double dist = Math.sqrt(dx * dx + dz * dz);
@@ -2140,7 +2155,7 @@ public class KillAura extends Module {
     final int py = MathHelper.floor_double(mc.thePlayer.posY + 0.5);
     final int pz = MathHelper.floor_double(mc.thePlayer.posZ);
 
-    // Check both sides (perpendicular to player→target vector)
+    // Check both sides (perpendicular to player?target vector)
     for (int side : new int[] {-1, 1}) {
       final double sx = -nz * side;
       final double sz = nx * side;
@@ -2153,7 +2168,7 @@ public class KillAura extends Module {
           if (by < 0 || by >= 256) continue;
           cursor.set(bx, by, bz);
           if (mc.theWorld.getBlockState(cursor).getBlock().isFullBlock()) {
-            // Wall beside player → aim to push target into wall
+            // Wall beside player ? aim to push target into wall
             return aimYaw + side * 45.0F;
           }
         }
@@ -2182,7 +2197,7 @@ public class KillAura extends Module {
   }
 
   private float getTacticalKDPitch(EntityPlayer target, float currentPitch) {
-    // If target is airborne → tilt pitch for extra vertical displacement
+    // If target is airborne ? tilt pitch for extra vertical displacement
     if (!target.onGround && target.hurtTime <= 0 && target.fallDistance > 0.5F) {
       return Math.min(currentPitch + 8.0F, 15.0F);
     }

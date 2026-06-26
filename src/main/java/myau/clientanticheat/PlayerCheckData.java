@@ -2,6 +2,7 @@ package myau.clientanticheat;
 
 import java.util.LinkedList;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemBlock;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
@@ -65,6 +66,30 @@ public class PlayerCheckData {
   public int swingTicks;
   public float observedFallDistance;
   public final LinkedList<AxisAlignedBB> history = new LinkedList<>();
+
+  public long lastSwingTimestamp;
+  public long lastAttackTick;
+  public int swingCountWindow;
+  public final LinkedList<Long> swingTimestamps = new LinkedList<>();
+  public final LinkedList<Long> movementTimestamps = new LinkedList<>();
+  public boolean lastBlocking;
+  public boolean blocking;
+  public int blockingTicks;
+  public long lastBlockToggleTick;
+  public int sprintToggleCount;
+  public int sneakToggleCount;
+  public boolean lastSprinting;
+  public boolean sprinting;
+  public boolean lastSneaking;
+  public boolean sneaking;
+  public int heldItemSlot;
+  public int lastHeldItemSlot;
+  public int heldItemChangeTicks;
+  public float lastSensitivityGcd;
+  public int sensitivityChangeCount;
+  public final LinkedList<Float> yawGcdSamples = new LinkedList<>();
+  public EntityPlayer nearestTarget;
+  public double nearestTargetDistance;
 
   public PlayerCheckData(EntityPlayer player) {
     this.name = player.getName();
@@ -144,6 +169,177 @@ public class PlayerCheckData {
     if (this.history.size() > 20) {
       this.history.removeLast();
     }
+
+    long now = System.currentTimeMillis();
+    if (this.swinging && !this.lastSwinging) {
+      this.lastSwingTimestamp = now;
+      this.swingTimestamps.addFirst(now);
+      while (this.swingTimestamps.size() > 100) {
+        this.swingTimestamps.removeLast();
+      }
+    }
+
+    this.movementTimestamps.addFirst(now);
+    while (this.movementTimestamps.size() > 40) {
+      this.movementTimestamps.removeLast();
+    }
+
+    this.lastBlocking = this.blocking;
+    this.blocking = player.isBlocking();
+    if (this.blocking) {
+      this.blockingTicks++;
+    } else {
+      this.blockingTicks = 0;
+    }
+    if (this.blocking != this.lastBlocking) {
+      this.lastBlockToggleTick = player.ticksExisted;
+    }
+
+    this.lastSprinting = this.sprinting;
+    this.sprinting = player.isSprinting();
+    this.lastSneaking = this.sneaking;
+    this.sneaking = player.isSneaking();
+    if (this.sprinting != this.lastSprinting) {
+      this.sprintToggleCount++;
+    } else {
+      this.sprintToggleCount = 0;
+    }
+    if (this.sneaking != this.lastSneaking) {
+      this.sneakToggleCount++;
+    } else {
+      this.sneakToggleCount = 0;
+    }
+
+    this.lastHeldItemSlot = this.heldItemSlot;
+    this.heldItemSlot = player.inventory.currentItem;
+    if (this.heldItemSlot != this.lastHeldItemSlot) {
+      this.heldItemChangeTicks++;
+    } else {
+      this.heldItemChangeTicks = Math.max(0, this.heldItemChangeTicks - 1);
+    }
+
+    if (this.yawDelta > 0.05F && this.pitchDelta > 0.05F) {
+      float gcd = (float) gcd(this.yawDelta, this.pitchDelta);
+      if (gcd > 0.001F) {
+        this.yawGcdSamples.addFirst(gcd);
+        while (this.yawGcdSamples.size() > 40) {
+          this.yawGcdSamples.removeLast();
+        }
+        if (this.lastSensitivityGcd > 0.001F && Math.abs(gcd - this.lastSensitivityGcd) > 0.01F) {
+          this.sensitivityChangeCount++;
+        } else {
+          this.sensitivityChangeCount = Math.max(0, this.sensitivityChangeCount - 1);
+        }
+        this.lastSensitivityGcd = gcd;
+      }
+    }
+
+    this.nearestTarget = null;
+    this.nearestTargetDistance = Double.MAX_VALUE;
+    if (player.worldObj != null) {
+      for (EntityPlayer target : player.worldObj.playerEntities) {
+        if (target == player || target.isDead || target.getName() == null) continue;
+        double dist = player.getDistanceSqToEntity(target);
+        if (dist < this.nearestTargetDistance) {
+          this.nearestTargetDistance = dist;
+          this.nearestTarget = target;
+        }
+      }
+      this.nearestTargetDistance = Math.sqrt(this.nearestTargetDistance);
+    }
+  }
+
+  // ── Rain Anticheat tracking fields (mirrors PlayerData) ──
+  public double speed;
+  public int aboveVoidTicks;
+  public int fastTick;
+  public int autoBlockTicks;
+  public int rainTicksExisted;
+  public int lastSneakTick;
+  public int sneakTicks;
+  public int noSlowTicks;
+  public double rainPosX;
+  public double rainPosY;
+  public double rainPosZ;
+  public double serverPosX;
+  public double serverPosY;
+  public double serverPosZ;
+  public boolean rainSneaking; // NEVER assigned (match Rain where 'sneaking' stays false always)
+  private int resetTick;
+
+  // ── Rain Anticheat update (mirrors PlayerData.update() EXACTLY) ──
+
+  /** Call after main update(). Mirrors Rain's PlayerData.update() pixel-perfect. */
+  public void updateRainData(EntityPlayer player) {
+    int ticksExisted = player.ticksExisted;
+    this.rainPosX = player.posX - player.lastTickPosX;
+    this.rainPosY = player.posY - player.lastTickPosY;
+    this.rainPosZ = player.posZ - player.lastTickPosZ;
+    this.speed = Math.max(Math.abs(this.rainPosX), Math.abs(this.rainPosZ));
+
+    // 20-tick reset cycle
+    if (ticksExisted - this.resetTick >= 20) {
+      this.fastTick = 0;
+      this.resetTick = ticksExisted;
+    }
+    if (this.speed >= 0.3) {
+      ++this.fastTick;
+      this.rainTicksExisted = ticksExisted;
+    } else {
+      this.fastTick = 0;
+    }
+
+    // aboveVoidTicks = ticksExisted when Y delta >= 0.1
+    if (Math.abs(this.rainPosY) >= 0.1) {
+      this.aboveVoidTicks = ticksExisted;
+    }
+
+    // lastSneakTick = ticksExisted when sneaking
+    if (player.isSneaking()) {
+      this.lastSneakTick = ticksExisted;
+    }
+
+    // autoBlock
+    if (player.isSwingInProgress && player.isBlocking()) {
+      ++this.autoBlockTicks;
+    } else {
+      this.autoBlockTicks = 0;
+    }
+
+    // noSlow
+    if (player.isSprinting() && player.isUsingItem()) {
+      ++this.noSlowTicks;
+    } else {
+      this.noSlowTicks = 0;
+    }
+
+    // sneakTicks (Rain matches pitch>=70, holding block, swingProgressInt==1)
+    if (player.rotationPitch >= 70.0F
+        && player.getHeldItem() != null
+        && player.getHeldItem().getItem() instanceof ItemBlock) {
+      if (player.swingProgressInt == 1) {
+        // In Rain: 'this.sneaking' is NEVER assigned (stays false),
+        // so '!this.sneaking && entityPlayer.isSneaking()'
+        // is functionally just 'entityPlayer.isSneaking()'
+        if (player.isSneaking()) {
+          ++this.sneakTicks;
+        } else {
+          this.sneakTicks = 0;
+        }
+      }
+    } else {
+      this.sneakTicks = 0;
+    }
+  }
+
+  public void updateSneak(EntityPlayer player) {
+    this.sneaking = player.isSneaking();
+  }
+
+  public void updateServerPos(EntityPlayer player) {
+    this.serverPosX = player.serverPosX / 32.0;
+    this.serverPosY = player.serverPosY / 32.0;
+    this.serverPosZ = player.serverPosZ / 32.0;
   }
 
   public boolean recentlyTeleported() {
@@ -174,5 +370,18 @@ public class PlayerCheckData {
     if (player.isPotionActive(Potion.jump)) limit += JUMP_POTION_LIMIT_BONUS;
     if (this.recentlyHurt()) limit += RECENT_HURT_LIMIT_BONUS;
     return limit;
+  }
+
+  private static double gcd(double a, double b) {
+    a = Math.abs(a);
+    b = Math.abs(b);
+    if (a < 0.001 || b < 0.001) return Math.max(a, b);
+    int iterations = 0;
+    while (b > 0.001 && iterations++ < 100) {
+      double temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
   }
 }

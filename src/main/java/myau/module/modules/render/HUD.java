@@ -73,6 +73,7 @@ public class HUD extends Module {
   public final BooleanProperty blinkTimer = new BooleanProperty("blink-timer", true);
   public final BooleanProperty toggleSound = new BooleanProperty("toggle-sounds", true);
   public final BooleanProperty toggleAlerts = new BooleanProperty("toggle-alerts", false);
+  public final BooleanProperty notifications = new BooleanProperty("notifications", true);
   public final BooleanProperty shaders = new BooleanProperty("Shaders", false);
   public final BooleanProperty blurSettings =
       new BooleanProperty("Blur Settings", false, () -> this.shaders.getValue());

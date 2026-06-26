@@ -1,72 +1,69 @@
 package myau.module.modules.misc;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import myau.Myau;
 import myau.clientanticheat.AntiCheatAlertStyle;
 import myau.clientanticheat.CheckDataManager;
 import myau.clientanticheat.ClientAntiCheatContext;
 import myau.clientanticheat.PlayerCheckData;
-import myau.clientanticheat.combat.autoblock.AutoBlockCheck;
-import myau.clientanticheat.combat.autoclicker.ClickSpeedCheck;
-import myau.clientanticheat.combat.killaura.KillAuraAngleSnap;
-import myau.clientanticheat.combat.killaura.KillAuraHeuristicsCheck;
+import myau.clientanticheat.PlayerEligibility;
 import myau.clientanticheat.combat.killaura.KillAuraLatencyCheck;
+import myau.clientanticheat.combat.killaura.KillAuraNoSwingCheck;
 import myau.clientanticheat.combat.killaura.KillAuraRotationSpeed;
-import myau.clientanticheat.combat.reach.HitboxRaytraceCheck;
-import myau.clientanticheat.movement.blink.BlinkCheck;
-import myau.clientanticheat.movement.noslow.NoSlowCheck;
-import myau.clientanticheat.movement.velocity.VelocityCheck;
-import myau.clientanticheat.player.scaffold.ScaffoldPlacementCheck;
-import myau.clientanticheat.player.scaffold.ScaffoldRotationCheck;
-import myau.clientanticheat.player.scaffold.ScaffoldSneakCheck;
+import myau.clientanticheat.combat.killaura.KillAuraToolSwitchCheck;
+import myau.clientanticheat.combat.killaura.KillAuraUnifiedCheck;
 import myau.event.EventTarget;
 import myau.event.impl.TickEvent;
 import myau.event.types.EventType;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
+import myau.util.client.ChatUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.world.World;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.util.EnumChatFormatting;
 
 public class HackerDetector extends Module implements ClientAntiCheatContext {
-  private static final Minecraft mc = Minecraft.getMinecraft();
-  private static final int FLAG_WINDOW_SECONDS = 5;
-  private static final int ALERT_COOLDOWN_SECONDS = 5;
 
-  public final BooleanProperty scaffold = new BooleanProperty("scaffold", true);
-  public final BooleanProperty killAura = new BooleanProperty("killaura", true);
-  public final BooleanProperty autoBlock = new BooleanProperty("autoblock", true);
-  public final BooleanProperty noSlow = new BooleanProperty("noslow", true);
-  public final BooleanProperty blink = new BooleanProperty("blink", true);
-  public final BooleanProperty reach = new BooleanProperty("reach", true);
-  public final BooleanProperty velocity = new BooleanProperty("velocity", true);
-  public final BooleanProperty autoClicker = new BooleanProperty("autoclicker", true);
+  private static final Minecraft mc = Minecraft.getMinecraft();
+
+  public final BooleanProperty enableAutoBlock = new BooleanProperty("autoblock", true);
+  public final BooleanProperty enableLegitScaffold = new BooleanProperty("legit-scaffold", true);
+  public final BooleanProperty enableKillaura = new BooleanProperty("killaura", true);
   public final BooleanProperty addTarget = new BooleanProperty("add-target", true);
   public final BooleanProperty sound = new BooleanProperty("sound", true);
+  public final BooleanProperty debugMessages = new BooleanProperty("debug", false);
 
-  // ── Sub-checks: imported directly from sub-packages ──
-  private final ScaffoldSneakCheck scaffoldSneakCheck = new ScaffoldSneakCheck();
-  private final ScaffoldRotationCheck scaffoldRotationCheck = new ScaffoldRotationCheck();
-  private final ScaffoldPlacementCheck scaffoldPlacementCheck = new ScaffoldPlacementCheck();
-  private final KillAuraHeuristicsCheck kaHeuristicsCheck = new KillAuraHeuristicsCheck();
-  private final KillAuraAngleSnap kaAngleSnap = new KillAuraAngleSnap();
-  private final KillAuraLatencyCheck kaLatencyCheck = new KillAuraLatencyCheck();
-  private final KillAuraRotationSpeed kaRotationSpeed = new KillAuraRotationSpeed();
-  private final AutoBlockCheck autoBlockCheck = new AutoBlockCheck();
-  private final NoSlowCheck noSlowCheck = new NoSlowCheck();
-  private final BlinkCheck blinkCheck = new BlinkCheck();
-  private final HitboxRaytraceCheck reachCheck = new HitboxRaytraceCheck();
-  private final VelocityCheck velocityCheck = new VelocityCheck();
-  private final ClickSpeedCheck clickSpeedCheck = new ClickSpeedCheck();
+  private final Map<UUID, Integer> autoBlockTicks = new HashMap<>();
+
+  private final Map<UUID, Long> scaffoldLastCrouchStart = new HashMap<>();
+  private final Map<UUID, Long> scaffoldLastCrouchEnd = new HashMap<>();
+  private final Map<UUID, Boolean> scaffoldWasSneaking = new HashMap<>();
+  private final Map<UUID, Long> scaffoldLastSwingTick = new HashMap<>();
+  private final Map<UUID, List<Integer>> scaffoldCrouchDurations = new HashMap<>();
+  private final Map<UUID, Long> scaffoldLastFlagTick = new HashMap<>();
+  private final Map<UUID, Integer> scaffoldViolationLevels = new HashMap<>();
+  private static final long SCAFFOLD_COOLDOWN_TICKS = 60L;
+
+  private final KillAuraUnifiedCheck killauraUnified = new KillAuraUnifiedCheck();
+  private final KillAuraNoSwingCheck killauraNoSwing = new KillAuraNoSwingCheck();
+  private final KillAuraLatencyCheck killauraLatency = new KillAuraLatencyCheck();
+  private final KillAuraToolSwitchCheck killauraToolSwitch = new KillAuraToolSwitchCheck();
+  private final KillAuraRotationSpeed killauraRotation = new KillAuraRotationSpeed();
+
+  private final Set<UUID> flaggedPlayers = new HashSet<>();
+
   private final CheckDataManager checkDataManager = new CheckDataManager();
-  private final Map<String, int[]> flagMap = new HashMap<>();
-  private final Map<String, Integer> alertCooldowns = new HashMap<>();
-  private final Set<String> whitelist = new HashSet<>();
+  private long lastAlertSoundTime;
+  private int flagCount; // for AntiCheatAlertStyle
+  private static final int MAX_FLAG_COUNT = 10;
 
   public HackerDetector() {
     super("HackerDetector", false, false);
@@ -80,82 +77,180 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
         || mc.theWorld == null) {
       return;
     }
+    if (mc.isSingleplayer()) {
+      return;
+    }
 
-    World world = mc.theWorld;
-    this.checkDataManager.update(world);
-    long currentTick = world.getTotalWorldTime();
-    for (EntityPlayer player : new ArrayList<>(world.playerEntities)) {
-      if (player == mc.thePlayer || player.isDead || player.getName() == null) {
+    this.checkDataManager.update(mc.theWorld);
+
+    for (EntityPlayer player : mc.theWorld.playerEntities) {
+      if (player == null || player.isDead) continue;
+      UUID uuid = player.getUniqueID();
+      if (uuid == null) continue;
+
+      if (!PlayerEligibility.shouldCheckPlayer(player) || this.flaggedPlayers.contains(uuid)) {
         continue;
       }
+
       PlayerCheckData data = this.checkDataManager.get(player);
-      if (this.scaffold.getValue()) {
-        this.scaffoldSneakCheck.check(player, world, data, this);
-        this.scaffoldRotationCheck.check(player, world, data, this);
-        this.scaffoldPlacementCheck.check(player, world, data, this);
+      if (data == null) continue;
+
+      data.updateRainData(player);
+
+      long tick = mc.theWorld.getTotalWorldTime();
+
+      // ── Rain's 3 checks ──────────────────────────────────────────
+      if (this.enableAutoBlock.getValue()) {
+        this.autoBlockCheck(player);
       }
-      if (this.killAura.getValue()) {
-        this.kaHeuristicsCheck.check(player, data, this);
-        this.kaAngleSnap.check(player, data, this);
-        this.kaLatencyCheck.check(player, data, this);
-        this.kaRotationSpeed.check(player, world, data, currentTick, this);
+      if (this.enableLegitScaffold.getValue()) {
+        this.legitScaffoldCheck(player);
       }
-      if (this.autoBlock.getValue()) {
-        this.autoBlockCheck.check(player, data, currentTick, this);
-      }
-      if (this.noSlow.getValue()) {
-        this.noSlowCheck.check(player, data, currentTick, this);
-      }
-      if (this.blink.getValue()) {
-        this.blinkCheck.check(player, data, this);
-      }
-      if (this.reach.getValue()) {
-        this.reachCheck.check(player, world, data, this);
-      }
-      if (this.velocity.getValue()) {
-        this.velocityCheck.check(player, data, this);
-      }
-      if (this.autoClicker.getValue()) {
-        this.clickSpeedCheck.check(player, data, currentTick, this);
+      if (this.enableKillaura.getValue()) {
+        // Rain's unified killaura (burst/track/movement/consume)
+        this.killauraUnified.check(player, data, tick, this);
+        // Extra killaura signals (no overlap with unified)
+        this.killauraNoSwing.check(player, data, this);
+        this.killauraLatency.check(player, data, this);
+        this.killauraToolSwitch.check(player, data, tick, this);
+        this.killauraRotation.check(player, data, tick, this);
       }
     }
-    this.pruneFlags();
   }
+
+  // ── AutoBlock ────────────────────────────────────────────────────
+
+  private static final int AUTO_BLOCK_FAIL_TICKS = 10;
+
+  private void autoBlockCheck(EntityPlayer player) {
+    UUID uuid = player.getUniqueID();
+    if (player.isSwingInProgress && player.isBlocking()) {
+      int ticks = this.autoBlockTicks.getOrDefault(uuid, 0) + 1;
+      this.autoBlockTicks.put(uuid, ticks);
+      if (this.debugMessages.getValue() && ticks > 5) {
+        ChatUtil.display(
+            EnumChatFormatting.YELLOW
+                + "[AntiCheat]: "
+                + EnumChatFormatting.WHITE
+                + player.getName()
+                + " AutoBlock ticks: "
+                + ticks);
+      }
+      if (ticks > AUTO_BLOCK_FAIL_TICKS) {
+        AntiCheatAlertStyle.displayFlag(player.getName(), "AutoBlock", "auto-block", ticks, 1, 5);
+        this.markFlagged(uuid, player, "AutoBlock");
+      }
+    } else {
+      this.autoBlockTicks.remove(uuid);
+    }
+  }
+
+  // ── LegitScaffold ────────────────────────────────────────────────
+
+  private void legitScaffoldCheck(EntityPlayer player) {
+    UUID uuid = player.getUniqueID();
+    long tick = player.ticksExisted;
+
+    boolean currSneak = player.isSneaking();
+    boolean prevSneak = this.scaffoldWasSneaking.getOrDefault(uuid, false);
+    if (currSneak && !prevSneak) {
+      this.scaffoldLastCrouchStart.put(uuid, tick);
+    } else if (!currSneak && prevSneak) {
+      this.scaffoldLastCrouchEnd.put(uuid, tick);
+      long start = this.scaffoldLastCrouchStart.getOrDefault(uuid, tick - 1L);
+      int duration = (int) (tick - start);
+      List<Integer> durations =
+          this.scaffoldCrouchDurations.computeIfAbsent(uuid, k -> new ArrayList<>());
+      durations.add(0, duration);
+      if (durations.size() > 5) {
+        durations.remove(5);
+      }
+    }
+    this.scaffoldWasSneaking.put(uuid, currSneak);
+
+    if (player.isSwingInProgress && player.swingProgressInt != player.prevSwingProgress) {
+      this.scaffoldLastSwingTick.put(uuid, tick);
+    }
+
+    if (player.rotationPitch >= 60.0F
+        && player.getHeldItem() != null
+        && player.getHeldItem().getItem() instanceof ItemBlock
+        && player.onGround) {
+      long end = this.scaffoldLastCrouchEnd.getOrDefault(uuid, 0L);
+      long swing = this.scaffoldLastSwingTick.getOrDefault(uuid, Long.MIN_VALUE);
+      int crouchDuration = (int) (end - this.scaffoldLastCrouchStart.getOrDefault(uuid, end - 1L));
+      boolean quickCrouch = crouchDuration >= 1 && crouchDuration <= 2;
+      boolean swingTiming = swing >= end && swing <= end + 1L;
+      List<Integer> durations =
+          this.scaffoldCrouchDurations.getOrDefault(uuid, Collections.emptyList());
+      boolean consistent =
+          durations.size() >= 3
+              && durations.get(0) <= 2
+              && durations.get(1) <= 2
+              && durations.get(2) <= 2;
+      if (quickCrouch && swingTiming && consistent) {
+        long lastFlag = this.scaffoldLastFlagTick.getOrDefault(uuid, 0L);
+        if (tick - lastFlag >= SCAFFOLD_COOLDOWN_TICKS) {
+          this.scaffoldLastFlagTick.put(uuid, tick);
+          int vl = this.scaffoldViolationLevels.getOrDefault(uuid, 0) + 1;
+          this.scaffoldViolationLevels.put(uuid, vl);
+          AntiCheatAlertStyle.displayFlag(player.getName(), "LegitScaffold", "scaffold", vl, 1, 5);
+          this.markFlagged(uuid, player, "LegitScaffold");
+        }
+      }
+    }
+  }
+
+  // ── AlertManager ─────────────────────────────────────────────────
+
+  private void markFlagged(UUID uuid, EntityPlayer player, String cheatName) {
+    if (uuid == null || this.flaggedPlayers.contains(uuid)) {
+      return;
+    }
+    this.flaggedPlayers.add(uuid);
+
+    // Sound
+    long now = System.currentTimeMillis();
+    if (this.sound.getValue() && now - this.lastAlertSoundTime >= 1500L) {
+      mc.thePlayer.playSound("random.orb", 0.3F, 1.0F);
+      this.lastAlertSoundTime = now;
+    }
+
+    // Add target
+    if (this.addTarget.getValue() && Myau.targetManager != null) {
+      Myau.targetManager.add(player.getName());
+    }
+  }
+
+  // ── ClientAntiCheatContext ───────────────────────────────────────
 
   @Override
   public void receiveSignal(String playerName, String cheatName) {
-    receiveSignal(playerName, cheatName, "behavior anomaly", 0);
+    this.receiveSignal(playerName, cheatName, "behavior anomaly", 0);
   }
 
   @Override
   public void receiveSignal(String playerName, String cheatName, String detail, int vl) {
     if (playerName == null || playerName.isEmpty() || cheatName == null) return;
-    if (mc.thePlayer == null || mc.theWorld == null) return;
-    if (playerName.equalsIgnoreCase(mc.thePlayer.getName())) return;
-    if (this.isWhitelisted(playerName)) return;
-
-    int currentTime = (int) (mc.theWorld.getTotalWorldTime() / 20);
-    String flagKey = this.getFlagKey(playerName, cheatName);
-    int[] flagData = this.flagMap.getOrDefault(flagKey, new int[] {0, currentTime});
-    if (currentTime - flagData[1] > FLAG_WINDOW_SECONDS) {
-      flagData[0] = 0;
-    }
-    flagData[0] += 1;
-    flagData[1] = currentTime;
-    this.flagMap.put(flagKey, flagData);
-
-    int maxFlagCount = this.maxFlagsFor(cheatName);
-    int lastAlert = this.alertCooldowns.getOrDefault(flagKey, -ALERT_COOLDOWN_SECONDS);
-    if (flagData[0] >= maxFlagCount && currentTime - lastAlert >= ALERT_COOLDOWN_SECONDS) {
-      AntiCheatAlertStyle.displayFlag(playerName, cheatName, detail, vl, flagData[0], maxFlagCount);
-      if (this.sound.getValue()) {
-        mc.thePlayer.playSound("random.orb", 0.3F, 1.0F);
+    if (mc.theWorld == null) return;
+    for (EntityPlayer player : mc.theWorld.playerEntities) {
+      if (player.getName() != null && player.getName().equalsIgnoreCase(playerName)) {
+        // Fancy alert style — still uses ChatUtil.display() internally
+        ++this.flagCount;
+        AntiCheatAlertStyle.displayFlag(
+            playerName, cheatName, detail, vl, this.flagCount, MAX_FLAG_COUNT);
+        // Mark for nametag overlay + sound + target
+        AntiCheatAlertStyle.markCheater(playerName, cheatName, vl);
+        long now = System.currentTimeMillis();
+        if (this.sound.getValue() && now - this.lastAlertSoundTime >= 1500L) {
+          mc.thePlayer.playSound("random.orb", 0.3F, 1.0F);
+          this.lastAlertSoundTime = now;
+        }
+        if (this.addTarget.getValue() && Myau.targetManager != null) {
+          Myau.targetManager.add(playerName);
+        }
+        return;
       }
-      if (this.addTarget.getValue() && Myau.targetManager != null) {
-        Myau.targetManager.add(playerName);
-      }
-      this.alertCooldowns.put(flagKey, currentTime);
-      this.flagMap.remove(flagKey);
     }
   }
 
@@ -164,64 +259,30 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
     return this.checkDataManager.get(player);
   }
 
-  private void pruneFlags() {
-    int currentTime = (int) (mc.theWorld.getTotalWorldTime() / 20);
-    Map<String, int[]> nextFlagMap = new HashMap<>();
-    for (Map.Entry<String, int[]> entry : this.flagMap.entrySet()) {
-      int[] flagData = entry.getValue();
-      if (currentTime - flagData[1] <= FLAG_WINDOW_SECONDS) {
-        nextFlagMap.put(entry.getKey(), flagData);
-      }
-    }
-    this.flagMap.clear();
-    this.flagMap.putAll(nextFlagMap);
-    this.alertCooldowns
-        .entrySet()
-        .removeIf(entry -> currentTime - entry.getValue() > ALERT_COOLDOWN_SECONDS);
-  }
-
-  private boolean isWhitelisted(String playerName) {
-    for (String name : this.whitelist) {
-      if (name.equalsIgnoreCase(playerName)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private int maxFlagsFor(String cheatName) {
-    if (cheatName.equals("AutoBlock")) return 4;
-    if (cheatName.equals("Noslow")) return 3;
-    if (cheatName.equals("KillAura")) return 3;
-    if (cheatName.equals("Scaffold")) return 3;
-    if (cheatName.equals("Blink")) return 2;
-    if (cheatName.equals("Reach")) return 2;
-    if (cheatName.equals("Velocity")) return 2;
-    if (cheatName.equals("AutoClicker")) return 2;
-    return 2;
-  }
-
-  private String getFlagKey(String playerName, String cheatName) {
-    return playerName.toLowerCase(Locale.ROOT) + ":" + cheatName;
-  }
+  // ── Lifecycle ────────────────────────────────────────────────────
 
   @Override
   public void onDisabled() {
-    this.scaffoldSneakCheck.reset();
-    this.scaffoldRotationCheck.reset();
-    this.scaffoldPlacementCheck.reset();
-    this.kaHeuristicsCheck.reset();
-    this.kaAngleSnap.reset();
-    this.kaLatencyCheck.reset();
-    this.kaRotationSpeed.reset();
-    this.autoBlockCheck.reset();
-    this.noSlowCheck.reset();
-    this.blinkCheck.reset();
-    this.reachCheck.reset();
-    this.velocityCheck.reset();
-    this.clickSpeedCheck.reset();
+    this.clearAll();
+  }
+
+  public void clearAll() {
+    this.autoBlockTicks.clear();
+    this.scaffoldLastCrouchStart.clear();
+    this.scaffoldLastCrouchEnd.clear();
+    this.scaffoldWasSneaking.clear();
+    this.scaffoldLastSwingTick.clear();
+    this.scaffoldCrouchDurations.clear();
+    this.scaffoldLastFlagTick.clear();
+    this.scaffoldViolationLevels.clear();
+    this.flaggedPlayers.clear();
+    this.killauraUnified.reset();
+    this.killauraNoSwing.reset();
+    this.killauraLatency.reset();
+    this.killauraToolSwitch.reset();
+    this.killauraRotation.reset();
     this.checkDataManager.reset();
-    this.flagMap.clear();
-    this.alertCooldowns.clear();
+    this.lastAlertSoundTime = 0L;
+    this.flagCount = 0;
   }
 }
