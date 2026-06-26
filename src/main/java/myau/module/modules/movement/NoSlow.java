@@ -19,7 +19,7 @@ public class NoSlow extends Module {
 
   public final ModeProperty mode =
       new ModeProperty(
-          "mode", 0, new String[] {"VANILLA", "NCP", "NEW_NCP", "WATCHDOG", "INTAVE", "GRIM"});
+          "Mode", 0, new String[] {"VANILLA", "NCP", "NEW_NCP", "WATCHDOG", "INTAVE", "Grim 1.9"});
   public final BooleanProperty swordValue = new BooleanProperty("sword", true);
   public final BooleanProperty foodValue = new BooleanProperty("food", true);
   public final BooleanProperty potionValue = new BooleanProperty("potion", true);
@@ -91,7 +91,7 @@ public class NoSlow extends Module {
   }
 
   public float getMotionMultiplier() {
-    if (this.mode.getValue() == 5) { // GRIM
+    if (this.mode.getValue() == 5) { // Grim 1.9
       return 0.35f;
     }
     return 1.0f;
@@ -116,5 +116,10 @@ public class NoSlow extends Module {
     if (this.isEnabled()) {
       getActiveMode().onRightClick(event);
     }
+  }
+
+  @Override
+  public String[] getSuffix() {
+    return new String[] {this.mode.getModeString()};
   }
 }

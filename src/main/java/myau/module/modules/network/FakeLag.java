@@ -495,6 +495,9 @@ public class FakeLag extends Module {
 
   @Override
   public String[] getSuffix() {
+    if (this.mode.getValue() == 1) {
+      return new String[] {this.mode.getModeString()};
+    }
     return new String[] {this.mode.getModeString() + " " + this.packetQueue.size()};
   }
 

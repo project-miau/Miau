@@ -14,6 +14,7 @@ import myau.mixin.IAccessorKeyBinding;
 import myau.mixin.IAccessorMinecraft;
 import myau.module.Module;
 import myau.module.modules.movement.LongJump;
+import myau.module.modules.render.HUD;
 import myau.property.properties.*;
 import myau.util.font.Fonts;
 import myau.util.math.RandomUtil;
@@ -99,8 +100,7 @@ public class Scaffold extends Module {
           });
 
   public final ModeProperty sprintMode =
-      new ModeProperty(
-          "sprint", 0, new String[] {"NONE", "VANILLA", "DISABLED", "LEGIT", "BYPASS"});
+      new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA", "LEGIT"});
   public final BooleanProperty jumpSprint =
       new BooleanProperty("jump-sprint", true, () -> this.sprintMode.getValue() == 1);
   public final BooleanProperty diaSprint =
@@ -169,11 +169,7 @@ public class Scaffold extends Module {
             ? !this.jumpSprint.getValue()
             : !(this.diaSprint.getValue() && this.isDiagonal(this.getCurrentYaw()));
       case 2:
-        return true; // DISABLED
-      case 3:
         return false; // LEGIT — handled separately in onLivingUpdate
-      case 4:
-        return true; // BYPASS
       default:
         return false;
     }
@@ -471,25 +467,32 @@ public class Scaffold extends Module {
     float centerY = y + height / 2f;
     GlStateManager.translate(centerX, centerY, 0);
     GlStateManager.scale(animationProgress, animationProgress, 1f);
-    GlStateManager.translate(-centerX, -centerY, 0); // Blur pass — frosted-glass background
-    BlurUtils.prepareBlur();
-    GlStateManager.pushMatrix();
-    GlStateManager.translate(centerX, centerY, 0);
-    GlStateManager.scale(animationProgress, animationProgress, 1f);
     GlStateManager.translate(-centerX, -centerY, 0);
-    RoundedUtils.drawRound(x, y, width, height, 4f, new Color(0, 0, 0, 150));
-    GlStateManager.popMatrix();
-    BlurUtils.blurEnd(2, 3);
 
-    // Bloom pass — soft glow outline
-    BlurUtils.prepareBloom();
-    GlStateManager.pushMatrix();
-    GlStateManager.translate(centerX, centerY, 0);
-    GlStateManager.scale(animationProgress, animationProgress, 1f);
-    GlStateManager.translate(-centerX, -centerY, 0);
-    RoundedUtils.drawRound(x - 1, y - 1, width + 2, height + 2, 4f, new Color(81, 99, 149, 80));
-    GlStateManager.popMatrix();
-    BlurUtils.bloomEnd(2, 3);
+    HUD hud = (HUD) Myau.moduleManager.modules.get(HUD.class);
+    boolean shaders = hud != null && hud.shaders.getValue();
+
+    if (shaders) {
+      // Blur pass — frosted-glass background
+      BlurUtils.prepareBlur();
+      GlStateManager.pushMatrix();
+      GlStateManager.translate(centerX, centerY, 0);
+      GlStateManager.scale(animationProgress, animationProgress, 1f);
+      GlStateManager.translate(-centerX, -centerY, 0);
+      RoundedUtils.drawRound(x, y, width, height, 4f, new Color(0, 0, 0, 150));
+      GlStateManager.popMatrix();
+      BlurUtils.blurEnd(2, 3);
+
+      // Bloom pass — soft glow outline
+      BlurUtils.prepareBloom();
+      GlStateManager.pushMatrix();
+      GlStateManager.translate(centerX, centerY, 0);
+      GlStateManager.scale(animationProgress, animationProgress, 1f);
+      GlStateManager.translate(-centerX, -centerY, 0);
+      RoundedUtils.drawRound(x - 1, y - 1, width + 2, height + 2, 4f, new Color(81, 99, 149, 80));
+      GlStateManager.popMatrix();
+      BlurUtils.bloomEnd(2, 3);
+    }
 
     int bgAlpha = (int) (150 * animationProgress);
     RoundedUtils.drawRound(x, y, width, height, 4f, new Color(0, 0, 0, bgAlpha));

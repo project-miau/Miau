@@ -51,22 +51,28 @@ public abstract class Module {
   public void setEnabled(boolean enabled) {
     if (this.enabled != enabled) {
       this.enabled = enabled;
+      HUD hud = (HUD) Myau.moduleManager.modules.get(HUD.class);
+      boolean showNotif = hud == null || hud.notifications.getValue();
       if (enabled) {
         this.onEnabled();
-        Myau.notificationManager
-            .builder(NotificationType.SUCCESS)
-            .title(this.name)
-            .description("was enabled.")
-            .duration(2000)
-            .buildAndPublish();
+        if (showNotif) {
+          Myau.notificationManager
+              .builder(NotificationType.SUCCESS)
+              .title(this.name)
+              .description("was enabled.")
+              .duration(2000)
+              .buildAndPublish();
+        }
       } else {
         this.onDisabled();
-        Myau.notificationManager
-            .builder(NotificationType.ERROR)
-            .title(this.name)
-            .description("was disabled.")
-            .duration(2000)
-            .buildAndPublish();
+        if (showNotif) {
+          Myau.notificationManager
+              .builder(NotificationType.ERROR)
+              .title(this.name)
+              .description("was disabled.")
+              .duration(2000)
+              .buildAndPublish();
+        }
       }
     }
   }

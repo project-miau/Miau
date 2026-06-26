@@ -66,6 +66,30 @@ public class PlayerCheckData {
   public float observedFallDistance;
   public final LinkedList<AxisAlignedBB> history = new LinkedList<>();
 
+  public long lastSwingTimestamp;
+  public long lastAttackTick;
+  public int swingCountWindow;
+  public final LinkedList<Long> swingTimestamps = new LinkedList<>();
+  public final LinkedList<Long> movementTimestamps = new LinkedList<>();
+  public boolean lastBlocking;
+  public boolean blocking;
+  public int blockingTicks;
+  public long lastBlockToggleTick;
+  public int sprintToggleCount;
+  public int sneakToggleCount;
+  public boolean lastSprinting;
+  public boolean sprinting;
+  public boolean lastSneaking;
+  public boolean sneaking;
+  public int heldItemSlot;
+  public int lastHeldItemSlot;
+  public int heldItemChangeTicks;
+  public float lastSensitivityGcd;
+  public int sensitivityChangeCount;
+  public final LinkedList<Float> yawGcdSamples = new LinkedList<>();
+  public EntityPlayer nearestTarget;
+  public double nearestTargetDistance;
+
   public PlayerCheckData(EntityPlayer player) {
     this.name = player.getName();
     this.x = this.lastX = player.posX;
@@ -144,6 +168,84 @@ public class PlayerCheckData {
     if (this.history.size() > 20) {
       this.history.removeLast();
     }
+
+    long now = System.currentTimeMillis();
+    if (this.swinging && !this.lastSwinging) {
+      this.lastSwingTimestamp = now;
+      this.swingTimestamps.addFirst(now);
+      while (this.swingTimestamps.size() > 100) {
+        this.swingTimestamps.removeLast();
+      }
+    }
+
+    this.movementTimestamps.addFirst(now);
+    while (this.movementTimestamps.size() > 40) {
+      this.movementTimestamps.removeLast();
+    }
+
+    this.lastBlocking = this.blocking;
+    this.blocking = player.isBlocking();
+    if (this.blocking) {
+      this.blockingTicks++;
+    } else {
+      this.blockingTicks = 0;
+    }
+    if (this.blocking != this.lastBlocking) {
+      this.lastBlockToggleTick = player.ticksExisted;
+    }
+
+    this.lastSprinting = this.sprinting;
+    this.sprinting = player.isSprinting();
+    this.lastSneaking = this.sneaking;
+    this.sneaking = player.isSneaking();
+    if (this.sprinting != this.lastSprinting) {
+      this.sprintToggleCount++;
+    } else {
+      this.sprintToggleCount = 0;
+    }
+    if (this.sneaking != this.lastSneaking) {
+      this.sneakToggleCount++;
+    } else {
+      this.sneakToggleCount = 0;
+    }
+
+    this.lastHeldItemSlot = this.heldItemSlot;
+    this.heldItemSlot = player.inventory.currentItem;
+    if (this.heldItemSlot != this.lastHeldItemSlot) {
+      this.heldItemChangeTicks++;
+    } else {
+      this.heldItemChangeTicks = Math.max(0, this.heldItemChangeTicks - 1);
+    }
+
+    if (this.yawDelta > 0.05F && this.pitchDelta > 0.05F) {
+      float gcd = (float) gcd(this.yawDelta, this.pitchDelta);
+      if (gcd > 0.001F) {
+        this.yawGcdSamples.addFirst(gcd);
+        while (this.yawGcdSamples.size() > 40) {
+          this.yawGcdSamples.removeLast();
+        }
+        if (this.lastSensitivityGcd > 0.001F && Math.abs(gcd - this.lastSensitivityGcd) > 0.01F) {
+          this.sensitivityChangeCount++;
+        } else {
+          this.sensitivityChangeCount = Math.max(0, this.sensitivityChangeCount - 1);
+        }
+        this.lastSensitivityGcd = gcd;
+      }
+    }
+
+    this.nearestTarget = null;
+    this.nearestTargetDistance = Double.MAX_VALUE;
+    if (player.worldObj != null) {
+      for (EntityPlayer target : player.worldObj.playerEntities) {
+        if (target == player || target.isDead || target.getName() == null) continue;
+        double dist = player.getDistanceSqToEntity(target);
+        if (dist < this.nearestTargetDistance) {
+          this.nearestTargetDistance = dist;
+          this.nearestTarget = target;
+        }
+      }
+      this.nearestTargetDistance = Math.sqrt(this.nearestTargetDistance);
+    }
   }
 
   public boolean recentlyTeleported() {
@@ -174,5 +276,18 @@ public class PlayerCheckData {
     if (player.isPotionActive(Potion.jump)) limit += JUMP_POTION_LIMIT_BONUS;
     if (this.recentlyHurt()) limit += RECENT_HURT_LIMIT_BONUS;
     return limit;
+  }
+
+  private static double gcd(double a, double b) {
+    a = Math.abs(a);
+    b = Math.abs(b);
+    if (a < 0.001 || b < 0.001) return Math.max(a, b);
+    int iterations = 0;
+    while (b > 0.001 && iterations++ < 100) {
+      double temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
   }
 }

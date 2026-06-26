@@ -19,4 +19,30 @@ public class CheckBuffer {
   public double get() {
     return this.value;
   }
+
+  public void set(double value) {
+    this.value = value;
+  }
+
+  public void increment() {
+    this.value += 1.0D;
+  }
+
+  public void increment(double amount) {
+    this.value += amount;
+  }
+
+  public double getAndDecay(double rate) {
+    double current = this.value;
+    this.decay(rate);
+    return current;
+  }
+
+  public void clamp(double min, double max) {
+    this.value = Math.max(min, Math.min(max, this.value));
+  }
+
+  public boolean exceeds(double threshold) {
+    return this.value > threshold;
+  }
 }

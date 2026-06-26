@@ -637,7 +637,7 @@ public class KillAura extends Module {
         && TeamUtil.isTarget((EntityPlayer) entityLivingBase);
   }
 
-  // ─── Target Validation (inlined from Targets.java) ─────────────
+  // --- Target Validation (inlined from Targets.java) -------------
 
   private boolean isValid(EntityLivingBase entityLivingBase) {
     if (entityLivingBase == null || mc.theWorld == null || mc.thePlayer == null) {
@@ -1447,9 +1447,9 @@ public class KillAura extends Module {
               event.setPervRotation(rotations[0], 1);
             }
           }
-          // ════════════════════════════════════════
+          // ----------------------------------------
           //  KNOCKBACK DISPLACEMENT INTERCEPT
-          // ════════════════════════════════════════
+          // ----------------------------------------
           if (attack
               && this.tacticalKD.getValue()
               && this.target.getEntity() instanceof EntityPlayer) {
@@ -1458,7 +1458,7 @@ public class KillAura extends Module {
             float kdYaw = this.getTacticalKDYaw(kdTarget, event.getNewYaw());
             float kdPitch = this.getTacticalKDPitch(kdTarget, event.getNewPitch());
 
-            // Raycast verification — revert to normal if KD yaw would miss
+            // Raycast verification - revert to normal if KD yaw would miss
             if (RayCastUtil.getEntityIntercept(
                     kdTarget, kdYaw, kdPitch, this.attackRange.getValue())
                 != null) {
@@ -2126,7 +2126,7 @@ public class KillAura extends Module {
   private Float scanNearWallKD(EntityPlayer target, float aimYaw) {
     if (mc.thePlayer == null) return null;
 
-    // Direction vector from player → target
+    // Direction vector from player ? target
     final double dx = target.posX - mc.thePlayer.posX;
     final double dz = target.posZ - mc.thePlayer.posZ;
     final double dist = Math.sqrt(dx * dx + dz * dz);
@@ -2140,7 +2140,7 @@ public class KillAura extends Module {
     final int py = MathHelper.floor_double(mc.thePlayer.posY + 0.5);
     final int pz = MathHelper.floor_double(mc.thePlayer.posZ);
 
-    // Check both sides (perpendicular to player→target vector)
+    // Check both sides (perpendicular to player?target vector)
     for (int side : new int[] {-1, 1}) {
       final double sx = -nz * side;
       final double sz = nx * side;
@@ -2153,7 +2153,7 @@ public class KillAura extends Module {
           if (by < 0 || by >= 256) continue;
           cursor.set(bx, by, bz);
           if (mc.theWorld.getBlockState(cursor).getBlock().isFullBlock()) {
-            // Wall beside player → aim to push target into wall
+            // Wall beside player ? aim to push target into wall
             return aimYaw + side * 45.0F;
           }
         }
@@ -2182,7 +2182,7 @@ public class KillAura extends Module {
   }
 
   private float getTacticalKDPitch(EntityPlayer target, float currentPitch) {
-    // If target is airborne → tilt pitch for extra vertical displacement
+    // If target is airborne ? tilt pitch for extra vertical displacement
     if (!target.onGround && target.hurtTime <= 0 && target.fallDistance > 0.5F) {
       return Math.min(currentPitch + 8.0F, 15.0F);
     }

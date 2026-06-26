@@ -16,9 +16,13 @@ import myau.clientanticheat.combat.autoclicker.ClickSpeedCheck;
 import myau.clientanticheat.combat.killaura.KillAuraAngleSnap;
 import myau.clientanticheat.combat.killaura.KillAuraHeuristicsCheck;
 import myau.clientanticheat.combat.killaura.KillAuraLatencyCheck;
+import myau.clientanticheat.combat.killaura.KillAuraNoSwingCheck;
 import myau.clientanticheat.combat.killaura.KillAuraRotationSpeed;
+import myau.clientanticheat.combat.killaura.KillAuraToolSwitchCheck;
 import myau.clientanticheat.combat.reach.HitboxRaytraceCheck;
 import myau.clientanticheat.movement.blink.BlinkCheck;
+import myau.clientanticheat.movement.blink.FakeLagCheck;
+import myau.clientanticheat.movement.blink.MicroBlinkCheck;
 import myau.clientanticheat.movement.noslow.NoSlowCheck;
 import myau.clientanticheat.movement.velocity.VelocityCheck;
 import myau.clientanticheat.player.scaffold.ScaffoldPlacementCheck;
@@ -48,8 +52,8 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
   public final BooleanProperty autoClicker = new BooleanProperty("autoclicker", true);
   public final BooleanProperty addTarget = new BooleanProperty("add-target", true);
   public final BooleanProperty sound = new BooleanProperty("sound", true);
+  public final BooleanProperty self = new BooleanProperty("self", false);
 
-  // ── Sub-checks: imported directly from sub-packages ──
   private final ScaffoldSneakCheck scaffoldSneakCheck = new ScaffoldSneakCheck();
   private final ScaffoldRotationCheck scaffoldRotationCheck = new ScaffoldRotationCheck();
   private final ScaffoldPlacementCheck scaffoldPlacementCheck = new ScaffoldPlacementCheck();
@@ -57,9 +61,13 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
   private final KillAuraAngleSnap kaAngleSnap = new KillAuraAngleSnap();
   private final KillAuraLatencyCheck kaLatencyCheck = new KillAuraLatencyCheck();
   private final KillAuraRotationSpeed kaRotationSpeed = new KillAuraRotationSpeed();
+  private final KillAuraNoSwingCheck kaNoSwingCheck = new KillAuraNoSwingCheck();
+  private final KillAuraToolSwitchCheck kaToolSwitchCheck = new KillAuraToolSwitchCheck();
   private final AutoBlockCheck autoBlockCheck = new AutoBlockCheck();
   private final NoSlowCheck noSlowCheck = new NoSlowCheck();
   private final BlinkCheck blinkCheck = new BlinkCheck();
+  private final FakeLagCheck fakeLagCheck = new FakeLagCheck();
+  private final MicroBlinkCheck microBlinkCheck = new MicroBlinkCheck();
   private final HitboxRaytraceCheck reachCheck = new HitboxRaytraceCheck();
   private final VelocityCheck velocityCheck = new VelocityCheck();
   private final ClickSpeedCheck clickSpeedCheck = new ClickSpeedCheck();
@@ -85,7 +93,10 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
     this.checkDataManager.update(world);
     long currentTick = world.getTotalWorldTime();
     for (EntityPlayer player : new ArrayList<>(world.playerEntities)) {
-      if (player == mc.thePlayer || player.isDead || player.getName() == null) {
+      if (player.isDead || player.getName() == null) {
+        continue;
+      }
+      if (player == mc.thePlayer && !this.self.getValue()) {
         continue;
       }
       PlayerCheckData data = this.checkDataManager.get(player);
@@ -99,6 +110,8 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
         this.kaAngleSnap.check(player, data, this);
         this.kaLatencyCheck.check(player, data, this);
         this.kaRotationSpeed.check(player, world, data, currentTick, this);
+        this.kaNoSwingCheck.check(player, data, this);
+        this.kaToolSwitchCheck.check(player, data, currentTick, this);
       }
       if (this.autoBlock.getValue()) {
         this.autoBlockCheck.check(player, data, currentTick, this);
@@ -108,6 +121,8 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
       }
       if (this.blink.getValue()) {
         this.blinkCheck.check(player, data, this);
+        this.fakeLagCheck.check(player, data, this);
+        this.microBlinkCheck.check(player, data, this);
       }
       if (this.reach.getValue()) {
         this.reachCheck.check(player, world, data, this);
@@ -131,7 +146,7 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
   public void receiveSignal(String playerName, String cheatName, String detail, int vl) {
     if (playerName == null || playerName.isEmpty() || cheatName == null) return;
     if (mc.thePlayer == null || mc.theWorld == null) return;
-    if (playerName.equalsIgnoreCase(mc.thePlayer.getName())) return;
+    if (playerName.equalsIgnoreCase(mc.thePlayer.getName()) && !this.self.getValue()) return;
     if (this.isWhitelisted(playerName)) return;
 
     int currentTime = (int) (mc.theWorld.getTotalWorldTime() / 20);
@@ -195,6 +210,8 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
     if (cheatName.equals("KillAura")) return 3;
     if (cheatName.equals("Scaffold")) return 3;
     if (cheatName.equals("Blink")) return 2;
+    if (cheatName.equals("FakeLag")) return 2;
+    if (cheatName.equals("MicroBlink")) return 2;
     if (cheatName.equals("Reach")) return 2;
     if (cheatName.equals("Velocity")) return 2;
     if (cheatName.equals("AutoClicker")) return 2;
@@ -214,9 +231,13 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
     this.kaAngleSnap.reset();
     this.kaLatencyCheck.reset();
     this.kaRotationSpeed.reset();
+    this.kaNoSwingCheck.reset();
+    this.kaToolSwitchCheck.reset();
     this.autoBlockCheck.reset();
     this.noSlowCheck.reset();
     this.blinkCheck.reset();
+    this.fakeLagCheck.reset();
+    this.microBlinkCheck.reset();
     this.reachCheck.reset();
     this.velocityCheck.reset();
     this.clickSpeedCheck.reset();

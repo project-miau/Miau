@@ -16,7 +16,6 @@ import myau.mixin.IAccessorC0DPacketCloseWindow;
 import myau.module.Module;
 import myau.module.modules.movement.Sprint;
 import myau.property.properties.BooleanProperty;
-import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
 import myau.util.client.KeyBindUtil;
 import myau.util.network.PacketUtil;
@@ -38,9 +37,6 @@ public class InvWalk extends Module {
   private final Queue<C0EPacketClickWindow> clickQueue = new ConcurrentLinkedQueue<>();
   private boolean keysPressed = false;
   private C16PacketClientStatus pendingStatus = null;
-  private int delayTicks = 0;
-  private int openDelayTicks = -1;
-  private int closeDelayTicks = -1;
   private final Map<KeyBinding, Boolean> movementKeys =
       new HashMap<KeyBinding, Boolean>(8) {
         {
@@ -54,13 +50,8 @@ public class InvWalk extends Module {
         }
       };
 
-  public final ModeProperty mode =
-      new ModeProperty("mode", 1, new String[] {"VANILLA", "LEGIT", "HYPIXEL", "LEGIT+"});
+  public final ModeProperty mode = new ModeProperty("Mode", 1, new String[] {"VANILLA", "LEGIT"});
   public final BooleanProperty guiEnabled = new BooleanProperty("click-gui", true);
-  public final IntProperty openDelay =
-      new IntProperty("open-delay", 0, 0, 20, () -> mode.getValue() == 3);
-  public final IntProperty closeDelay =
-      new IntProperty("close-delay", 4, 0, 20, () -> mode.getValue() == 3);
   public final BooleanProperty lockMoveKey = new BooleanProperty("lock-move-dey", false);
 
   public InvWalk() {
@@ -109,11 +100,6 @@ public class InvWalk extends Module {
       case 1: // Legit
         if (!(mc.currentScreen instanceof GuiInventory)) return false;
         return this.pendingStatus != null && this.clickQueue.isEmpty();
-      case 2: // Hypixel
-        return this.delayTicks == 0 && this.clickQueue.isEmpty();
-      case 3: // Legit+
-        if (!(mc.currentScreen instanceof GuiInventory)) return false;
-        return this.closeDelayTicks == -1 && this.clickQueue.isEmpty();
       default:
         return false;
     }
@@ -147,21 +133,8 @@ public class InvWalk extends Module {
   @EventTarget(Priority.LOWEST)
   public void onTick(TickEvent event) {
     if (event.getType() == EventType.PRE) {
-      if (this.openDelayTicks >= 0) {
-        this.openDelayTicks--;
-        return;
-      }
       while (!this.clickQueue.isEmpty()) {
         PacketUtil.sendPacketNoEvent(this.clickQueue.poll());
-      }
-      if (this.closeDelayTicks > 0) {
-        if (this.temporaryStackIsEmpty()) {
-          this.closeDelayTicks--;
-        }
-      } else if (this.closeDelayTicks == 0) {
-        if (mc.currentScreen instanceof GuiInventory)
-          PacketUtil.sendPacketNoEvent(new C0DPacketCloseWindow(0));
-        this.closeDelayTicks = -1;
       }
     } else if (event.getType() == EventType.POST
         && this.isEnabled()
@@ -203,9 +176,6 @@ public class InvWalk extends Module {
         PacketUtil.sendPacketNoEvent(this.pendingStatus);
         this.pendingStatus = null;
       }
-      if (this.delayTicks > 0) {
-        this.delayTicks--;
-      }
     }
   }
 
@@ -215,32 +185,18 @@ public class InvWalk extends Module {
 
     if (event.getPacket() instanceof C16PacketClientStatus) {
       this.storeMovementKeys();
-      if (this.mode.getValue() == 1 || this.mode.getValue() == 3) {
+      if (this.mode.getValue() == 1) {
         C16PacketClientStatus packet = (C16PacketClientStatus) event.getPacket();
         if (packet.getStatus() == EnumState.OPEN_INVENTORY_ACHIEVEMENT) {
           event.setCancelled(true);
-          if (this.mode.getValue() == 1) {
-            this.pendingStatus = packet;
-          }
+          this.pendingStatus = packet;
         }
       }
     } else if (!(event.getPacket() instanceof C0EPacketClickWindow)) {
       if (event.getPacket() instanceof C0DPacketCloseWindow) {
         C0DPacketCloseWindow packet = (C0DPacketCloseWindow) event.getPacket();
         if (((IAccessorC0DPacketCloseWindow) packet).getWindowId() == 0) {
-          if (this.mode.getValue() == 3) {
-            if (!this.clickQueue.isEmpty()) {
-              this.clickQueue.clear();
-            }
-            if (this.openDelayTicks >= 0) {
-              this.openDelayTicks = -1;
-            }
-            if (this.closeDelayTicks >= 0) {
-              this.closeDelayTicks = -1;
-            } else {
-              event.setCancelled(true);
-            }
-          } else if (this.pendingStatus != null) {
+          if (this.pendingStatus != null) {
             this.pendingStatus = null;
             event.setCancelled(true);
           }
@@ -248,56 +204,22 @@ public class InvWalk extends Module {
           if (!this.clickQueue.isEmpty()) {
             this.clickQueue.clear();
           }
-          if (this.openDelayTicks >= 0) {
-            this.openDelayTicks = -1;
-          }
-          if (this.closeDelayTicks >= 0) {
-            this.closeDelayTicks = -1;
-          }
         }
       }
     } else {
       C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
-      switch (this.mode.getValue()) {
-        case 1: // Legit
-          if (packet.getWindowId() == 0) {
-            if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
-              event.setCancelled(true);
-              return;
-            }
-            if (this.pendingStatus != null) {
-              KeyBinding.unPressAllKeys();
-              event.setCancelled(true);
-              this.clickQueue.offer(packet);
-            }
-          }
-          break;
-        case 2: // Hypixel
+      if (this.mode.getValue() == 1) { // Legit
+        if (packet.getWindowId() == 0) {
           if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
             event.setCancelled(true);
-          } else {
+            return;
+          }
+          if (this.pendingStatus != null) {
             KeyBinding.unPressAllKeys();
             event.setCancelled(true);
             this.clickQueue.offer(packet);
-            this.delayTicks = 8;
           }
-          break;
-        case 3: // Legit+
-          if (packet.getWindowId() == 0) { // inventory
-            if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
-              event.setCancelled(true);
-              return;
-            }
-            KeyBinding.unPressAllKeys();
-            event.setCancelled(true);
-            this.clickQueue.offer(packet);
-            if (this.closeDelayTicks < 0 && this.openDelayTicks < 0) {
-              this.pendingStatus = new C16PacketClientStatus(EnumState.OPEN_INVENTORY_ACHIEVEMENT);
-              this.openDelayTicks = openDelay.getValue();
-            }
-            this.closeDelayTicks = closeDelay.getValue();
-          }
-          break;
+        }
       }
       if (this.pendingStatus != null) {
         PacketUtil.sendPacketNoEvent(this.pendingStatus);
@@ -318,7 +240,6 @@ public class InvWalk extends Module {
       PacketUtil.sendPacketNoEvent(this.pendingStatus);
       this.pendingStatus = null;
     }
-    this.delayTicks = 0;
   }
 
   @Override
