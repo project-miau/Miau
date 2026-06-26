@@ -552,6 +552,8 @@ public class Scaffold extends Module {
     float fontY = y + (height / 2f) - (Fonts.MAIN.get(18).height() / 2f);
     float textX = x + 24f;
 
+    Fonts.MAIN.get(18).drawWithShadow(info, textX, fontY, new Color(255, 255, 255, textAlpha).getRGB());
+
     GlStateManager.popMatrix();
   }
 
