@@ -94,7 +94,7 @@ dependencies {
     shadowImpl("com.viaversion:viaversion:4.10.0") { isTransitive = false }
     shadowImpl("com.viaversion:viabackwards:4.10.0") { isTransitive = false }
     shadowImpl("com.viaversion:viarewind-common:3.1.2") { isTransitive = false }
-    shadowImpl("org.yaml:snakeyaml:2.2")
+    shadowImpl("org.yaml:snakeyaml:1.33")
     // If you don't want to log in with your real minecraft account, remove this line
     runtimeOnly("me.djtheredstoner:DevAuth-forge-legacy:1.2.1")
 }

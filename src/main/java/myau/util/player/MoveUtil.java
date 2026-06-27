@@ -15,6 +15,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.MathHelper;
+import org.lwjgl.input.Keyboard;
 
 public class MoveUtil {
   private static final Minecraft mc = Minecraft.getMinecraft();
@@ -30,6 +31,14 @@ public class MoveUtil {
     return mc.thePlayer != null
         && (mc.thePlayer.movementInput.moveForward != 0.0f
             || mc.thePlayer.movementInput.moveStrafe != 0.0f);
+  }
+
+  // Gothaj: keybind-based isMoving
+  public static boolean isMovingKeybinds() {
+    return Minecraft.getMinecraft().gameSettings.keyBindForward.isKeyDown()
+        || Minecraft.getMinecraft().gameSettings.keyBindBack.isKeyDown()
+        || Minecraft.getMinecraft().gameSettings.keyBindRight.isKeyDown()
+        || Minecraft.getMinecraft().gameSettings.keyBindLeft.isKeyDown();
   }
 
   public static int getForwardValue() {
@@ -95,6 +104,19 @@ public class MoveUtil {
     double baseSpeed = 0.28015;
     if (MoveUtil.getSpeedTime() > 0) {
       baseSpeed = 0.28015 * (1.0 + 0.15 * (double) MoveUtil.getSpeedLevel());
+    }
+    return baseSpeed;
+  }
+
+  // Gothaj base move speed (used in scaffold's tower mode)
+  public static double getBaseMoveSpeedGothaj() {
+    double baseSpeed = 0.2873;
+    if (mc.thePlayer.isPotionActive(Potion.moveSpeed)) {
+      baseSpeed *=
+          1.0
+              + 0.2
+                  * (double)
+                      (mc.thePlayer.getActivePotionEffect(Potion.moveSpeed).getAmplifier() + 1);
     }
     return baseSpeed;
   }
@@ -312,5 +334,152 @@ public class MoveUtil {
         Math.min(
             Math.abs(number1 - 360) - Math.abs(number2 - 0),
             Math.abs(number2 - 360) - Math.abs(number1 - 0)));
+  }
+
+  // ===== Gothaj MovementUtils methods =====
+
+  public static boolean isOnGround(double height) {
+    return !mc.theWorld
+        .getCollidingBoundingBoxes(
+            mc.thePlayer, mc.thePlayer.getEntityBoundingBox().offset(0.0, -height, 0.0))
+        .isEmpty();
+  }
+
+  public static boolean isGoingDiagonally() {
+    return Math.abs(mc.thePlayer.motionX) > 0.04 && Math.abs(mc.thePlayer.motionZ) > 0.04;
+  }
+
+  public static double getDirection(float yaw) {
+    float rotationYaw = yaw;
+    if (mc.thePlayer.moveForward < 0.0F) {
+      rotationYaw = yaw + 180.0F;
+    }
+    float forward = 1.0F;
+    if (mc.thePlayer.moveForward < 0.0F) {
+      forward = -0.5F;
+    } else if (mc.thePlayer.moveForward > 0.0F) {
+      forward = 0.5F;
+    }
+    if (mc.thePlayer.moveStrafing > 0.0F) {
+      rotationYaw -= 90.0F * forward;
+    }
+    if (mc.thePlayer.moveStrafing < 0.0F) {
+      rotationYaw += 90.0F * forward;
+    }
+    return Math.toRadians((double) rotationYaw);
+  }
+
+  public static double getDirectionKeybinds(float yaw) {
+    float rotationYaw = yaw;
+    if (!Keyboard.isKeyDown(mc.gameSettings.keyBindForward.getKeyCode())
+        && Keyboard.isKeyDown(mc.gameSettings.keyBindBack.getKeyCode())) {
+      rotationYaw = yaw + 180.0F;
+    }
+    float forward = 1.0F;
+    if (!Keyboard.isKeyDown(mc.gameSettings.keyBindForward.getKeyCode())
+        && Keyboard.isKeyDown(mc.gameSettings.keyBindBack.getKeyCode())) {
+      forward = -0.5F;
+    } else if (Keyboard.isKeyDown(mc.gameSettings.keyBindForward.getKeyCode())
+        && !Keyboard.isKeyDown(mc.gameSettings.keyBindBack.getKeyCode())) {
+      forward = 0.5F;
+    }
+    if (Keyboard.isKeyDown(mc.gameSettings.keyBindLeft.getKeyCode())
+        && !Keyboard.isKeyDown(mc.gameSettings.keyBindRight.getKeyCode())) {
+      rotationYaw -= 90.0F * forward;
+    }
+    if (!Keyboard.isKeyDown(mc.gameSettings.keyBindLeft.getKeyCode())
+        && Keyboard.isKeyDown(mc.gameSettings.keyBindRight.getKeyCode())) {
+      rotationYaw += 90.0F * forward;
+    }
+    return Math.toRadians((double) rotationYaw);
+  }
+
+  public static void strafe(float speed) {
+    double yaw = getDirection(mc.thePlayer.rotationYaw);
+    mc.thePlayer.motionX = -Math.sin((double) ((float) yaw)) * (double) speed;
+    mc.thePlayer.motionZ = Math.cos((double) ((float) yaw)) * (double) speed;
+  }
+
+  // Gothaj silentMoveFix adapted for Miau's StrafeEvent
+  public static void silentMoveFix(myau.event.impl.StrafeEvent event) {
+    int dif =
+        (int)
+            ((MathHelper.wrapAngleTo180_float(
+                        mc.thePlayer.rotationYaw - RotationUtil.serverYaw - 23.5F - 135.0F)
+                    + 180.0F)
+                / 45.0F);
+    float yaw = RotationUtil.serverYaw;
+    float strafe = event.getStrafe();
+    float forward = event.getForward();
+    float friction = event.getFriction();
+    float calcForward = 0.0F;
+    float calcStrafe = 0.0F;
+    switch (dif) {
+      case 0:
+        calcForward = forward;
+        calcStrafe = strafe;
+        break;
+      case 1:
+        calcForward += forward;
+        calcStrafe -= forward;
+        calcForward += strafe;
+        calcStrafe += strafe;
+        break;
+      case 2:
+        calcForward = strafe;
+        calcStrafe = -forward;
+        break;
+      case 3:
+        calcForward -= forward;
+        calcStrafe -= forward;
+        calcForward += strafe;
+        calcStrafe -= strafe;
+        break;
+      case 4:
+        calcForward = -forward;
+        calcStrafe = -strafe;
+        break;
+      case 5:
+        calcForward -= forward;
+        calcStrafe += forward;
+        calcForward -= strafe;
+        calcStrafe -= strafe;
+        break;
+      case 6:
+        calcForward = -strafe;
+        calcStrafe = forward;
+        break;
+      case 7:
+        calcForward += forward;
+        calcStrafe += forward;
+        calcForward -= strafe;
+        calcStrafe += strafe;
+    }
+    if (calcForward > 1.0F
+        || calcForward < 0.9F && calcForward > 0.3F
+        || calcForward < -1.0F
+        || calcForward > -0.9F && calcForward < -0.3F) {
+      calcForward *= 0.5F;
+    }
+    if (calcStrafe > 1.0F
+        || calcStrafe < 0.9F && calcStrafe > 0.3F
+        || calcStrafe < -1.0F
+        || calcStrafe > -0.9F && calcStrafe < -0.3F) {
+      calcStrafe *= 0.5F;
+    }
+    float d = calcStrafe * calcStrafe + calcForward * calcForward;
+    if (d >= 1.0E-4F) {
+      d = MathHelper.sqrt_float(d);
+      if (d < 1.0F) {
+        d = 1.0F;
+      }
+      d = friction / d;
+      calcStrafe *= d;
+      calcForward *= d;
+      float yawSin = MathHelper.sin((float) ((double) yaw * Math.PI / 180.0));
+      float yawCos = MathHelper.cos((float) ((double) yaw * Math.PI / 180.0));
+      mc.thePlayer.motionX += (double) (calcStrafe * yawCos - calcForward * yawSin);
+      mc.thePlayer.motionZ += (double) (calcForward * yawCos + calcStrafe * yawSin);
+    }
   }
 }

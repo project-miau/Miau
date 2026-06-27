@@ -1,6 +1,9 @@
 package myau.util.player;
 
+import java.util.List;
+import java.util.Random;
 import myau.mixin.IAccessorEntity;
+import myau.mixin.IAccessorMinecraft;
 import myau.util.animation.*;
 import myau.util.client.*;
 import myau.util.math.*;
@@ -11,13 +14,16 @@ import myau.util.time.*;
 import myau.util.world.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.MathHelper;
-import net.minecraft.util.MovingObjectPosition;
-import net.minecraft.util.Vec3;
+import net.minecraft.entity.projectile.EntityEgg;
+import net.minecraft.util.*;
 
 public class RotationUtil {
   private static final Minecraft mc = Minecraft.getMinecraft();
+
+  // Gothaj scaffold rotation state
+  public static float serverYaw;
+  public static float serverPitch;
+  public static boolean customRots;
 
   public static float wrapAngleDiff(float angle, float target) {
     return target + MathHelper.wrapAngleTo180_float(angle - target);
@@ -340,5 +346,200 @@ public class RotationUtil {
       }
     }
     return targetRotation;
+  }
+
+  // ===== Gothaj Scaffold Utility Methods =====
+
+  public static float updateRotation(float current, float intended, float factor) {
+    float var4 = MathHelper.wrapAngleTo180_float(intended - current);
+    if (var4 > factor) {
+      var4 = factor;
+    }
+    if (var4 < -factor) {
+      var4 = -factor;
+    }
+    return current + var4;
+  }
+
+  public static float[] getFixedRotation(float[] rotations, float[] lastRotations) {
+    float yaw = rotations[0];
+    float pitch = rotations[1];
+    float lastYaw = lastRotations[0];
+    float lastPitch = lastRotations[1];
+    float f = mc.gameSettings.mouseSensitivity * 0.6F + 0.2F;
+    float f1 = f * f * f * 8.0F;
+    float deltaYaw = yaw - lastYaw;
+    float deltaPitch = pitch - lastPitch;
+    float fixedDeltaYaw = deltaYaw - deltaYaw % f1;
+    float fixedDeltaPitch = deltaPitch - deltaPitch % f1;
+    float fixedYaw = lastYaw + fixedDeltaYaw;
+    float fixedPitch = lastPitch + fixedDeltaPitch;
+    return new float[] {fixedYaw, fixedPitch};
+  }
+
+  public static boolean lookingAtBlock(
+      BlockPos blockPos, float yaw, float pitch, EnumFacing enumFacing, boolean strict) {
+    double reach = (double) mc.playerController.getBlockReachDistance();
+    Vec3 eyePos =
+        mc.thePlayer.getPositionEyes(((IAccessorMinecraft) mc).getTimer().renderPartialTicks);
+    Vec3 lookVec = ((IAccessorEntity) mc.thePlayer).callGetVectorForRotation(pitch, yaw);
+    Vec3 targetVec =
+        eyePos.addVector(lookVec.xCoord * reach, lookVec.yCoord * reach, lookVec.zCoord * reach);
+    MovingObjectPosition movingObjectPosition = mc.theWorld.rayTraceBlocks(eyePos, targetVec);
+    if (movingObjectPosition == null) {
+      return false;
+    } else {
+      Vec3 hitVec = movingObjectPosition.hitVec;
+      return hitVec == null
+          ? false
+          : movingObjectPosition.getBlockPos().equals(blockPos)
+              && (!strict
+                  || movingObjectPosition.sideHit == enumFacing
+                      && movingObjectPosition.sideHit != null);
+    }
+  }
+
+  public static float getYawBasedPitch(
+      BlockPos blockPos, EnumFacing facing, float currentYaw, float lastPitch, int maxPitch) {
+    float increment = (float) (Math.random() / 20.0) + 0.05F;
+    for (float i = (float) maxPitch; i > 45.0F; i -= increment) {
+      MovingObjectPosition ray =
+          rayCast(
+              1.0F,
+              new float[] {currentYaw, i},
+              (double) mc.playerController.getBlockReachDistance(),
+              2.0);
+      if (ray == null || ray.getBlockPos() == null || ray.sideHit == null) {
+        return lastPitch;
+      }
+      if (ray.getBlockPos().equals(blockPos) && ray.sideHit == facing) {
+        return i;
+      }
+    }
+    return lastPitch;
+  }
+
+  public static MovingObjectPosition rayCast(
+      float partialTicks, float[] rots, double range, double hitBoxExpand) {
+    MovingObjectPosition objectMouseOver = null;
+    Entity entity = mc.getRenderViewEntity();
+    if (entity != null && mc.theWorld != null) {
+      mc.mcProfiler.startSection("pick");
+      mc.pointedEntity = null;
+      double d0 = range;
+      Vec3 eyeVec = entity.getPositionEyes(partialTicks);
+      Vec3 lookVec2 = ((IAccessorEntity) entity).callGetVectorForRotation(rots[1], rots[0]);
+      Vec3 traceVec =
+          eyeVec.addVector(
+              lookVec2.xCoord * range, lookVec2.yCoord * range, lookVec2.zCoord * range);
+      objectMouseOver = mc.theWorld.rayTraceBlocks(eyeVec, traceVec);
+      double d2 = range;
+      Vec3 vec3 = entity.getPositionEyes(partialTicks);
+      boolean flag = false;
+      if (mc.playerController.extendedReach()) {
+        d0 = 6.0;
+        d2 = 6.0;
+      } else if (range > 3.0) {
+        flag = true;
+      }
+      if (objectMouseOver != null) {
+        d2 = objectMouseOver.hitVec.distanceTo(vec3);
+      }
+      Vec3 vec4 = entity.getLook(partialTicks);
+      Vec3 vec5 = vec3.addVector(vec4.xCoord * d0, vec4.yCoord * d0, vec4.zCoord * d0);
+      Entity pointedEntity = null;
+      Vec3 vec6 = null;
+      List list =
+          mc.theWorld.getEntitiesInAABBexcluding(
+              entity,
+              entity
+                  .getEntityBoundingBox()
+                  .addCoord(vec4.xCoord * d0, vec4.yCoord * d0, vec4.zCoord * d0)
+                  .expand(1.0, 1.0, 1.0),
+              com.google.common.base.Predicates.and(
+                  new com.google.common.base.Predicate[] {
+                    net.minecraft.util.EntitySelectors.NOT_SPECTATING
+                  }));
+      double d3 = d2;
+      for (int i = 0; i < list.size(); i++) {
+        Entity entity2 = (Entity) list.get(i);
+        float f2 = (float) ((double) entity2.getCollisionBorderSize() + hitBoxExpand);
+        AxisAlignedBB axisalignedbb =
+            entity2.getEntityBoundingBox().expand((double) f2, (double) f2, (double) f2);
+        MovingObjectPosition movingobjectposition = axisalignedbb.calculateIntercept(vec3, vec5);
+        if (axisalignedbb.isVecInside(vec3)) {
+          if (d3 >= 0.0) {
+            pointedEntity = entity2;
+            vec6 = movingobjectposition == null ? vec3 : movingobjectposition.hitVec;
+            d3 = 0.0;
+          }
+        } else if (movingobjectposition != null) {
+          double d4 = vec3.distanceTo(movingobjectposition.hitVec);
+          if (d4 < d3 || d3 == 0.0) {
+            if (entity2 != entity.ridingEntity) {
+              pointedEntity = entity2;
+              vec6 = movingobjectposition.hitVec;
+              d3 = d4;
+            } else if (d3 == 0.0) {
+              pointedEntity = entity2;
+              vec6 = movingobjectposition.hitVec;
+            }
+          }
+        }
+      }
+      if (pointedEntity != null && flag && vec3.distanceTo(vec6) > range) {
+        pointedEntity = null;
+        objectMouseOver =
+            new MovingObjectPosition(
+                MovingObjectPosition.MovingObjectType.MISS, vec6, null, new BlockPos(vec6));
+      }
+      if (pointedEntity != null && (d3 < d2 || objectMouseOver == null)) {
+        objectMouseOver = new MovingObjectPosition(pointedEntity, vec6);
+      }
+    }
+    return objectMouseOver;
+  }
+
+  public static float[] getDirectionToBlock(double x, double y, double z, EnumFacing enumfacing) {
+    EntityEgg face = new EntityEgg(mc.theWorld);
+    face.posX = x + 0.5;
+    face.posY = y + 0.5;
+    face.posZ = z + 0.5;
+    face.posX = face.posX + (double) enumfacing.getDirectionVec().getX() * 0.5;
+    face.posY = face.posY + (double) enumfacing.getDirectionVec().getY() * 0.5;
+    face.posZ = face.posZ + (double) enumfacing.getDirectionVec().getZ() * 0.5;
+    return getRotationFromPosition(face.posX, face.posY, face.posZ);
+  }
+
+  public static float[] getRotationFromPosition(double x, double y, double z) {
+    double xDiff = x - Minecraft.getMinecraft().thePlayer.posX;
+    double zDiff = z - Minecraft.getMinecraft().thePlayer.posZ;
+    double yDiff = y - Minecraft.getMinecraft().thePlayer.posY - 1.2;
+    double dist = (double) MathHelper.sqrt_double(xDiff * xDiff + zDiff * zDiff);
+    float yaw = (float) (Math.atan2(zDiff, xDiff) * 180.0 / Math.PI) - 90.0F;
+    float pitch = (float) (-(Math.atan2(yDiff, dist) * 180.0 / Math.PI));
+    return new float[] {yaw, pitch};
+  }
+
+  public static Vec3 getVec3(BlockPos pos, EnumFacing face) {
+    double x = (double) pos.getX() + 0.5;
+    double y = (double) pos.getY() + 0.5;
+    double z = (double) pos.getZ() + 0.5;
+    x += (double) face.getFrontOffsetX() / 2.0;
+    z += (double) face.getFrontOffsetZ() / 2.0;
+    y += (double) face.getFrontOffsetY() / 2.0;
+    if (face != EnumFacing.UP && face != EnumFacing.DOWN) {
+      y += new Random().nextDouble() / 2.0 - 0.25;
+    } else {
+      x += new Random().nextDouble() / 2.0 - 0.25;
+      z += new Random().nextDouble() / 2.0 - 0.25;
+    }
+    if (face == EnumFacing.WEST || face == EnumFacing.EAST) {
+      z += new Random().nextDouble() / 2.0 - 0.25;
+    }
+    if (face == EnumFacing.SOUTH || face == EnumFacing.NORTH) {
+      x += new Random().nextDouble() / 2.0 - 0.25;
+    }
+    return new Vec3(x, y, z);
   }
 }

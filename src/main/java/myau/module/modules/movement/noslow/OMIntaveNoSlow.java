@@ -10,7 +10,6 @@ import myau.module.modules.movement.NoSlow;
 import myau.util.network.PacketUtil;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
-import net.minecraft.network.play.server.S08PacketPlayerPosLook;
 
 public class OMIntaveNoSlow extends NoSlowMode {
   private int disable;
@@ -53,6 +52,18 @@ public class OMIntaveNoSlow extends NoSlowMode {
         PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot % 8 + 1));
         PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot));
       }
+    }
+  }
+
+  private void performBypass() {
+    KillAura aura = (KillAura) Myau.moduleManager.getModule(KillAura.class);
+    if (this.disable > 10
+        && !BadPacketsComponent.bad(false, true, true, false, false)
+        && (aura == null || aura.getTarget() == null)) {
+      int currentSlot = mc.thePlayer.inventory.currentItem;
+      PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot % 8 + 1));
+      PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot));
+      PacketUtil.sendPacket(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
     }
   }
 }
