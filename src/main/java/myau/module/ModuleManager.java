@@ -28,7 +28,6 @@ public class ModuleManager {
     CATEGORY_NAMES.put("misc", "Misc");
     CATEGORY_NAMES.put("network", "Network");
     CATEGORY_NAMES.put("minigames", "Minigames");
-    CATEGORY_NAMES.put("intave", "Intave");
   }
 
   private boolean sound = false;
