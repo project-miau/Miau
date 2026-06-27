@@ -445,7 +445,6 @@ public class BackTrack extends Module {
       double y = renderPos.position.yCoord - mc.getRenderManager().viewerPosY;
       double z = renderPos.position.zCoord - mc.getRenderManager().viewerPosZ;
 
-<<<<<<< HEAD
       Color color = new Color(espColor.getValue());
 
       switch (espMode.getValue()) {
@@ -511,26 +510,6 @@ public class BackTrack extends Module {
           GlStateManager.color(1f, 1f, 1f, 1f);
           GlStateManager.popMatrix();
           break;
-=======
-        switch (espMode.getValue()) {
-          case 1:
-            AxisAlignedBB box =
-                target
-                    .getEntityBoundingBox()
-                    .offset(
-                        targetMixin.getTrueX() - target.posX,
-                        targetMixin.getTrueY() - target.posY,
-                        targetMixin.getTrueZ() - target.posZ);
-            drawBacktrackBox(box, color);
-            break;
-          case 2:
-            renderBacktrackModel(target, x, y, z, event.getPartialTicks(), color);
-            break;
-          case 3:
-            renderBacktrackWireframe(target, x, y, z, event.getPartialTicks(), color);
-            break;
-        }
->>>>>>> 4cfceee313de6cabb359ac86e2feeaa24e2b92a8
       }
       return;
     }
