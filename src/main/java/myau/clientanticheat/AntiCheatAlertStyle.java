@@ -15,8 +15,6 @@ import myau.util.client.ChatUtil;
  */
 public class AntiCheatAlertStyle {
 
-  private static final String PREFIX = "&8[&dMiau&5AC&8] &r";
-
   // ── Marked cheaters for NametagOverlayRenderer ─────────────────────────
   private static final Map<String, MarkedCheater> markedCheaters = new HashMap<>();
 
@@ -66,7 +64,6 @@ public class AntiCheatAlertStyle {
 
     // Build the alert message in a realistic anticheat style
     StringBuilder sb = new StringBuilder();
-    sb.append(PREFIX);
     sb.append(severityColor).append(severity).append(" &8| &f").append(playerName);
     sb.append(" &7failed &b").append(normalizedCheat);
     sb.append(" &8(&7").append(normalizedDetail).append("&8)");
@@ -86,7 +83,6 @@ public class AntiCheatAlertStyle {
     markCheater(playerName, component, 50);
 
     StringBuilder sb = new StringBuilder();
-    sb.append(PREFIX);
     sb.append("&4DESYNC &8| &f").append(playerName);
     sb.append(" &7").append(component);
     sb.append(" &8(&7").append(detail).append("&8)");
@@ -104,7 +100,6 @@ public class AntiCheatAlertStyle {
     markCheater(playerName, checkName, vl);
 
     StringBuilder sb = new StringBuilder();
-    sb.append(PREFIX);
     sb.append("&eALERT &8| &f").append(playerName);
     sb.append(" &7flagged &b").append(checkName);
     if (detail != null && !detail.isEmpty()) {

@@ -27,16 +27,6 @@ public class TimerUtil {
     return hasTimeElapsed((long) time);
   }
 
-  public boolean hasTimeElapsed(double delay, boolean reset) {
-    if ((double) (System.currentTimeMillis() - this.lastMS) >= delay) {
-      if (reset) {
-        this.reset();
-      }
-      return true;
-    }
-    return false;
-  }
-
   public long getTime() {
     return getElapsedTime();
   }

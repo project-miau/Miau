@@ -49,6 +49,9 @@ public class KillAuraUnifiedCheck {
   private static final float SNAP_PRE_ERROR_MIN = 20.0F;
   private static final int SNAP_MIN_HITS = 3;
   private static final float RETURN_PAIR_TICKS = 8L;
+  // Rain rotation heuristic window
+  private static final int WINDOW_SIZE = 10;
+
   private static final float SNAP_VL = 90.0F;
   private static final float RETURN_VL = 55.0F;
 
@@ -104,6 +107,10 @@ public class KillAuraUnifiedCheck {
 
     // shared VL economy (Rain-style)
     float aimVl;
+
+    // Rain rotation heuristics window
+    final List<Float> yawChangeWindow = new ArrayList<>();
+    int snapStreak;
 
     // Burst machine
     int burstTicks;
@@ -216,6 +223,17 @@ public class KillAuraUnifiedCheck {
       return;
     }
 
+    // ── Rotation heuristic window (Rain's AimBasicCheck port) ───────
+    float absYawChange = Math.abs(yawChange);
+    float absPitchChange = Math.abs(pitchChange);
+    if (absYawChange != 0.0F || absPitchChange != 0.0F) {
+      st.yawChangeWindow.add(absYawChange);
+      if (st.yawChangeWindow.size() >= WINDOW_SIZE) {
+        analyzeWindow(player, st, st.yawChangeWindow, name, context);
+        st.yawChangeWindow.clear();
+      }
+    }
+
     // Geometry + advanced components share one target scan
     List<EntityPlayer> targets = targetsNear(mc, player, tick);
 
@@ -244,6 +262,71 @@ public class KillAuraUnifiedCheck {
   private void addVl(
       State st, float vl, ClientAntiCheatContext context, String name, String detail) {
     st.aimVl += vl;
+  }
+
+  // ── Rotation heuristic window (port from Rain's analyzeWindow) ────────
+
+  /**
+   * Port of Rain's AimBasicCheck.checkDefaultAim(): counts how often yaw changes in the window are
+   * simultaneously large and nearly identical to the first change ("robotized"), plus the
+   * both-direction big-jump snap pattern. Tolerances rescaled to quantization multiples.
+   */
+  private void analyzeWindow(
+      EntityPlayer player,
+      State st,
+      List<Float> window,
+      String name,
+      ClientAntiCheatContext context) {
+    float yawChangeFirst = window.get(0);
+    float oldYawChange = yawChangeFirst;
+    int machineKnownMovement = 0;
+    int constantRotations = 0;
+    int robotizedAmount = 0;
+    int bigSwingUp = 0;
+    int bigSwingDown = 0;
+
+    for (float yawChange : window) {
+      float robotized = Math.abs(yawChange - yawChangeFirst);
+      float diffBetweenYawChanges = yawChange - oldYawChange;
+      if (robotized < QUANTUM * 1.5F && yawChange > QUANTUM * 2.0F) {
+        ++robotizedAmount;
+      }
+      if (robotized < QUANTUM && yawChange > QUANTUM * 3.0F) {
+        ++machineKnownMovement;
+      }
+      if (robotized < QUANTUM * 0.5F && yawChange > QUANTUM * 2.5F) {
+        ++constantRotations;
+      }
+      // Big swings: +-12 = ~35deg+ flick over interpolation
+      if (diffBetweenYawChanges > 12.0F) {
+        ++bigSwingUp;
+      }
+      if (diffBetweenYawChanges < -12.0F) {
+        ++bigSwingDown;
+      }
+      oldYawChange = yawChange;
+    }
+
+    // Rain weights: aim=100, constant=65, sync=50
+    if (machineKnownMovement > 8) {
+      addVl(st, 100.0F, context, name, "heuristic(aim)");
+    }
+    if (constantRotations > 6) {
+      addVl(st, 65.0F, context, name, "heuristic(constant)");
+    }
+    if (robotizedAmount > 8) {
+      addVl(st, 50.0F, context, name, "heuristic(sync)");
+    }
+
+    // pattern(snap): both-direction big jumps with persistence streak (>2 windows)
+    if (bigSwingUp > 1 && bigSwingDown > 1 && bigSwingUp + bigSwingDown > 4) {
+      ++st.snapStreak;
+      if (st.snapStreak > 2) {
+        addVl(st, 55.0F, context, name, "pattern(snap)");
+      }
+    } else {
+      st.snapStreak = 0;
+    }
   }
 
   // ── Burst machine ─────────────────────────────────────────────────────
@@ -564,6 +647,8 @@ public class KillAuraUnifiedCheck {
 
   private void resetSession(State st) {
     resetBurst(st);
+    st.yawChangeWindow.clear();
+    st.snapStreak = 0;
     st.quietTicks = 0;
     st.snapHits = 0;
     st.snapMisses = 0;
