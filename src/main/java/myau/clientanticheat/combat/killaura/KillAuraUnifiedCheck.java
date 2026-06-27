@@ -195,6 +195,7 @@ public class KillAuraUnifiedCheck {
       return;
     }
     float yawChange = MathHelper.wrapAngleTo180_float(yaw - st.lastYaw);
+    float pitchChange = pitch - st.lastPitch;
     st.lastYaw = yaw;
     st.lastPitch = pitch;
 

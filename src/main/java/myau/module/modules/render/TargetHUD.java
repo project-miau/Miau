@@ -473,9 +473,13 @@ public class TargetHUD extends Module {
     this.drag.scale.y = 27.0F * this.scale.getValue();
 
     GlStateManager.pushMatrix();
-    GlStateManager.scale(this.scale.getValue(), this.scale.getValue(), 0.0F);
+    GlStateManager.scale(this.scale.getValue(), this.scale.getValue(), 1.0F);
     GlStateManager.translate(posX, posY, -450.0F);
-    RenderUtil.enableRenderState();
+    GlStateManager.enableBlend();
+    GlStateManager.blendFunc(770, 771);
+    GlStateManager.disableAlpha();
+    GlStateManager.disableDepth();
+    GlStateManager.disableTexture2D();
     int backgroundColor =
         new Color(0.0F, 0.0F, 0.0F, (float) this.background.getValue() / 100.0F).getRGB();
     int outlineColor =
@@ -494,9 +498,8 @@ public class TargetHUD extends Module {
         headIconOffset + 2.0F + healthRatio * (barTotalWidth - 2.0F - headIconOffset - 2.0F),
         25.0F,
         healthBarColor.getRGB());
-    RenderUtil.disableRenderState();
-    GlStateManager.disableDepth();
-    GlStateManager.enableBlend();
+    GlStateManager.enableTexture2D();
+    GlStateManager.enableAlpha();
     GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
     mc.fontRendererObj.drawString(
         targetNameText, headIconOffset + 2.0F, 2.0F, -1, this.shadow.getValue());

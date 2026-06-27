@@ -2315,6 +2315,7 @@ public class RenderUtil {
     glEnable(3042);
     GL11.glDisable(3553);
     glEnable(2848);
+    GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
     GL11.glBegin(9);
     glColor(color);
     for (int i = 0; i <= 90; i += 3) {
@@ -2346,11 +2347,11 @@ public class RenderUtil {
     GL11.glEnd();
     glEnable(3553);
     GL11.glDisable(3042);
-    GL11.glDisable(2848);
     glEnable(3553);
+    GL11.glDisable(2848);
     GL11.glPopAttrib();
     GL11.glPopMatrix();
-    GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+    GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
   }
 
   public static void drawRoundedRectangleOutline(

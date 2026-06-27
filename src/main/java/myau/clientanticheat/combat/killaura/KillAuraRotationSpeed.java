@@ -22,8 +22,8 @@ public class KillAuraRotationSpeed {
   private final Map<String, CheckBuffer> accuracyBuffers = new HashMap<>();
   private final Map<String, Queue<Double>> hitAccuracySamples = new HashMap<>();
 
-  private static final int ACCURACY_SAMPLE_SIZE = 20;
-  private static final double HIGH_ACCURACY_THRESHOLD = 0.92D;
+  private static final int ACCURACY_SAMPLE_SIZE = 25;
+  private static final double HIGH_ACCURACY_THRESHOLD = 0.95D;
 
   public void check(
       EntityPlayer player, PlayerCheckData data, long currentTick, ClientAntiCheatContext context) {
@@ -31,6 +31,11 @@ public class KillAuraRotationSpeed {
     if (name == null || data == null || data.recentlyTeleported()) return;
 
     if (!data.startedSwinging()) {
+      this.decay(name);
+      return;
+    }
+
+    if (data.recentlyHurt()) {
       this.decay(name);
       return;
     }
@@ -53,17 +58,17 @@ public class KillAuraRotationSpeed {
     if (delay > 0L && delay < 3L) {
       rateBuffer.flag(1.0D, 999.0D);
     } else {
-      rateBuffer.decay(0.35D);
+      rateBuffer.decay(0.4D);
     }
 
     // ── Wide-angle silent aim ──────────────────────────────────────
     float yawError =
         Math.abs(MathHelper.wrapAngleTo180_float(this.yawTo(player, target) - player.rotationYaw));
     float pitchError = Math.abs(this.pitchTo(player, target) - player.rotationPitch);
-    if (yawError > 35.0F || pitchError > 28.0F) {
+    if (yawError > 45.0F || pitchError > 35.0F) {
       aimBuffer.flag(1.25D, 999.0D);
     } else {
-      aimBuffer.decay(0.45D);
+      aimBuffer.decay(0.5D);
     }
 
     // ── Hit accuracy ───────────────────────────────────────────────
@@ -92,7 +97,7 @@ public class KillAuraRotationSpeed {
       if (highAccuracy || (lowVariance && avgAccuracy > 0.85D)) {
         accuracyBuffer.flag(highAccuracy ? 1.5D : 1.0D, 999.0D);
       } else {
-        accuracyBuffer.decay(0.2D);
+        accuracyBuffer.decay(0.25D);
       }
       accuracySamples.clear();
     }
@@ -111,7 +116,7 @@ public class KillAuraRotationSpeed {
 
   public void decay(String name) {
     CheckBuffer rate = this.rateBuffers.get(name);
-    if (rate != null) rate.decay(0.15D);
+    if (rate != null) rate.decay(0.2D);
     CheckBuffer aim = this.aimBuffers.get(name);
     if (aim != null) aim.decay(0.15D);
     CheckBuffer accuracy = this.accuracyBuffers.get(name);

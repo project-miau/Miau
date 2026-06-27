@@ -1,10 +1,7 @@
 package myau.module.modules.misc;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -16,6 +13,7 @@ import myau.clientanticheat.PlayerCheckData;
 import myau.clientanticheat.PlayerEligibility;
 import myau.clientanticheat.combat.autoblock.AutoBlockCheck;
 import myau.clientanticheat.combat.autoclicker.ClickSpeedCheck;
+import myau.clientanticheat.combat.killaura.KillAuraHeuristicsCheck;
 import myau.clientanticheat.combat.killaura.KillAuraLatencyCheck;
 import myau.clientanticheat.combat.killaura.KillAuraNoSwingCheck;
 import myau.clientanticheat.combat.killaura.KillAuraRotationSpeed;
@@ -39,21 +37,10 @@ import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.EnumChatFormatting;
-import myau.util.client.ChatUtil;
 
-/**
- * HackerDetector — fully wired AntiCheat detection module.
- *
- * <p>Runs ALL 18+ Miau client-side anticheat checks per tick with individual toggles. Detects:
- * KillAura (unified + extras), AutoBlock, Scaffold, Reach, Velocity, NoSlow, Blink/FakeLag,
- * Sprint, AutoClicker.
- */
 public class HackerDetector extends Module implements ClientAntiCheatContext {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
-
-  // ── Per-check toggles ────────────────────────────────────────────────
 
   public final BooleanProperty enableKillaura = new BooleanProperty("killaura", true);
   public final BooleanProperty enableAutoBlock = new BooleanProperty("autoblock", true);
@@ -70,8 +57,9 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
 
   // ── Check instances ──────────────────────────────────────────────────
 
-  // KillAura
+  // KillAura (6 checkers — unified + heuristics + 4 extras)
   private final KillAuraUnifiedCheck killauraUnified = new KillAuraUnifiedCheck();
+  private final KillAuraHeuristicsCheck killauraHeuristics = new KillAuraHeuristicsCheck();
   private final KillAuraNoSwingCheck killauraNoSwing = new KillAuraNoSwingCheck();
   private final KillAuraLatencyCheck killauraLatency = new KillAuraLatencyCheck();
   private final KillAuraToolSwitchCheck killauraToolSwitch = new KillAuraToolSwitchCheck();
@@ -128,7 +116,6 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
 
     this.checkDataManager.update(mc.theWorld);
     long currentTick = mc.theWorld.getTotalWorldTime();
-    long nowMs = System.currentTimeMillis();
 
     for (EntityPlayer player : mc.theWorld.playerEntities) {
       if (player == null || player.isDead) continue;
@@ -144,9 +131,10 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
 
       data.updateRainData(player);
 
-      // ── KillAura ───────────────────────────────────────────────────
+      // ── KillAura (Unified + Heuristics + 4 Extras) ──────────────────
       if (this.enableKillaura.getValue()) {
         this.killauraUnified.check(player, data, currentTick, this);
+        this.killauraHeuristics.check(player, data, this);
         this.killauraNoSwing.check(player, data, this);
         this.killauraLatency.check(player, data, this);
         this.killauraToolSwitch.check(player, data, currentTick, this);
@@ -187,24 +175,20 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
         this.microBlinkCheck.check(player, data, this);
       }
 
-      // ── Sprint ─────────────────────────────────────────────────────
       if (this.enableSprint.getValue()) {
         this.omniSprintCheck.check(player, data, this);
         this.actionSprintCheck.check(player, data, this);
       }
 
-      // ── AutoClicker ────────────────────────────────────────────────
       if (this.enableAutoClicker.getValue()) {
         this.clickSpeedCheck.check(player, data, currentTick, this);
       }
     }
   }
 
-  // ── ClientAntiCheatContext ───────────────────────────────────────────
-
   @Override
   public void receiveSignal(String playerName, String cheatName) {
-    this.receiveSignal(playerName, cheatName, "anomaly", 0);
+    this.receiveSignal(playerName, cheatName, "behavior anomaly", 0);
   }
 
   @Override
@@ -212,7 +196,6 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
     if (playerName == null || playerName.isEmpty() || cheatName == null) return;
     if (mc.theWorld == null) return;
 
-    // Per-check per-player cooldown
     String cooldownKey = playerName + "@" + cheatName + "@" + detail;
     long now = System.currentTimeMillis();
     Long lastTime = this.checkCooldowns.get(cooldownKey);
@@ -221,19 +204,16 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
     }
     this.checkCooldowns.put(cooldownKey, now);
 
-    // Alert via fancy style
     ++this.flagCount;
     AntiCheatAlertStyle.displayFlag(playerName, cheatName, detail, vl, this.flagCount,
         MAX_FLAG_COUNT);
     AntiCheatAlertStyle.markCheater(playerName, cheatName, vl);
 
-    // Sound
     if (this.sound.getValue() && now - this.lastAlertSoundTime >= 1500L) {
       mc.thePlayer.playSound("random.orb", 0.3F, 1.0F);
       this.lastAlertSoundTime = now;
     }
 
-    // Auto-target
     if (this.addTarget.getValue() && Myau.targetManager != null) {
       Myau.targetManager.add(playerName);
     }
@@ -243,8 +223,6 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
   public PlayerCheckData getPlayerData(EntityPlayer player) {
     return this.checkDataManager.get(player);
   }
-
-  // ── Lifecycle ────────────────────────────────────────────────────────
 
   @Override
   public void onDisabled() {
@@ -257,8 +235,8 @@ public class HackerDetector extends Module implements ClientAntiCheatContext {
     this.lastAlertSoundTime = 0;
     this.checkCooldowns.clear();
 
-    // Reset all check instances
     this.killauraUnified.reset();
+    this.killauraHeuristics.reset();
     this.killauraNoSwing.reset();
     this.killauraLatency.reset();
     this.killauraToolSwitch.reset();
