@@ -310,28 +310,33 @@ public class TargetHUD extends Module {
       float x = n6 + padding * invSc;
       float y = n7 + padding * invSc;
 
-      float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
-      float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
-      BlurUtils.prepareBloom();
-      RoundedUtils.drawRound(
-          n6,
-          n7,
-          Math.abs(n6 - n8),
-          Math.abs(n7 - (n9 + 13f * invSc)),
-          8.0f,
-          true,
-          new Color(0, 0, 0, maxAlphaBackground));
-      BlurUtils.bloomEnd(3, bloomRadius);
-      BlurUtils.prepareBlur();
-      RoundedUtils.drawRound(
-          n6,
-          n7,
-          Math.abs(n6 - n8),
-          Math.abs(n7 - (n9 + 13f * invSc)),
-          8.0f,
-          true,
-          new Color(mergeAlpha(Color.black.getRGB(), maxAlphaOutline)));
-      BlurUtils.blurEnd(2, blurRadius);
+      HUD hud = (HUD) Myau.moduleManager.modules.get(HUD.class);
+      boolean shaders = hud != null && hud.shaders.getValue();
+
+      if (shaders) {
+        float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
+        float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
+        BlurUtils.prepareBloom();
+        RoundedUtils.drawRound(
+            n6,
+            n7,
+            Math.abs(n6 - n8),
+            Math.abs(n7 - (n9 + 13f * invSc)),
+            8.0f,
+            true,
+            new Color(0, 0, 0, maxAlphaBackground));
+        BlurUtils.bloomEnd(3, bloomRadius);
+        BlurUtils.prepareBlur();
+        RoundedUtils.drawRound(
+            n6,
+            n7,
+            Math.abs(n6 - n8),
+            Math.abs(n7 - (n9 + 13f * invSc)),
+            8.0f,
+            true,
+            new Color(mergeAlpha(Color.black.getRGB(), maxAlphaOutline)));
+        BlurUtils.blurEnd(2, blurRadius);
+      }
 
       float n13 = n6 + 6f * invSc;
       float n14 = n8 - 6f * invSc;

@@ -16,7 +16,7 @@ import net.minecraft.client.gui.ScaledResolution;
 
 public final class NotificationRenderer {
 
-  private static final Font ICON_FONT = FontRepository.getFont("materialicons-regular", 20f);
+  private static final Font ICON_FONT = FontRepository.getFont("materialicons-regular", 22f);
   private static final Font TITLE_FONT = FontRepository.getFont("productsans-bold", 14f);
   private static final Font DESCRIPTION_FONT = FontRepository.getFont("productsans-medium", 13f);
 
@@ -52,6 +52,20 @@ public final class NotificationRenderer {
     final float scaledWidth = sr.getScaledWidth();
     final float scaledHeight = sr.getScaledHeight();
 
+    float potionOffset = 0;
+    Minecraft mc = Minecraft.getMinecraft();
+    if (mc.thePlayer != null) {
+      myau.module.modules.render.HUD hud =
+          (myau.module.modules.render.HUD)
+              Myau.moduleManager.getModule(myau.module.modules.render.HUD.class);
+      if (hud != null && hud.isEnabled() && !mc.gameSettings.showDebugInfo) {
+        int effectsCount = mc.thePlayer.getActivePotionEffects().size();
+        if (effectsCount > 0) {
+          potionOffset = effectsCount * (hud.getFont().height() + 1.5f);
+        }
+      }
+    }
+
     for (int i = 0; i < notifications.size(); i++) {
       final Notification notification = notifications.get(i);
 
@@ -77,7 +91,7 @@ public final class NotificationRenderer {
       animation.run(notification.hasExpired() ? scaledWidth : endX);
 
       final float x = animation.getValue();
-      final float y = scaledHeight - (padding * 2) - ((i + 1) * (height + padding));
+      final float y = scaledHeight - (padding * 2) - ((i + 1) * (height + padding)) - potionOffset;
 
       final float progress = (float) notification.getTime() / notification.getDuration();
       final int iconColor = notification.getType().getIconColor();

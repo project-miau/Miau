@@ -126,7 +126,7 @@ public class FontRenderer extends myau.util.font.Font {
     charGraphics.setColor(TRANSPARENT_COLOR);
     charGraphics.fillRect(0, 0, width, height);
     setRenderHints(charGraphics);
-    charGraphics.drawString(character + "", MARGIN_WIDTH, fontMetrics.getAscent());
+    charGraphics.drawString(character + "", MARGIN_WIDTH, font.getSize());
 
     if (net.minecraft.client.Minecraft.getMinecraft().isCallingFromMinecraftThread()) {
       final int charTexture = GL11.glGenTextures();

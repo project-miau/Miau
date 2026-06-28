@@ -37,17 +37,17 @@ public class ClickGui extends GuiScreen {
 
   public ClickGui() {
     categories = new ArrayList<>();
-    String[] values =
+    String[] catNames =
         new String[] {
           "Combat",
           "Ghost",
           "Movement",
           "Player",
           "Render",
-          "Themes",
           "Misc",
-          "Network",
           "Search",
+          "Themes",
+          "Network",
           "Minigames"
         };
 
@@ -64,18 +64,15 @@ public class ClickGui extends GuiScreen {
     float currentX = startX;
     float currentY = startY;
 
-    for (int i = 0; i < values.length; ++i) {
-      CategoryComponent cc = new CategoryComponent(values[i]);
-
-      if (currentX + marginX > screenWidth && currentX > startX) {
+    for (String name : catNames) {
+      CategoryComponent cc = new CategoryComponent(name);
+      if (currentX + cc.width + 10 > screenWidth) {
         currentX = startX;
         currentY += marginY;
       }
-
       cc.setX(currentX, false);
       cc.setY(currentY, false);
       categories.add(cc);
-
       currentX += marginX;
     }
   }
@@ -89,7 +86,7 @@ public class ClickGui extends GuiScreen {
     float startX = 15, startY = 15;
     float marginX = 105, marginY = 10;
 
-    for (int col = 0; col < 15; col++) {
+    for (int col = 0; col < 20; col++) {
       final int currentCol = col;
       List<CategoryComponent> inCol = new ArrayList<>();
       for (CategoryComponent c : categories) {
@@ -187,14 +184,8 @@ public class ClickGui extends GuiScreen {
             || (hudModule != null && hudModule.shaders.getValue());
 
     if (useBlur) {
-      float passes =
-          (hudModule != null && hudModule.blurSettings.getValue())
-              ? hudModule.blurCompression.getValue()
-              : 5.0f;
-      float radius =
-          (hudModule != null && hudModule.blurSettings.getValue())
-              ? hudModule.blurRadius.getValue()
-              : 25.0f;
+      float passes = 5.0f;
+      float radius = 25.0f;
       myau.util.shader.BlurUtils.prepareBlur();
       RoundedUtils.drawRound(0, 0, this.width, this.height, 0.0f, true, Color.black);
       myau.util.shader.BlurUtils.blurEnd((int) passes, radius);
@@ -219,9 +210,7 @@ public class ClickGui extends GuiScreen {
       if (configWindow != null) {
         configWindow.drawWindow(scaledX, scaledY, 0);
       }
-      myau.util.shader.BlurUtils.bloomEnd(
-          hudModule.bloomCompression.getValue().intValue(),
-          hudModule.bloomRadius.getValue().floatValue());
+      myau.util.shader.BlurUtils.bloomEnd(6, 24.0f);
     }
 
     for (CategoryComponent c : renderOrder) {

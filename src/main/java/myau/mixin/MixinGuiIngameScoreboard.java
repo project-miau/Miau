@@ -49,14 +49,12 @@ public abstract class MixinGuiIngameScoreboard {
       isRenderingBloom = true;
       myau.util.shader.BlurUtils.prepareBloom();
       renderOpalScoreboard(objective, scaledRes, scoreboardMod, true);
-      myau.util.shader.BlurUtils.bloomEnd(
-          hud.bloomCompression.getValue().intValue(), hud.bloomRadius.getValue());
+      myau.util.shader.BlurUtils.bloomEnd(6, 24.0f);
 
       // Blur pass
       myau.util.shader.BlurUtils.prepareBlur();
       renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
-      myau.util.shader.BlurUtils.blurEnd(
-          hud.blurCompression.getValue().intValue(), hud.blurRadius.getValue());
+      myau.util.shader.BlurUtils.blurEnd(5, 25.0f);
 
       // Final pass
       renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);

@@ -146,6 +146,7 @@ public class BackTrack extends Module {
   private double packetRealZ;
 
   private static BackTrack instance;
+  public static boolean isReleasingPackets = false;
 
   public BackTrack() {
     super("BackTrack", false);
@@ -291,6 +292,7 @@ public class BackTrack extends Module {
   @EventTarget
   public void onPacket(PacketEvent event) {
     if (!this.isEnabled() || event.isCancelled()) return;
+    if (isReleasingPackets) return;
     if (Myau.blinkManager != null && Myau.blinkManager.isBlinking()) return;
 
     Packet<?> packet = event.getPacket();
@@ -824,8 +826,15 @@ public class BackTrack extends Module {
     if (packet == null || mc.getNetHandler() == null || mc.theWorld == null || mc.thePlayer == null)
       return;
     try {
-      PacketUtil.handlePacket((Packet<INetHandlerPlayClient>) packet);
+      isReleasingPackets = true;
+      PacketEvent event = new PacketEvent(EventType.RECEIVE, packet);
+      myau.event.EventManager.call(event);
+      if (!event.isCancelled()) {
+        PacketUtil.handlePacket((Packet<INetHandlerPlayClient>) packet);
+      }
+      isReleasingPackets = false;
     } catch (RuntimeException ignored) {
+      isReleasingPackets = false;
     }
   }
 

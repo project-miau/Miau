@@ -8,6 +8,8 @@ import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.DragProperty;
 import myau.property.properties.IntProperty;
+import myau.util.animation.Animation;
+import myau.util.animation.Easing;
 import myau.util.vector.Vector2d;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
@@ -30,7 +32,8 @@ public class Scoreboard extends Module {
   public final BooleanProperty customFont = new BooleanProperty("Custom Font", false);
   public final BooleanProperty textShadow = new BooleanProperty("Text Shadow", true);
   public final BooleanProperty redNumbers = new BooleanProperty("Red Numbers", false);
-  public final BooleanProperty autofit = new BooleanProperty("Autofit", true);
+
+  private final Animation autofitAnimation = new Animation(Easing.EASE_OUT_EXPO, 300);
 
   public Scoreboard() {
     super("Scoreboard", true, false);
@@ -88,36 +91,35 @@ public class Scoreboard extends Module {
 
     // ── Autofit: push down if HUD module list is on the right side ────────
     float autofitOffset = 0;
-    if (autofit.getValue()) {
-      HUD hud = (HUD) Myau.moduleManager.getModule(HUD.class);
-      if (hud != null && hud.isEnabled() && hud.posX.getValue() == 1) {
-        float moduleListHeight = hud.getModuleListHeight();
-        if (moduleListHeight > 0) {
-          float hudStartY;
-          if (hud.posY.getValue() == 0) {
-            hudStartY = hud.offsetY.getValue();
-            if (hud.showWatermark.getValue()) {
-              hudStartY += hud.getFont().getFontHeight() + 6.0F;
-            }
-          } else {
-            hudStartY = scaledRes.getScaledHeight() - hud.offsetY.getValue() - moduleListHeight;
+    HUD hud = (HUD) Myau.moduleManager.getModule(HUD.class);
+    if (hud != null && hud.isEnabled() && hud.posX.getValue() == 1) {
+      float moduleListHeight = hud.getModuleListHeight();
+      if (moduleListHeight > 0) {
+        float hudStartY;
+        if (hud.posY.getValue() == 0) {
+          hudStartY = hud.offsetY.getValue();
+          if (hud.showWatermark.getValue()) {
+            hudStartY += hud.getFont().getFontHeight() + 6.0F;
           }
-          float hudBottom = hudStartY + moduleListHeight;
-          if (hudBottom > baseY) {
-            autofitOffset = hudBottom - baseY + 4;
-          }
+        } else {
+          hudStartY = scaledRes.getScaledHeight() - hud.offsetY.getValue() - moduleListHeight;
+        }
+        float hudBottom = hudStartY + moduleListHeight;
+        if (hudBottom > baseY) {
+          autofitOffset = hudBottom - baseY + 4;
         }
       }
     }
 
     this.defaultX = baseX;
-    this.defaultY = baseY + autofitOffset;
+    autofitAnimation.run(baseY + autofitOffset);
+    this.defaultY = autofitAnimation.getValue();
 
     // Always keep position in sync (no initialisation guard — the Mixin reads defaultX/Y directly)
     this.drag.position.x = baseX;
-    this.drag.position.y = baseY + autofitOffset;
+    this.drag.position.y = this.defaultY;
     this.drag.targetPosition.x = baseX;
-    this.drag.targetPosition.y = baseY + autofitOffset;
+    this.drag.targetPosition.y = this.defaultY;
     this.drag.scale.x = width;
     this.drag.scale.y = height;
   }

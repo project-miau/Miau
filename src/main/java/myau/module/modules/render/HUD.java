@@ -78,16 +78,6 @@ public class HUD extends Module {
   public final BooleanProperty toggleAlerts = new BooleanProperty("toggle-alerts", false);
   public final BooleanProperty notifications = new BooleanProperty("notifications", true);
   public final BooleanProperty shaders = new BooleanProperty("Shaders", false);
-  public final BooleanProperty blurSettings =
-      new BooleanProperty("Blur Settings", false, () -> this.shaders.getValue());
-  public final FloatProperty blurRadius =
-      new FloatProperty("Blur Radius", 25.0F, 1.0F, 50.0F, () -> this.shaders.getValue());
-  public final FloatProperty blurCompression =
-      new FloatProperty("Blur Compression", 5.0F, 1.0F, 10.0F, () -> this.shaders.getValue());
-  public final FloatProperty bloomRadius =
-      new FloatProperty("Bloom Radius", 24.0F, 1.0F, 50.0F, () -> this.shaders.getValue());
-  public final FloatProperty bloomCompression =
-      new FloatProperty("Bloom Compression", 6.5F, 1.0F, 10.0F, () -> this.shaders.getValue());
   public final IntProperty backgroundAlpha = new IntProperty("Background Alpha", 110, 0, 255);
   public final FloatProperty roundingRadius =
       new FloatProperty("Rounding Radius", 1.0F, 0.0F, 10.0F);
@@ -347,13 +337,11 @@ public class HUD extends Module {
 
         myau.util.shader.BlurUtils.prepareBloom();
         renderElements(l, delta, animatingComponents, sr);
-        myau.util.shader.BlurUtils.bloomEnd(
-            bloomCompression.getValue().intValue(), bloomRadius.getValue());
+        myau.util.shader.BlurUtils.bloomEnd(6, 24.0f);
 
         myau.util.shader.BlurUtils.prepareBlur();
         renderElements(l, delta, animatingComponents, sr);
-        myau.util.shader.BlurUtils.blurEnd(
-            blurCompression.getValue().intValue(), blurRadius.getValue());
+        myau.util.shader.BlurUtils.blurEnd(5, 25.0f);
       }
       renderElements(l, delta, animatingComponents, sr);
     }

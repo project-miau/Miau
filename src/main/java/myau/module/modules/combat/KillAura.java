@@ -6,7 +6,6 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Locale;
-import java.util.Random;
 import myau.Myau;
 import myau.enums.BlinkModules;
 import myau.event.*;
@@ -75,39 +74,25 @@ public class KillAura extends Module {
       new DecimalFormat("+0.0;-0.0", new DecimalFormatSymbols(Locale.US));
   private final TimerUtil timer = new TimerUtil();
   private AttackData target = null;
-  private int switchTick = 0;
-  private boolean hitRegistered = false;
-  private boolean blockingState = false;
-  private boolean isBlocking = false;
-  private boolean fakeBlockState = false;
-  private boolean blinkReset = false;
-  private boolean rightHoldActive = false;
-  private long attackDelayMS = 0L;
-  private int blockTick = 0;
+  public int switchTick = 0;
+  public boolean hitRegistered = false;
+  public boolean blockingState = false;
+  public boolean isBlocking = false;
+  public boolean fakeBlockState = false;
+  public boolean blinkReset = false;
+  public boolean rightHoldActive = false;
+  public long attackDelayMS = 0L;
+  public int blockTick = 0;
+  public boolean cancelAttack = false;
   private int lastTickProcessed;
   private int ticksSinceVelocity = 0;
   private double expandRange = 0.0;
   public final ModeProperty mode;
   public final IntProperty switchDelay;
   public final ModeProperty autoBlock;
+  public final java.util.List<myau.module.modules.combat.killaura.autoblocks.AutoBlockMode>
+      autoBlockModes = new java.util.ArrayList<>();
   public final BooleanProperty autoBlockRequirePress;
-  public final ModeProperty smartUnblockMode;
-  public final BooleanProperty smartReleaseAutoBlock;
-  public final BooleanProperty smartForceBlockRender;
-  public final BooleanProperty smartIgnoreTickRule;
-  public final IntProperty smartBlockRate;
-  public final BooleanProperty smartUpdatedNCPAutoBlock;
-  public final BooleanProperty smartSwitchStartBlock;
-  public final BooleanProperty smartInteractAutoBlock;
-  public final BooleanProperty smartBlinkAutoBlock;
-  public final IntProperty smartBlinkBlockTicks;
-  public final BooleanProperty smartAutoBlockCheck;
-  public final BooleanProperty smartForceBlockWhenStill;
-  public final BooleanProperty smartCheckEnemyWeapon;
-  public final FloatProperty smartBlockRange;
-  public final IntProperty smartMaxOwnHurtTime;
-  public final FloatProperty smartMaxDirectionDiff;
-  public final IntProperty smartMaxSwingProgress;
   public final BooleanProperty preventServersideBlocking;
   public final ModeProperty sort;
   public final ModeProperty clickMode;
@@ -435,7 +420,7 @@ public class KillAura extends Module {
     this.blockingState = true;
   }
 
-  private void stopBlock() {
+  public void stopBlock() {
     PacketUtil.sendPacket(
         new C07PacketPlayerDigging(
             C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, EnumFacing.DOWN));
@@ -443,7 +428,7 @@ public class KillAura extends Module {
     this.blockingState = false;
   }
 
-  private void setRightHold(boolean pressed) {
+  public void setRightHold(boolean pressed) {
     int useKey = mc.gameSettings.keyBindUseItem.getKeyCode();
     if (pressed) {
       KeyBindUtil.setKeyBindState(useKey, true);
@@ -461,7 +446,7 @@ public class KillAura extends Module {
   }
 
   private void updateRightHoldBlock() {
-    if (this.autoBlock.getValue() == 10) {
+    if (false) {
       this.setRightHold(this.shouldRightHoldBlock());
     } else {
       this.setRightHold(false);
@@ -502,9 +487,9 @@ public class KillAura extends Module {
   }
 
   private void stopCustomBlock(boolean forceStop) {
-    if (forceStop || this.smartUnblockMode.getValue() == 0) {
+    if (forceStop) {
       this.stopBlock();
-    } else if (this.smartUnblockMode.getValue() == 1) {
+    } else if (false) {
       int item = ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
       PacketUtil.sendPacket(new C09PacketHeldItemChange((item + 1) % 9));
       PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
@@ -522,39 +507,6 @@ public class KillAura extends Module {
         this.stopBlock();
       }
     }
-  }
-
-  private boolean shouldCustomSmartBlock() {
-    if (!this.smartAutoBlockCheck.getValue() || this.target == null) {
-      return true;
-    }
-    EntityLivingBase entity = this.target.getEntity();
-    if (RotationUtil.distanceToEntity(entity) > (double) this.smartBlockRange.getValue()) {
-      return false;
-    }
-    if (mc.thePlayer.hurtTime > this.smartMaxOwnHurtTime.getValue()) {
-      return false;
-    }
-    if (this.smartCheckEnemyWeapon.getValue()) {
-      ItemStack heldItem = entity.getHeldItem();
-      if (heldItem == null || !(heldItem.getItem() instanceof ItemSword)) {
-        return false;
-      }
-    }
-    if (entity.swingProgressInt > this.smartMaxSwingProgress.getValue()) {
-      return false;
-    }
-    float yawToPlayer =
-        (float)
-                (Math.atan2(mc.thePlayer.posZ - entity.posZ, mc.thePlayer.posX - entity.posX)
-                    * 180.0D
-                    / Math.PI)
-            - 90.0F;
-    return this.smartForceBlockWhenStill.getValue()
-            && mc.thePlayer.motionX == 0.0D
-            && mc.thePlayer.motionZ == 0.0D
-        || Math.abs(MathHelper.wrapAngleTo180_float(entity.rotationYaw - yawToPlayer))
-            <= this.smartMaxDirectionDiff.getValue();
   }
 
   private boolean canAttack() {
@@ -603,7 +555,7 @@ public class KillAura extends Module {
     }
   }
 
-  private boolean hasValidTarget() {
+  public boolean hasValidTarget() {
     return mc.theWorld.loadedEntityList.stream()
         .anyMatch(
             entity ->
@@ -710,7 +662,7 @@ public class KillAura extends Module {
     return this.targetTeams.getValue() || !TeamUtil.isSameTeam(player);
   }
 
-  private int findEmptySlot(int currentSlot) {
+  public int findEmptySlot(int currentSlot) {
     for (int i = 0; i < 9; i++) {
       if (i != currentSlot && mc.thePlayer.inventory.getStackInSlot(i) == null) {
         return i;
@@ -742,111 +694,30 @@ public class KillAura extends Module {
   public KillAura() {
     super("KillAura", false);
     this.lastTickProcessed = 0;
-    this.mode = new ModeProperty("mode", 0, new String[] {"SINGLE", "SWITCH"});
+    this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
     this.switchDelay = new IntProperty("switch-delay", 150, 0, 1000);
-    this.autoBlock =
-        new ModeProperty(
-            "auto-block",
-            2,
-            new String[] {
-              "NONE",
-              "VANILLA",
-              "SPOOF",
-              "HYPIXEL",
-              "BLINK",
-              "INTERACT",
-              "SWAP",
-              "LEGIT",
-              "FAKE",
-              "SMART",
-              "RIGHT_HOLD",
-              "GRIM",
-              "Test"
-            });
+    this.autoBlockModes.add(new myau.module.modules.combat.killaura.autoblocks.NoneAutoBlock(this));
+    this.autoBlockModes.add(
+        new myau.module.modules.combat.killaura.autoblocks.VanillaAutoBlock(this));
+    this.autoBlockModes.add(
+        new myau.module.modules.combat.killaura.autoblocks.SpoofAutoBlock(this));
+    this.autoBlockModes.add(
+        new myau.module.modules.combat.killaura.autoblocks.HypixelAutoBlock(this));
+    this.autoBlockModes.add(
+        new myau.module.modules.combat.killaura.autoblocks.BlinkAutoBlock(this));
+    this.autoBlockModes.add(
+        new myau.module.modules.combat.killaura.autoblocks.InteractAutoBlock(this));
+    this.autoBlockModes.add(
+        new myau.module.modules.combat.killaura.autoblocks.LegitAutoBlock(this));
+    this.autoBlockModes.add(new myau.module.modules.combat.killaura.autoblocks.FakeAutoBlock(this));
+    this.autoBlockModes.add(new myau.module.modules.combat.killaura.autoblocks.GrimAutoBlock(this));
+
+    String[] autoBlockNames =
+        this.autoBlockModes.stream()
+            .map(myau.module.modules.combat.killaura.autoblocks.AutoBlockMode::getName)
+            .toArray(String[]::new);
+    this.autoBlock = new ModeProperty("auto-block", 2, autoBlockNames);
     this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
-    this.smartUnblockMode =
-        new ModeProperty(
-            "unblock-mode",
-            0,
-            new String[] {"STOP", "SWITCH", "EMPTY"},
-            () -> this.autoBlock.getValue() == 9);
-    this.smartReleaseAutoBlock =
-        new BooleanProperty("release-auto-block", true, () -> this.autoBlock.getValue() == 9);
-    this.smartForceBlockRender =
-        new BooleanProperty(
-            "force-block-render",
-            true,
-            () -> this.autoBlock.getValue() == 9 && this.smartReleaseAutoBlock.getValue());
-    this.smartIgnoreTickRule =
-        new BooleanProperty(
-            "ignore-tick-rule",
-            false,
-            () -> this.autoBlock.getValue() == 9 && this.smartReleaseAutoBlock.getValue());
-    this.smartBlockRate =
-        new IntProperty(
-            "block-rate",
-            100,
-            1,
-            100,
-            () -> this.autoBlock.getValue() == 9 && this.smartReleaseAutoBlock.getValue());
-    this.smartUpdatedNCPAutoBlock =
-        new BooleanProperty(
-            "updated-ncp-auto-block",
-            false,
-            () -> this.autoBlock.getValue() == 9 && !this.smartReleaseAutoBlock.getValue());
-    this.smartSwitchStartBlock =
-        new BooleanProperty("switch-start-block", false, () -> this.autoBlock.getValue() == 9);
-    this.smartInteractAutoBlock =
-        new BooleanProperty("interact-auto-block", true, () -> this.autoBlock.getValue() == 9);
-    this.smartBlinkAutoBlock =
-        new BooleanProperty("blink-auto-block", false, () -> this.autoBlock.getValue() == 9);
-    this.smartBlinkBlockTicks =
-        new IntProperty(
-            "blink-block-ticks",
-            3,
-            2,
-            5,
-            () -> this.autoBlock.getValue() == 9 && this.smartBlinkAutoBlock.getValue());
-    this.smartAutoBlockCheck =
-        new BooleanProperty("smart-auto-block", false, () -> this.autoBlock.getValue() == 9);
-    this.smartForceBlockWhenStill =
-        new BooleanProperty(
-            "force-block-when-still",
-            true,
-            () -> this.autoBlock.getValue() == 9 && this.smartAutoBlockCheck.getValue());
-    this.smartCheckEnemyWeapon =
-        new BooleanProperty(
-            "check-enemy-weapon",
-            true,
-            () -> this.autoBlock.getValue() == 9 && this.smartAutoBlockCheck.getValue());
-    this.smartBlockRange =
-        new FloatProperty(
-            "block-range",
-            3.0F,
-            1.0F,
-            8.0F,
-            () -> this.autoBlock.getValue() == 9 && this.smartAutoBlockCheck.getValue());
-    this.smartMaxOwnHurtTime =
-        new IntProperty(
-            "max-own-hurt-time",
-            3,
-            0,
-            10,
-            () -> this.autoBlock.getValue() == 9 && this.smartAutoBlockCheck.getValue());
-    this.smartMaxDirectionDiff =
-        new FloatProperty(
-            "max-opponent-direction-diff",
-            60.0F,
-            30.0F,
-            180.0F,
-            () -> this.autoBlock.getValue() == 9 && this.smartAutoBlockCheck.getValue());
-    this.smartMaxSwingProgress =
-        new IntProperty(
-            "max-opponent-swing-progress",
-            1,
-            0,
-            5,
-            () -> this.autoBlock.getValue() == 9 && this.smartAutoBlockCheck.getValue());
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
     this.sort =
         new ModeProperty("sort", 0, new String[] {"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
@@ -934,11 +805,7 @@ public class KillAura extends Module {
           && (this.autoBlock.getValue() == 3
               || this.autoBlock.getValue() == 4
               || this.autoBlock.getValue() == 5
-              || this.autoBlock.getValue() == 6
-              || this.autoBlock.getValue() == 7
-              || this.autoBlock.getValue() == 9
-              || this.autoBlock.getValue() == 10
-              || this.autoBlock.getValue() == 11);
+              || this.autoBlock.getValue() == 6);
     } else {
       return false;
     }
@@ -952,10 +819,9 @@ public class KillAura extends Module {
     return (mc.thePlayer.isUsingItem() || this.blockingState) && ItemUtil.isHoldingSword();
   }
 
-  private boolean isNoSlowAntiSwitchActive() {
-    return Myau.moduleManager != null
-        && Myau.moduleManager.modules.get(NoSlow.class) instanceof NoSlow
-        && ((NoSlow) Myau.moduleManager.modules.get(NoSlow.class)).isAntiSwitchActive();
+  public boolean isNoSlowAntiSwitchActive() {
+    NoSlow noSlow = (NoSlow) Myau.moduleManager.modules.get(NoSlow.class);
+    return noSlow.isEnabled() && noSlow.mode.getValue() == 3 && this.isPlayerBlocking();
   }
 
   @EventTarget(Priority.LOW)
@@ -1027,383 +893,10 @@ public class KillAura extends Module {
         boolean swap = false;
         boolean blocked = false;
         if (block) {
-          switch (this.autoBlock.getValue()) {
-            case 0:
-              if (PlayerUtil.isUsingItem()) {
-                this.isBlocking = true;
-                if (!this.isPlayerBlocking()
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  swap = true;
-                }
-              } else {
-                this.isBlocking = false;
-                if (this.isPlayerBlocking()
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  this.stopBlock();
-                }
-              }
-              Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-              this.fakeBlockState = false;
-              break;
-            case 1:
-              if (this.hasValidTarget()) {
-                if (!this.isPlayerBlocking()
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  swap = true;
-                }
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = true;
-                this.fakeBlockState = false;
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-              }
-              break;
-            case 2:
-              if (this.hasValidTarget()) {
-                int item =
-                    ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
-                if (Myau.playerStateManager.digging
-                    || Myau.playerStateManager.placing
-                    || mc.thePlayer.inventory.currentItem != item
-                    || this.isPlayerBlocking() && this.blockTick != 0
-                    || this.attackDelayMS > 0L && this.attackDelayMS <= 50L) {
-                  this.blockTick = 0;
-                } else {
-                  int slot = this.findEmptySlot(item);
-                  PacketUtil.sendPacket(new C09PacketHeldItemChange(slot));
-                  PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
-                  swap = true;
-                  this.blockTick = 1;
-                }
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = true;
-                this.fakeBlockState = false;
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-              }
-              break;
-            case 3:
-              if (this.hasValidTarget()) {
-                if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
-                  switch (this.blockTick) {
-                    case 0:
-                      if (!this.isPlayerBlocking()) {
-                        swap = true;
-                      }
-                      blocked = true;
-                      this.blockTick = 1;
-                      break;
-                    case 1:
-                      if (this.isPlayerBlocking()) {
-                        if (Myau.moduleManager.modules.get(NoSlow.class).isEnabled()
-                            && !this.isNoSlowAntiSwitchActive()) {
-                          int randomSlot = new Random().nextInt(9);
-                          while (randomSlot == mc.thePlayer.inventory.currentItem) {
-                            randomSlot = new Random().nextInt(9);
-                          }
-                          PacketUtil.sendPacket(new C09PacketHeldItemChange(randomSlot));
-                          PacketUtil.sendPacket(
-                              new C09PacketHeldItemChange(mc.thePlayer.inventory.currentItem));
-                        }
-                        this.stopBlock();
-                        attack = false;
-                      }
-                      if (this.attackDelayMS <= 50L) {
-                        this.blockTick = 0;
-                      }
-                      break;
-                    default:
-                      this.blockTick = 0;
-                  }
-                }
-                this.isBlocking = true;
-                this.fakeBlockState = true;
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-              }
-              break;
-            case 4:
-              if (this.hasValidTarget()) {
-                if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
-                  switch (this.blockTick) {
-                    case 0:
-                      if (!this.isPlayerBlocking()) {
-                        swap = true;
-                      }
-                      this.blinkReset = true;
-                      this.blockTick = 1;
-                      break;
-                    case 1:
-                      if (this.isPlayerBlocking()) {
-                        this.stopBlock();
-                        attack = false;
-                      }
-                      if (this.attackDelayMS <= 50L) {
-                        this.blockTick = 0;
-                      }
-                      break;
-                    default:
-                      this.blockTick = 0;
-                  }
-                }
-                this.isBlocking = true;
-                this.fakeBlockState = true;
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-              }
-              break;
-            case 5:
-              if (this.hasValidTarget()) {
-                int item =
-                    ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
-                if (mc.thePlayer.inventory.currentItem == item
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  switch (this.blockTick) {
-                    case 0:
-                      if (!this.isPlayerBlocking()) {
-                        swap = true;
-                      }
-                      this.blinkReset = true;
-                      this.blockTick = 1;
-                      break;
-                    case 1:
-                      if (this.isPlayerBlocking()) {
-                        int slot = this.findEmptySlot(item);
-                        if (!this.isNoSlowAntiSwitchActive()) {
-                          PacketUtil.sendPacket(new C09PacketHeldItemChange(slot));
-                          ((IAccessorPlayerControllerMP) mc.playerController)
-                              .setCurrentPlayerItem(slot);
-                        }
-                        attack = false;
-                      }
-                      if (this.attackDelayMS <= 50L) {
-                        this.blockTick = 0;
-                      }
-                      break;
-                    default:
-                      this.blockTick = 0;
-                  }
-                }
-                this.isBlocking = true;
-                this.fakeBlockState = true;
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-              }
-              break;
-            case 6:
-              if (this.hasValidTarget()) {
-                int item =
-                    ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
-                if (mc.thePlayer.inventory.currentItem == item
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  switch (this.blockTick) {
-                    case 0:
-                      int slot = this.findSwordSlot(item);
-                      if (slot != -1) {
-                        if (!this.isPlayerBlocking()) {
-                          swap = true;
-                        }
-                        this.blockTick = 1;
-                      }
-                      break;
-                    case 1:
-                      int swordsSlot = this.findSwordSlot(item);
-                      if (swordsSlot == -1) {
-                        this.blockTick = 0;
-                      } else if (!this.isPlayerBlocking()) {
-                        swap = true;
-                      } else if (this.attackDelayMS <= 50L) {
-                        if (!this.isNoSlowAntiSwitchActive()) {
-                          PacketUtil.sendPacket(new C09PacketHeldItemChange(swordsSlot));
-                          ((IAccessorPlayerControllerMP) mc.playerController)
-                              .setCurrentPlayerItem(swordsSlot);
-                          this.startBlock(mc.thePlayer.inventory.getStackInSlot(swordsSlot));
-                        }
-                        attack = false;
-                        this.blockTick = 0;
-                      }
-                      break;
-                    default:
-                      this.blockTick = 0;
-                  }
-                  Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                  this.isBlocking = true;
-                  this.fakeBlockState = true;
-                  break;
-                }
-              }
-              Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-              this.isBlocking = false;
-              this.fakeBlockState = false;
-              break;
-            case 7:
-              if (this.hasValidTarget()) {
-                if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
-                  switch (this.blockTick) {
-                    case 0:
-                      if (!this.isPlayerBlocking()) {
-                        swap = true;
-                      }
-                      this.blockTick = 1;
-                      break;
-                    case 1:
-                      if (this.isPlayerBlocking()) {
-                        this.stopBlock();
-                        attack = false;
-                      }
-                      if (this.attackDelayMS <= 50L) {
-                        this.blockTick = 0;
-                      }
-                      break;
-                    default:
-                      this.blockTick = 0;
-                  }
-                }
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = true;
-                this.fakeBlockState = false;
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-              }
-              break;
-            case 8:
-              Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-              this.isBlocking = false;
-              this.fakeBlockState = this.hasValidTarget();
-              if (PlayerUtil.isUsingItem()
-                  && !this.isPlayerBlocking()
-                  && !Myau.playerStateManager.digging
-                  && !Myau.playerStateManager.placing) {
-                swap = true;
-              }
-              break;
-            case 9:
-              if (this.hasValidTarget() && this.shouldCustomSmartBlock()) {
-                int item =
-                    ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
-                if (mc.thePlayer.inventory.currentItem == item
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  if (this.isPlayerBlocking()
-                      && this.smartReleaseAutoBlock.getValue()
-                      && !this.smartIgnoreTickRule.getValue()) {
-                    this.stopCustomBlock(false);
-                    attack = false;
-                  } else if (!this.isPlayerBlocking() || this.smartUpdatedNCPAutoBlock.getValue()) {
-                    if (this.smartBlockRate.getValue() >= 100
-                        || new Random().nextInt(100) < this.smartBlockRate.getValue()) {
-                      if (this.smartSwitchStartBlock.getValue()
-                          && !this.isNoSlowAntiSwitchActive()) {
-                        PacketUtil.sendPacket(new C09PacketHeldItemChange((item + 1) % 9));
-                        PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
-                      }
-                      swap = true;
-                    }
-                  }
-                  if (this.smartBlinkAutoBlock.getValue()) {
-                    int blinkCycle = this.smartBlinkBlockTicks.getValue() + 1;
-                    int blinkTick = Math.floorMod(mc.thePlayer.ticksExisted, blinkCycle);
-                    if (blinkTick == 1 && this.isPlayerBlocking()) {
-                      this.stopCustomBlock(false);
-                      attack = false;
-                    } else if (blinkTick == this.smartBlinkBlockTicks.getValue()
-                        && !this.isPlayerBlocking()) {
-                      swap = true;
-                      this.blinkReset = true;
-                    }
-                  }
-                }
-                this.isBlocking = true;
-                this.fakeBlockState =
-                    this.smartForceBlockRender.getValue() || this.smartBlinkAutoBlock.getValue();
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                if (this.isPlayerBlocking()
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  this.stopCustomBlock(true);
-                }
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-                this.blockTick = 0;
-              }
-              break;
-            case 10:
-              Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-              this.isBlocking = this.shouldRightHoldBlock();
-              this.fakeBlockState = false;
-              break;
-            case 11:
-              if (this.hasValidTarget()) {
-                int item =
-                    ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
-                if (mc.thePlayer.inventory.currentItem == item
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  if (!this.isNoSlowAntiSwitchActive()) {
-                    PacketUtil.sendPacket(new C09PacketHeldItemChange(item % 8 + 1));
-                    PacketUtil.sendPacket(new C09PacketHeldItemChange(item));
-                  }
-                  swap = true;
-                }
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = true;
-                this.fakeBlockState = false;
-              } else {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                this.isBlocking = false;
-                this.fakeBlockState = false;
-              }
-              break;
-            case 12:
-              if (this.hasValidTarget()) {
-                int item =
-                    ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
-                if (mc.thePlayer.inventory.currentItem == item
-                    && !Myau.playerStateManager.digging
-                    && !Myau.playerStateManager.placing) {
-                  PacketUtil.sendPacket(
-                      new C02PacketUseEntity(target.getEntity(), C02PacketUseEntity.Action.ATTACK));
-                  mc.thePlayer.swingItem();
-                  if (this.autoBlock.getValue() == 12) {
-                    PacketUtil.sendPacket(
-                        new C08PacketPlayerBlockPlacement(
-                            new BlockPos(-1, -1, -1),
-                            255,
-                            mc.thePlayer.inventory.getCurrentItem(),
-                            0,
-                            0,
-                            0));
-                    this.isBlocking = true;
-                    this.fakeBlockState = true;
-                  }
-                  Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                  this.isBlocking = true;
-                  this.fakeBlockState = false;
-                } else {
-                  Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                  this.isBlocking = false;
-                  this.fakeBlockState = false;
-                }
-              }
-              break;
+          this.cancelAttack = false;
+          swap = this.autoBlockModes.get(this.autoBlock.getValue()).processBlock(attack, block);
+          if (this.cancelAttack) {
+            attack = false;
           }
         }
         boolean attacked = false;
@@ -1981,9 +1474,7 @@ public class KillAura extends Module {
             || this.autoBlock.getValue() == 3
             || this.autoBlock.getValue() == 4
             || this.autoBlock.getValue() == 5
-            || this.autoBlock.getValue() == 6
-            || this.autoBlock.getValue() == 7
-            || this.autoBlock.getValue() == 10;
+            || this.autoBlock.getValue() == 6;
     if (!this.autoBlock.getName().equals(value)) {
       if (this.swingRange.getName().equals(value)) {
         if (this.swingRange.getValue() < this.attackRange.getValue()) {

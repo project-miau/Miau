@@ -5,6 +5,7 @@ import myau.Myau;
 import myau.data.Box;
 import myau.event.EventManager;
 import myau.event.impl.PickEvent;
+import myau.event.impl.PostRaytraceEvent;
 import myau.event.impl.RaytraceEvent;
 import myau.event.impl.Render3DEvent;
 import myau.module.modules.combat.*;
@@ -145,6 +146,7 @@ public abstract class MixinEntityRenderer implements MotionBlurShaderHook {
       GlStateManager.loadIdentity();
       this.myau$motionBlurShader.loadShaderGroup(partialTicks);
       GlStateManager.popMatrix();
+      GlStateManager.matrixMode(5888);
     }
   }
 
@@ -253,6 +255,18 @@ public abstract class MixinEntityRenderer implements MotionBlurShaderHook {
         list.removeIf(ghostHand::shouldSkip);
       }
     }
+  }
+
+  @Inject(method = "getMouseOver", at = @At("RETURN"))
+  private void onGetMouseOverReturn(float partialTicks, CallbackInfo ci) {
+    if (Myau.moduleManager != null) {
+      Piercing piercing = (Piercing) Myau.moduleManager.modules.get(Piercing.class);
+      if (piercing != null && piercing.isEnabled()) {
+        piercing.modifyMouseOver(partialTicks);
+      }
+    }
+    PostRaytraceEvent event = new PostRaytraceEvent(partialTicks);
+    EventManager.call(event);
   }
 
   @Inject(
