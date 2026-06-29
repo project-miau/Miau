@@ -1,4 +1,4 @@
-package myau.module.modules.combat;
+﻿package myau.module.modules.combat;
 
 import com.google.common.base.CaseFormat;
 import java.awt.*;
@@ -236,18 +236,11 @@ public class KillAura extends Module {
         this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
 
         if (this.keepSprint.getValue()) {
-          myau.module.modules.movement.KeepSprint ks =
-              (myau.module.modules.movement.KeepSprint)
-                  Myau.moduleManager.modules.get(myau.module.modules.movement.KeepSprint.class);
-          boolean ksWillPreserveSprint =
-              ks != null
-                  && ks.isEnabled()
-                  && ks.shouldKeepSprint()
-                  && mc.thePlayer.isSprinting();
-
-          if (ksWillPreserveSprint && !PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
+          // Only delay movement packets (C03) for a brief 200ms so the server still perceives
+          // us as sprinting after each hit. C02 attack packet goes through immediately.
+          if (!PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
             PingSpoofComponent.beginSession(
-                "KillAuraKeepSprint", 40, false, false, false, false, false, true);
+                "KillAuraKeepSprint", 200, false, false, false, false, false, true);
           }
 
           mc.thePlayer.swingItem();
@@ -276,7 +269,7 @@ public class KillAura extends Module {
             lastAttack.reset(true, this.getDamage(this.target.getEntity()));
           }
 
-          this.keepSprintBlinkTicks = ksWillPreserveSprint ? 1 : 0;
+          this.keepSprintBlinkTicks = 8;
           this.hitRegistered = true;
           return true;
         }
@@ -1048,8 +1041,8 @@ public class KillAura extends Module {
                 break;
             }
 
-            // Áp dụng sensitivity quantization dùng SERVER rotation (lastRots) làm base
-            // Không dùng mc.thePlayer.prevRotationYaw vì đó là client rotation khác biệt
+            // p dng sensitivity quantization dng SERVER rotation (lastRots) lm base
+            // Khng dng mc.thePlayer.prevRotationYaw v  l client rotation khc bit
             float[] quantized =
                 RotationUtil.flexRotation(rotations[0], rotations[1], lastRots[0], lastRots[1]);
             event.setRotation(quantized[0], quantized[1], 1);
@@ -1625,7 +1618,7 @@ public class KillAura extends Module {
     this.hsCurrentShouldAttack = false;
     this.kdHitCounter = 0;
 
-    // Clean up keepSprint blink state – only if we own the session
+    // Clean up keepSprint blink state  only if we own the session
     if (PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
       // Flush remaining queued packets so nothing is lost on disable
       PingSpoofComponent.finishSession("KillAuraKeepSprint", true);
@@ -1974,3 +1967,4 @@ public class KillAura extends Module {
     }
   }
 }
+

@@ -1,6 +1,5 @@
 package myau.module.modules.player;
 
-import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.Queue;
@@ -19,7 +18,7 @@ import myau.util.player.MoveUtil;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
@@ -49,6 +48,10 @@ public class AutoBlockIn extends Module {
   private EnumFacing targetFacing;
   private Vec3 targetHitVec;
   private int lastSlot = -1;
+  private float animStartProgress = 0F;
+  private float animTargetProgress = 0F;
+  private long animStartTime = 0L;
+  private float lastProgress = -1;
 
   private static final int[][] DIRS = {{1, 0, 0}, {0, 0, 1}, {-1, 0, 0}, {0, 0, -1}};
   private static final double INSET = 0.05;
@@ -113,7 +116,9 @@ public class AutoBlockIn extends Module {
 
     // Don't switch off a sword — player expects right-click to block, not place a block
     if (!ItemUtil.isHoldingSword()) {
-      int blockSlot = findBestBlockSlot();
+      // If we have a target, pick strong/weak block based on adjacency
+      boolean adjacent = targetBlock != null && isTargetAdjacent(targetBlock);
+      int blockSlot = (adjacent) ? findBestBlockSlot(true) : findBestBlockSlot(false);
 
       if (blockSlot != -1) {
         if (mc.thePlayer.inventory.currentItem != blockSlot) {
@@ -224,38 +229,63 @@ public class AutoBlockIn extends Module {
   @EventTarget
   public void onRender2D(Render2DEvent event) {
     if (!isEnabled() || mc.currentScreen != null) return;
-    if (!showProgress.getValue()) return;
-    if (mc.fontRendererObj == null) return;
+    if (!showProgress.getValue() || mc.fontRendererObj == null) return;
 
-    float scale = 1.0f;
-    String text = String.format("Blocking: %.0f%%", progress * 100.0F);
+    // Animate progress changes
+    if (progress != lastProgress) {
+      animStartProgress = progress;
+      animTargetProgress = progress;
+      animStartTime = System.currentTimeMillis();
+      lastProgress = progress;
+    }
 
-    GL11.glPushMatrix();
-    GL11.glScaled((double) scale, (double) scale, 0.0);
-    GlStateManager.disableDepth();
-    GlStateManager.enableBlend();
-    GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+    long elapsed = System.currentTimeMillis() - animStartTime;
+    final long animDuration = 250L;
+    float displayProgress;
+    if (elapsed < animDuration) {
+      float t = (float) elapsed / (float) animDuration;
+      displayProgress = quadInOutEasing(t);
+    } else {
+      displayProgress = 1.0F;
+    }
 
     ScaledResolution sr = new ScaledResolution(mc);
-    int width = mc.fontRendererObj.getStringWidth(text);
+    float radius = 10F;
+    float thickness = 3F;
+    float cx = sr.getScaledWidth() / 2F - 1F;
+    float cy = sr.getScaledHeight() / 2F;
 
-    Color color = getProgressColor();
+    // Background circle (translucent)
+    drawCircle(cx, cy, radius, 80, thickness, 0F, 0F, 0F, 0.4F);
 
-    mc.fontRendererObj.drawString(
-        text,
-        (float) sr.getScaledWidth() / 2.0F / scale - (float) width / 2.0F,
-        (float) sr.getScaledHeight() / 5.0F * 2.0F / scale,
-        color.getRGB() & 16777215 | -1090519040,
-        true);
+    // Full green if complete
+    if (progress >= 0.999F) {
+      drawCircle(cx, cy, radius, 80, thickness, 0F, 1F, 0F, 1F);
+      return;
+    }
 
-    GlStateManager.disableBlend();
-    GlStateManager.enableDepth();
-    GL11.glPopMatrix();
+    // Partial arc — red→green gradient
+    float ratio = Math.max(0F, Math.min(1F, progress * displayProgress));
+    float startAngle = 90F;
+    float endAngle = startAngle + ratio * 360F + 0.5F;
+    int r = (int) ((1F - ratio) * 255F + 0.5F);
+    int g = (int) (ratio * 255F + 0.5F);
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    int color = (255 << 24) | (r << 16) | (g << 8) | 0;
+
+    drawCircleArc(cx, cy, radius, startAngle, endAngle, thickness, color);
   }
 
-  private int findBestBlockSlot() {
+  /**
+   * Find the best block slot in hotbar.
+   *
+   * @param preferStrong true = lowest score (obsidian/end_stone) for adjacent placements, false =
+   *     highest score (wool) for distant placements to save resources
+   */
+  private int findBestBlockSlot(boolean preferStrong) {
     int bestSlot = -1;
-    int bestScore = Integer.MAX_VALUE;
+    int bestScore = preferStrong ? Integer.MAX_VALUE : Integer.MIN_VALUE;
 
     for (int slot = 0; slot <= 8; slot++) {
       ItemStack stack = mc.thePlayer.inventory.getStackInSlot(slot);
@@ -266,10 +296,12 @@ public class AutoBlockIn extends Module {
         String blockName = block.getUnlocalizedName().replace("tile.", "");
 
         Integer score = BLOCK_SCORE.get(blockName);
-        if (score != null && score < bestScore) {
-          bestScore = score;
-          bestSlot = slot;
-          if (score == 0) break;
+        if (score != null) {
+          if (preferStrong ? score < bestScore : score > bestScore) {
+            bestScore = score;
+            bestSlot = slot;
+            if (preferStrong && score == 0) break;
+          }
         }
       }
     }
@@ -468,6 +500,14 @@ public class AutoBlockIn extends Module {
       }
     }
 
+    if (goals.isEmpty()) return;
+
+    // Enemy-aware sorting: prioritize blocks nearer to enemies
+    EntityPlayer enemy = getClosestEnemy();
+    if (enemy != null) {
+      goals.sort(java.util.Comparator.comparingDouble(p -> p.distanceSq(enemy.getPosition())));
+    }
+
     findBestForGoals(goals, eye, reach);
   }
 
@@ -588,16 +628,6 @@ public class AutoBlockIn extends Module {
     progress = (float) filled / (float) total;
   }
 
-  private Color getProgressColor() {
-    if (progress <= 0.33f) {
-      return new Color(255, 85, 85);
-    } else if (progress <= 0.66f) {
-      return new Color(255, 255, 85);
-    } else {
-      return new Color(85, 255, 85);
-    }
-  }
-
   private MovingObjectPosition rayTraceBlock(float yaw, float pitch, double range) {
     float yawRad = (float) Math.toRadians(yaw);
     float pitchRad = (float) Math.toRadians(pitch);
@@ -655,6 +685,133 @@ public class AutoBlockIn extends Module {
   private float normYaw(float yaw) {
     yaw = ((yaw % 360f) + 360f) % 360f;
     return (yaw > 180f) ? (yaw - 360f) : yaw;
+  }
+
+  /**
+   * Checks if a target block position is directly adjacent to the player (feet+2 or N/S/E/W at feet
+   * or head level), meaning a strong block is preferred.
+   */
+  private boolean isTargetAdjacent(BlockPos target) {
+    Vec3 feet = mc.thePlayer.getPositionVector();
+    int fx = (int) Math.floor(feet.xCoord);
+    int fy = (int) Math.floor(feet.yCoord);
+    int fz = (int) Math.floor(feet.zCoord);
+    int tx = target.getX();
+    int ty = target.getY();
+    int tz = target.getZ();
+    if (tx == fx && tz == fz && ty == fy + 2) return true;
+    for (int[] d : DIRS) {
+      if (tx == fx + d[0] && tz == fz + d[2] && (ty == fy || ty == fy + 1)) return true;
+    }
+    return false;
+  }
+
+  /** Finds the nearest enemy player within 10 blocks. */
+  private EntityPlayer getClosestEnemy() {
+    Vec3 myPos = mc.thePlayer.getPositionVector();
+    double boxSize = 10;
+    EntityPlayer best = null;
+    double bestDist = Double.POSITIVE_INFINITY;
+
+    for (Object obj : mc.theWorld.playerEntities) {
+      EntityPlayer p = (EntityPlayer) obj;
+      if (p == mc.thePlayer || p.getHealth() <= 0) continue;
+
+      double dx = p.posX - myPos.xCoord;
+      if (dx > boxSize || dx < -boxSize) continue;
+      double dy = p.posY - myPos.yCoord;
+      if (dy > boxSize || dy < -boxSize) continue;
+      double dz = p.posZ - myPos.zCoord;
+      if (dz > boxSize || dz < -boxSize) continue;
+
+      double d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < bestDist) {
+        bestDist = d2;
+        best = p;
+      }
+    }
+    return best;
+  }
+
+  // ── Easing ─────────────────────────────────────────────────────────────────
+
+  private static float quadInOutEasing(float t) {
+    if (t < 0.5F) return 2F * t * t;
+    return -1F + (4F - 2F * t) * t;
+  }
+
+  // ── GL rendering ───────────────────────────────────────────────────────────
+
+  private static void drawCircle(
+      float cx,
+      float cy,
+      float radius,
+      int segments,
+      float lineWidth,
+      float r,
+      float g,
+      float b,
+      float a) {
+    GL11.glPushMatrix();
+    GL11.glEnable(GL11.GL_BLEND);
+    GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+    GL11.glDisable(GL11.GL_TEXTURE_2D);
+    GL11.glEnable(GL11.GL_LINE_SMOOTH);
+    GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+    GL11.glColor4f(r, g, b, a);
+    GL11.glLineWidth(lineWidth);
+
+    GL11.glBegin(GL11.GL_LINE_LOOP);
+    for (int i = 0; i <= segments; i++) {
+      double theta = 2 * Math.PI * i / segments;
+      float x = (float) (radius * Math.cos(theta)) + cx;
+      float y = (float) (radius * Math.sin(theta)) + cy;
+      GL11.glVertex2f(x, y);
+    }
+    GL11.glEnd();
+
+    GL11.glDisable(GL11.GL_LINE_SMOOTH);
+    GL11.glEnable(GL11.GL_TEXTURE_2D);
+    GL11.glColor4f(1, 1, 1, 1);
+    GL11.glPopMatrix();
+  }
+
+  private static void drawCircleArc(
+      float cx,
+      float cy,
+      float radius,
+      float startAngle,
+      float endAngle,
+      float lineWidth,
+      int color) {
+    float r = ((color >> 16) & 0xFF) / 255F;
+    float g = ((color >> 8) & 0xFF) / 255F;
+    float b = (color & 0xFF) / 255F;
+    float a = ((color >> 24) & 0xFF) / 255F;
+
+    GL11.glPushMatrix();
+    GL11.glEnable(GL11.GL_BLEND);
+    GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+    GL11.glDisable(GL11.GL_TEXTURE_2D);
+    GL11.glEnable(GL11.GL_LINE_SMOOTH);
+    GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+    GL11.glColor4f(r, g, b, a);
+    GL11.glLineWidth(lineWidth);
+
+    GL11.glBegin(GL11.GL_LINE_STRIP);
+    for (float angle = startAngle; angle <= endAngle; angle += 1F) {
+      double theta = Math.toRadians(angle + 180);
+      float x = (float) (radius * Math.cos(theta)) + cx;
+      float y = (float) (radius * Math.sin(theta)) + cy;
+      GL11.glVertex2f(x, y);
+    }
+    GL11.glEnd();
+
+    GL11.glDisable(GL11.GL_LINE_SMOOTH);
+    GL11.glEnable(GL11.GL_TEXTURE_2D);
+    GL11.glColor4f(1, 1, 1, 1);
+    GL11.glLineWidth(1);
+    GL11.glPopMatrix();
   }
 
   public int getSlot() {

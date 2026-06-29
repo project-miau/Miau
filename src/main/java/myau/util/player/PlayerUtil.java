@@ -198,6 +198,27 @@ public class PlayerUtil {
     return Double.MAX_VALUE;
   }
 
+  /**
+   * Returns the Block at the given BlockPos. Alias for world.getBlockState(pos).getBlock(). Ported
+   * from Rise 6.
+   */
+  public static Block getBlock(BlockPos pos) {
+    return mc.theWorld.getBlockState(pos).getBlock();
+  }
+
+  /**
+   * Returns the Block at the given offset relative to the player's position. Ported from Rise 6.
+   */
+  public static Block blockRelativeToPlayer(float offsetX, float offsetY, float offsetZ) {
+    return mc.theWorld
+        .getBlockState(
+            new BlockPos(
+                mc.thePlayer.posX + (double) offsetX,
+                mc.thePlayer.posY + (double) offsetY,
+                mc.thePlayer.posZ + (double) offsetZ))
+        .getBlock();
+  }
+
   public static void attackEntity(Entity target) {
     if (ForgeHooks.onPlayerAttackTarget(mc.thePlayer, target)) {
       if (target.canAttackWithItem() && !target.hitByEntity(mc.thePlayer)) {

@@ -1,0 +1,84 @@
+package myau.module.modules.movement.noslow;
+
+import myau.Myau;
+import myau.component.BadPacketsComponent;
+import myau.event.impl.PacketEvent;
+import myau.event.impl.UpdateEvent;
+import myau.event.types.EventType;
+import myau.module.modules.combat.KillAura;
+import myau.module.modules.movement.NoSlow;
+import myau.util.network.PacketUtil;
+import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
+import net.minecraft.network.play.client.C09PacketHeldItemChange;
+import net.minecraft.network.play.server.S08PacketPlayerPosLook;
+
+/**
+ * Rise 6 Spartan NoSlow bypass.
+ *
+ * <p><b>Tech:</b> Spartan AC check "use item spamming" + "invalid block placement" + timer. Cần
+ * cooldown timer + BadPackets check để tránh flag. Khác với Intave/NewNCP: Spartan đặc biệt nhạy
+ * với C08 gửi trong inv, cần check inventory.
+ *
+ * <p><b>Flow:</b>
+ *
+ * <pre>
+ *   Tick 0-10: idle (disable counter)
+ *   Tick 10+:  C09 swap → C09 swap back → C08 block (nếu không bad packets)
+ *   S08:       reset disable counter
+ * </pre>
+ *
+ * <p>Giống NewNCP nhưng thêm check inventory + timer ngắn hơn (10 ticks vs 10 ticks).
+ */
+public class OMSpartanNoSlow extends NoSlowMode {
+  private int disable;
+
+  public OMSpartanNoSlow(String name, NoSlow parent) {
+    super(name, parent);
+  }
+
+  @Override
+  public void onUpdate(UpdateEvent event) {
+    if (event.getType() == EventType.PRE) {
+      this.disable++;
+      if (this.getParent().isAnyActive()) {
+        this.performBypass();
+      }
+    }
+
+    KillAura aura = (KillAura) Myau.moduleManager.getModule(KillAura.class);
+    if (aura != null && aura.getTarget() != null) {
+      return;
+    }
+
+    if (this.getParent().isAnyActive()) {
+      float multiplier = this.getParent().getMotionMultiplier();
+      mc.thePlayer.movementInput.moveForward *= multiplier;
+      mc.thePlayer.movementInput.moveStrafe *= multiplier;
+      if (!this.getParent().canSprint()) {
+        mc.thePlayer.setSprinting(false);
+      }
+    }
+  }
+
+  @Override
+  public void onPacket(PacketEvent event) {
+    if (event.getType() == EventType.RECEIVE
+        && event.getPacket() instanceof S08PacketPlayerPosLook) {
+      this.disable = 0;
+    }
+  }
+
+  private void performBypass() {
+    KillAura aura = (KillAura) Myau.moduleManager.getModule(KillAura.class);
+    // Spartan nhạy với inventory open + block placement
+    if (this.disable > 10
+        && !BadPacketsComponent.bad(false, true, true, false, false)
+        && !BadPacketsComponent.bad(true, false, false, false, false) // check inventory
+        && (aura == null || aura.getTarget() == null)) {
+      int currentSlot = mc.thePlayer.inventory.currentItem;
+      PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot % 8 + 1));
+      PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot));
+      PacketUtil.sendPacket(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
+    }
+  }
+}

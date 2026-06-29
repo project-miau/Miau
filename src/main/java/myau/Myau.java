@@ -92,6 +92,9 @@ public class Myau {
     EventManager.register(badPacketsComponent);
     slotComponent = new myau.component.SlotComponent();
     EventManager.register(slotComponent);
+    // Rise-style centralized rotation component (movefix + state tracking)
+    EventManager.register(new myau.component.RotationComponent());
+    EventManager.register(new myau.component.PingSpoofComponent());
     playerTracker = new myau.util.player.PlayerTracker();
     EventManager.register(playerTracker);
     moduleManager.modules.put(AimAssist.class, new AimAssist());
@@ -126,16 +129,19 @@ public class Myau {
     moduleManager.modules.put(BreakProgress.class, new BreakProgress());
     moduleManager.modules.put(HitSelect.class, new HitSelect());
     moduleManager.modules.put(BackTrack.class, new BackTrack());
+    moduleManager.modules.put(PingSpoof.class, new PingSpoof());
     moduleManager.modules.put(Criticals.class, new Criticals());
     moduleManager.modules.put(Chams.class, new Chams());
     moduleManager.modules.put(ChestESP.class, new ChestESP());
     moduleManager.modules.put(ChestStealer.class, new ChestStealer());
     moduleManager.modules.put(ClientSpoofer.class, new ClientSpoofer());
     moduleManager.modules.put(Eagle.class, new Eagle());
+    moduleManager.modules.put(LegitScaffold.class, new LegitScaffold());
     moduleManager.modules.put(ESP.class, new ESP());
     moduleManager.modules.put(Capes.class, new Capes());
     moduleManager.modules.put(FastPlace.class, new FastPlace());
     moduleManager.modules.put(AutoLadderClutch.class, new AutoLadderClutch());
+    moduleManager.modules.put(TowerScaffold.class, new TowerScaffold());
     moduleManager.modules.put(FakeLag.class, new FakeLag());
     moduleManager.modules.put(Freeze.class, new Freeze());
     moduleManager.modules.put(Displace.class, new Displace());

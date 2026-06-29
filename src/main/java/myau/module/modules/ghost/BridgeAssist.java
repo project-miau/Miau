@@ -1,7 +1,9 @@
 package myau.module.modules.ghost;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import myau.event.EventTarget;
 import myau.event.impl.MoveInputEvent;
 import myau.event.impl.PacketEvent;
@@ -14,6 +16,7 @@ import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
 import myau.util.client.KeyBindUtil;
 import myau.util.world.BlockUtil;
+import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.ItemBlock;
@@ -46,8 +49,19 @@ public class BridgeAssist extends Module {
   private int unsneakDelayTicks = -1;
   private int unsneakStartTick = -1;
 
+  private static final Map<String, Integer> BLOCK_SCORE = new HashMap<>();
+
   public BridgeAssist() {
     super("Bridge Assist", false);
+    BLOCK_SCORE.put("obsidian", 0);
+    BLOCK_SCORE.put("end_stone", 1);
+    BLOCK_SCORE.put("planks", 2);
+    BLOCK_SCORE.put("log", 2);
+    BLOCK_SCORE.put("glass", 3);
+    BLOCK_SCORE.put("stained_glass", 3);
+    BLOCK_SCORE.put("hardened_clay", 4);
+    BLOCK_SCORE.put("stained_hardened_clay", 4);
+    BLOCK_SCORE.put("cloth", 5);
   }
 
   @Override
@@ -172,6 +186,12 @@ public class BridgeAssist extends Module {
     if (held == null || !(held.getItem() instanceof ItemBlock)) return;
     if (lookingDown.getValue() && mc.thePlayer.rotationPitch < 70f) return;
     if (notMovingForward.getValue() && mc.thePlayer.movementInput.moveForward > 0f) return;
+
+    // Prefer strongest block if holding multiple block types
+    int bestSlot = findBestBlockSlot();
+    if (bestSlot != -1 && bestSlot != mc.thePlayer.inventory.currentItem) {
+      mc.thePlayer.inventory.currentItem = bestSlot;
+    }
 
     float basePitch = mc.thePlayer.rotationPitch;
     double reach = mc.playerController.getBlockReachDistance();
@@ -385,6 +405,31 @@ public class BridgeAssist extends Module {
     float pitchStep = Math.max(Math.abs(pitchDiff) / speed, 1);
 
     return new float[] {currentYaw + yawDiff / yawStep, currentPitch + pitchDiff / pitchStep};
+  }
+
+  /**
+   * Find the strongest block in the hotbar using the block scoring system. Returns -1 if no scor
+   * eable block found.
+   */
+  private int findBestBlockSlot() {
+    int bestSlot = -1;
+    int bestScore = Integer.MAX_VALUE;
+
+    for (int slot = 0; slot <= 8; slot++) {
+      ItemStack stack = mc.thePlayer.inventory.getStackInSlot(slot);
+      if (stack == null || stack.stackSize == 0) continue;
+      if (!(stack.getItem() instanceof ItemBlock)) continue;
+
+      Block block = ((ItemBlock) stack.getItem()).getBlock();
+      String blockName = block.getUnlocalizedName().replace("tile.", "");
+      Integer score = BLOCK_SCORE.get(blockName);
+      if (score != null && score < bestScore) {
+        bestScore = score;
+        bestSlot = slot;
+        if (score == 0) break;
+      }
+    }
+    return bestSlot;
   }
 
   // ══════════════════════════════════════════════════════════════════════════

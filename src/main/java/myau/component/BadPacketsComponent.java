@@ -2,6 +2,7 @@ package myau.component;
 
 import myau.event.EventTarget;
 import myau.event.impl.PacketEvent;
+import myau.event.impl.UpdateEvent;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
 import net.minecraft.network.Packet;
@@ -10,6 +11,7 @@ import net.minecraft.network.play.client.*;
 public final class BadPacketsComponent {
 
   private static boolean slot, attack, swing, block, inventory;
+  private static boolean savedSlot, savedAttack, savedSwing, savedBlock, savedInventory;
 
   public static boolean bad() {
     return bad(true, true, true, true, true);
@@ -21,11 +23,11 @@ public final class BadPacketsComponent {
       final boolean swingCheck,
       final boolean blockCheck,
       final boolean inventoryCheck) {
-    return (slot && slotCheck)
-        || (attack && attackCheck)
-        || (swing && swingCheck)
-        || (block && blockCheck)
-        || (inventory && inventoryCheck);
+    return (savedSlot && slotCheck)
+        || (savedAttack && attackCheck)
+        || (savedSwing && swingCheck)
+        || (savedBlock && blockCheck)
+        || (savedInventory && inventoryCheck);
   }
 
   @EventTarget(Priority.HIGHEST)
@@ -48,9 +50,20 @@ public final class BadPacketsComponent {
                   == C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT)
           || packet instanceof C0DPacketCloseWindow) {
         inventory = true;
-      } else if (packet instanceof C03PacketPlayer) {
-        reset();
       }
+    }
+  }
+
+  @EventTarget(Priority.HIGHEST)
+  public void onUpdate(UpdateEvent event) {
+    if (event.getType() == EventType.PRE) {
+      savedSlot = slot;
+      savedAttack = attack;
+      savedSwing = swing;
+      savedBlock = block;
+      savedInventory = inventory;
+    } else if (event.getType() == EventType.POST) {
+      reset();
     }
   }
 
@@ -60,5 +73,10 @@ public final class BadPacketsComponent {
     attack = false;
     block = false;
     inventory = false;
+    savedSlot = false;
+    savedAttack = false;
+    savedSwing = false;
+    savedBlock = false;
+    savedInventory = false;
   }
 }

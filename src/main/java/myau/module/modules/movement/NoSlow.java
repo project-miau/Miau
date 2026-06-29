@@ -19,7 +19,11 @@ public class NoSlow extends Module {
 
   public final ModeProperty mode =
       new ModeProperty(
-          "Mode", 0, new String[] {"VANILLA", "NCP", "NEW_NCP", "WATCHDOG", "INTAVE", "Grim 1.9"});
+          "Mode",
+          0,
+          new String[] {
+            "VANILLA", "NCP", "NEW_NCP", "WATCHDOG", "INTAVE", "Grim 1.9", "VERUS", "AAC", "SPARTAN"
+          });
   public final BooleanProperty swordValue = new BooleanProperty("sword", true);
   public final BooleanProperty foodValue = new BooleanProperty("food", true);
   public final BooleanProperty potionValue = new BooleanProperty("potion", true);
@@ -36,6 +40,9 @@ public class NoSlow extends Module {
     modes.add(new OMWatchdogNoSlow("WATCHDOG", this));
     modes.add(new OMIntaveNoSlow("INTAVE", this));
     modes.add(new OMGrimNoSlow("GRIM", this));
+    modes.add(new OMVerusNoSlow("VERUS", this));
+    modes.add(new OMAACNoSlow("AAC", this));
+    modes.add(new OMSpartanNoSlow("SPARTAN", this));
   }
 
   private NoSlowMode getActiveMode() {

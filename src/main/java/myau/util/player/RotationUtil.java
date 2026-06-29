@@ -1,5 +1,10 @@
 package myau.util.player;
 
+import com.google.common.base.Predicates;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import myau.mixin.IAccessorEntity;
 import myau.util.animation.*;
 import myau.util.client.*;
@@ -11,6 +16,7 @@ import myau.util.time.*;
 import myau.util.world.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.util.*;
 
 public class RotationUtil {
@@ -49,7 +55,7 @@ public class RotationUtil {
 
   public static float[] getRotationsToBox(
       AxisAlignedBB boundingBox, float yaw, float pitch, float maxAngle, float smoothFactor) {
-    Vec3 eyePos = RotationUtil.mc.thePlayer.getPositionEyes(1.0f);
+    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
     double minTargetY = boundingBox.minY + 0.05 * (boundingBox.maxY - boundingBox.minY);
     double maxTargetY = boundingBox.minY + 0.75 * (boundingBox.maxY - boundingBox.minY);
     double deltaX = (boundingBox.minX + boundingBox.maxX) / 2.0 - eyePos.xCoord;
@@ -58,13 +64,12 @@ public class RotationUtil {
             ? maxTargetY - eyePos.yCoord
             : (eyePos.yCoord <= minTargetY ? minTargetY - eyePos.yCoord : 0.0);
     double deltaZ = (boundingBox.minZ + boundingBox.maxZ) / 2.0 - eyePos.zCoord;
-    return RotationUtil.getRotations(deltaX, deltaY, deltaZ, yaw, pitch, maxAngle, smoothFactor);
+    return getRotations(deltaX, deltaY, deltaZ, yaw, pitch, maxAngle, smoothFactor);
   }
 
   public static float[] getRotationsTo(
       double targetX, double targetY, double targetZ, float currentYaw, float currentPitch) {
-    return RotationUtil.getRotations(
-        targetX, targetY, targetZ, currentYaw, currentPitch, 180.0f, 0.0f);
+    return getRotations(targetX, targetY, targetZ, currentYaw, currentPitch, 180.0f, 0.0f);
   }
 
   public static float[] getRotations(
@@ -85,14 +90,13 @@ public class RotationUtil {
     yawDelta =
         Math.abs(yawDelta) <= 1.0f
             ? 0.0f
-            : RotationUtil.smoothAngle(RotationUtil.clampAngle(yawDelta, maxAngle), smoothFactor);
+            : smoothAngle(clampAngle(yawDelta, maxAngle), smoothFactor);
     pitchDelta =
         Math.abs(pitchDelta) <= 1.0f
             ? 0.0f
-            : RotationUtil.smoothAngle(RotationUtil.clampAngle(pitchDelta, maxAngle), smoothFactor);
+            : smoothAngle(clampAngle(pitchDelta, maxAngle), smoothFactor);
     return new float[] {
-      RotationUtil.quantizeAngle(currentYaw + yawDelta),
-      RotationUtil.quantizeAngle(currentPitch + pitchDelta)
+      quantizeAngle(currentYaw + yawDelta), quantizeAngle(currentPitch + pitchDelta)
     };
   }
 
@@ -115,24 +119,24 @@ public class RotationUtil {
     float borderSize = entity.getCollisionBorderSize();
     AxisAlignedBB boundingBox =
         entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
-    return RotationUtil.distanceToBox(boundingBox);
+    return distanceToBox(boundingBox);
   }
 
   public static double distanceToBox(Entity entity, Vec3 point) {
     float borderSize = entity.getCollisionBorderSize();
-    return RotationUtil.clampVecToBox(
+    return clampVecToBox(
         entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize), point);
   }
 
   public static double distanceToBox(AxisAlignedBB boundingBox) {
-    return RotationUtil.clampVecToBox(boundingBox, RotationUtil.mc.thePlayer.getPositionEyes(1.0f));
+    return clampVecToBox(boundingBox, mc.thePlayer.getPositionEyes(1.0f));
   }
 
   public static double clampVecToBox(AxisAlignedBB boundingBox, Vec3 point) {
     if (boundingBox.isVecInside(point)) {
       return 0.0;
     }
-    Vec3 clampedPoint = RotationUtil.clampVecToBox(point, boundingBox);
+    Vec3 clampedPoint = clampVecToBox(point, boundingBox);
     double deltaX = clampedPoint.xCoord - point.xCoord;
     double deltaY = clampedPoint.yCoord - point.yCoord;
     double deltaZ = clampedPoint.zCoord - point.zCoord;
@@ -140,7 +144,7 @@ public class RotationUtil {
   }
 
   public static float angleToEntity(Entity entity) {
-    Vec3 eyePos = RotationUtil.mc.thePlayer.getPositionEyes(1.0f);
+    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
     float borderSize = entity.getCollisionBorderSize();
     AxisAlignedBB boundingBox =
         entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
@@ -153,7 +157,7 @@ public class RotationUtil {
             MathHelper.wrapAngleTo180_float(
                 (float) (Math.atan2(deltaZ, deltaX) * 180.0 / Math.PI)
                     - 90.0f
-                    - RotationUtil.mc.thePlayer.rotationYaw))
+                    - mc.thePlayer.rotationYaw))
         * 2.0f;
   }
 
@@ -161,28 +165,476 @@ public class RotationUtil {
     return MathHelper.wrapAngleTo180_float(
         (float) (Math.atan2(z2 - z1, x2 - x1) * 180.0 / Math.PI)
             - 90.0f
-            - RotationUtil.mc.thePlayer.rotationYaw);
+            - mc.thePlayer.rotationYaw);
   }
 
   public static MovingObjectPosition rayTrace(
       float yaw, float pitch, double distance, float partialTicks) {
-    Vec3 eyePos = RotationUtil.mc.thePlayer.getPositionEyes(partialTicks);
-    Vec3 lookVec =
-        ((IAccessorEntity) RotationUtil.mc.thePlayer).callGetVectorForRotation(pitch, yaw);
+    Vec3 eyePos = mc.thePlayer.getPositionEyes(partialTicks);
+    Vec3 lookVec = ((IAccessorEntity) mc.thePlayer).callGetVectorForRotation(pitch, yaw);
     Vec3 targetPos =
         eyePos.addVector(
             lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
-    return RotationUtil.mc.theWorld.rayTraceBlocks(eyePos, targetPos);
+    return mc.theWorld.rayTraceBlocks(eyePos, targetPos);
   }
 
   public static MovingObjectPosition rayTrace(Entity entity) {
-    Vec3 eyePos = RotationUtil.mc.thePlayer.getPositionEyes(1.0f);
+    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
     float borderSize = entity.getCollisionBorderSize();
     Vec3 targetPos =
-        RotationUtil.clampVecToBox(
+        clampVecToBox(
             eyePos, entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize));
-    return RotationUtil.mc.theWorld.rayTraceBlocks(eyePos, targetPos);
+    return mc.theWorld.rayTraceBlocks(eyePos, targetPos);
   }
+
+  // ================================================================
+  //  RAVEN BS — MULTIPOINT AIM POINT
+  // ================================================================
+
+  /**
+   * Returns the aim point Vec3 for the given entity and multipoint settings.
+   * horizontalMultipoint/verticalMultipoint: 0-100, where 0=center, 100=closest edge.
+   */
+  public static Vec3 getAimPoint(
+      Entity entity, double horizontalMultipoint, double verticalMultipoint) {
+    if (entity == null || mc.thePlayer == null) return null;
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    double centerX = (bb.minX + bb.maxX) / 2.0;
+    double centerY;
+    if (entity instanceof EntityLivingBase) {
+      centerY = entity.posY + ((EntityLivingBase) entity).getEyeHeight();
+    } else {
+      centerY = (bb.minY + bb.maxY) / 2.0;
+    }
+    double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+    if (bb.isVecInside(eye)) {
+      return new Vec3(centerX, eye.yCoord, centerZ);
+    }
+    Vec3 cl = closestPointOnAabb(bb, eye);
+    double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
+    double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
+    double targetX = centerX + (cl.xCoord - centerX) * tH;
+    double targetY = centerY + (cl.yCoord - centerY) * tV;
+    double targetZ = centerZ + (cl.zCoord - centerZ) * tH;
+    return new Vec3(targetX, targetY, targetZ);
+  }
+
+  // ================================================================
+  //  RAVEN BS — BACKUP POINT GRID
+  // ================================================================
+
+  private static final double BACKUP_FACE_INSET = 0.05;
+  private static final int BACKUP_TARGET_TOTAL = 30;
+
+  /**
+   * Builds a set of backup aim points on visible faces of entity's AABB. Ported from Raven BS
+   * RotationUtils.
+   */
+  public static List<Vec3> buildBackupPoints(Entity entity, Vec3 eye) {
+    if (entity == null || mc.thePlayer == null) return new ArrayList<>();
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+
+    double sizeX = bb.maxX - bb.minX;
+    double sizeY = bb.maxY - bb.minY;
+    double sizeZ = bb.maxZ - bb.minZ;
+
+    boolean xPos = eye.xCoord > bb.maxX;
+    boolean xNeg = eye.xCoord < bb.minX;
+    boolean yPos = eye.yCoord > bb.maxY;
+    boolean yNeg = eye.yCoord < bb.minY;
+    boolean zPos = eye.zCoord > bb.maxZ;
+    boolean zNeg = eye.zCoord < bb.minZ;
+
+    int visibleFaceCount = (xPos || xNeg ? 1 : 0) + (yPos || yNeg ? 1 : 0) + (zPos || zNeg ? 1 : 0);
+    if (visibleFaceCount == 0) return new ArrayList<>();
+
+    int pointsPerFace = BACKUP_TARGET_TOTAL / visibleFaceCount;
+    List<Vec3> points = new ArrayList<>(BACKUP_TARGET_TOTAL + 6);
+
+    if (xPos || xNeg) {
+      double fixedX = xPos ? bb.maxX - BACKUP_FACE_INSET : bb.minX + BACKUP_FACE_INSET;
+      addFaceGrid(
+          points,
+          0,
+          fixedX,
+          bb.minY + BACKUP_FACE_INSET,
+          bb.maxY - BACKUP_FACE_INSET,
+          bb.minZ + BACKUP_FACE_INSET,
+          bb.maxZ - BACKUP_FACE_INSET,
+          pointsPerFace,
+          sizeY,
+          sizeZ);
+    }
+
+    if (yPos || yNeg) {
+      double fixedY = yPos ? bb.maxY - BACKUP_FACE_INSET : bb.minY + BACKUP_FACE_INSET;
+      addFaceGrid(
+          points,
+          1,
+          fixedY,
+          bb.minX + BACKUP_FACE_INSET,
+          bb.maxX - BACKUP_FACE_INSET,
+          bb.minZ + BACKUP_FACE_INSET,
+          bb.maxZ - BACKUP_FACE_INSET,
+          pointsPerFace,
+          sizeX,
+          sizeZ);
+    }
+
+    if (zPos || zNeg) {
+      double fixedZ = zPos ? bb.maxZ - BACKUP_FACE_INSET : bb.minZ + BACKUP_FACE_INSET;
+      addFaceGrid(
+          points,
+          2,
+          fixedZ,
+          bb.minX + BACKUP_FACE_INSET,
+          bb.maxX - BACKUP_FACE_INSET,
+          bb.minY + BACKUP_FACE_INSET,
+          bb.maxY - BACKUP_FACE_INSET,
+          pointsPerFace,
+          sizeX,
+          sizeY);
+    }
+
+    return points;
+  }
+
+  private static void addFaceGrid(
+      List<Vec3> out,
+      int fixedAxis,
+      double fixedVal,
+      double uMin,
+      double uMax,
+      double vMin,
+      double vMax,
+      int targetPoints,
+      double dimU,
+      double dimV) {
+    if (dimU < 1e-4 || dimV < 1e-4) {
+      double uMid = (uMin + uMax) / 2.0;
+      double vMid = (vMin + vMax) / 2.0;
+      switch (fixedAxis) {
+        case 0:
+          out.add(new Vec3(fixedVal, uMid, vMid));
+          break;
+        case 1:
+          out.add(new Vec3(uMid, fixedVal, vMid));
+          break;
+        case 2:
+          out.add(new Vec3(uMid, vMid, fixedVal));
+          break;
+      }
+      return;
+    }
+
+    double ratio = dimU / dimV;
+    int gridU = Math.max(2, (int) Math.round(Math.sqrt(targetPoints * ratio)));
+    int gridV = Math.max(2, (int) Math.round(Math.sqrt(targetPoints / ratio)));
+
+    for (int i = 0; i < gridU; i++) {
+      double u = uMin + (uMax - uMin) * i / (gridU - 1);
+      for (int j = 0; j < gridV; j++) {
+        double v = vMin + (vMax - vMin) * j / (gridV - 1);
+        switch (fixedAxis) {
+          case 0:
+            out.add(new Vec3(fixedVal, u, v));
+            break;
+          case 1:
+            out.add(new Vec3(u, fixedVal, v));
+            break;
+          case 2:
+            out.add(new Vec3(u, v, fixedVal));
+            break;
+        }
+      }
+    }
+  }
+
+  public static boolean canAimAtPoint(
+      Vec3 eye,
+      Vec3 point,
+      Entity target,
+      double range,
+      boolean allowThroughBlocks,
+      boolean allowThroughEntities) {
+    if (target == null) return false;
+    double dx = point.xCoord - eye.xCoord;
+    double dy = point.yCoord - eye.yCoord;
+    double dz = point.zCoord - eye.zCoord;
+    double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (len < 1e-6) return false;
+    double scale = range / len;
+    Vec3 end = new Vec3(eye.xCoord + dx * scale, eye.yCoord + dy * scale, eye.zCoord + dz * scale);
+
+    float borderSize = target.getCollisionBorderSize();
+    AxisAlignedBB aabb = target.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    MovingObjectPosition entityHit = aabb.calculateIntercept(eye, end);
+    if (entityHit == null) return false;
+
+    double entityDistSq = eye.squareDistanceTo(entityHit.hitVec);
+    if (!allowThroughBlocks) {
+      MovingObjectPosition blockHit = mc.theWorld.rayTraceBlocks(eye, end, false, false, false);
+      if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+        double blockDistSq = eye.squareDistanceTo(blockHit.hitVec);
+        if (blockDistSq < entityDistSq) return false;
+      }
+    }
+    if (!allowThroughEntities && hasEntityBlockingPath(eye, end, target, entityDistSq)) {
+      return false;
+    }
+    return true;
+  }
+
+  private static boolean hasEntityBlockingPath(
+      Vec3 eye, Vec3 end, Entity target, double targetDistSq) {
+    if (mc.thePlayer == null || mc.theWorld == null) return false;
+    Vec3 delta = end.subtract(eye);
+    AxisAlignedBB searchBox =
+        mc.thePlayer
+            .getEntityBoundingBox()
+            .addCoord(delta.xCoord, delta.yCoord, delta.zCoord)
+            .expand(1.0, 1.0, 1.0);
+    List<Entity> entities =
+        mc.theWorld.getEntitiesInAABBexcluding(
+            mc.thePlayer,
+            searchBox,
+            Predicates.and(EntitySelectors.NOT_SPECTATING, Entity::canBeCollidedWith));
+    for (Entity entity : entities) {
+      if (entity == null || entity == target || entity.isDead) continue;
+      float border = entity.getCollisionBorderSize();
+      AxisAlignedBB bb = entity.getEntityBoundingBox().expand(border, border, border);
+      MovingObjectPosition hit = bb.calculateIntercept(eye, end);
+      if (bb.isVecInside(eye)) return true;
+      if (hit != null) {
+        double entityDistSq = eye.squareDistanceTo(hit.hitVec);
+        if (entityDistSq < targetDistSq - 1.0E-7) return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean mainRayHitsTargetAABB(Vec3 eye, Vec3 point, Entity target, double range) {
+    double dx = point.xCoord - eye.xCoord;
+    double dy = point.yCoord - eye.yCoord;
+    double dz = point.zCoord - eye.zCoord;
+    double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (len < 1e-6) return false;
+    double scale = range / len;
+    Vec3 end = new Vec3(eye.xCoord + dx * scale, eye.yCoord + dy * scale, eye.zCoord + dz * scale);
+    float borderSize = target.getCollisionBorderSize();
+    AxisAlignedBB aabb = target.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    return aabb.calculateIntercept(eye, end) != null;
+  }
+
+  public static boolean hasValidAimPoint(
+      Entity entity,
+      double hMult,
+      double vMult,
+      double range,
+      boolean allowThroughBlocks,
+      boolean allowThroughEntities) {
+    if (entity == null || mc.thePlayer == null) return false;
+    Vec3 mainPoint = getAimPoint(entity, hMult, vMult);
+    if (mainPoint == null) return false;
+    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+    if (eye.squareDistanceTo(mainPoint) < 1e-6) return true;
+
+    if (!mainRayHitsTargetAABB(eye, mainPoint, entity, range)) return false;
+
+    if (canAimAtPoint(eye, mainPoint, entity, range, allowThroughBlocks, allowThroughEntities)) {
+      return true;
+    }
+
+    List<Vec3> backups = buildBackupPoints(entity, eye);
+    Collections.sort(
+        backups,
+        Comparator.comparingDouble(
+            p -> {
+              double dx = p.xCoord - eye.xCoord;
+              double dy = p.yCoord - eye.yCoord;
+              double dz = p.zCoord - eye.zCoord;
+              return dx * dx + dy * dy + dz * dz;
+            }));
+    for (Vec3 p : backups) {
+      if (canAimAtPoint(eye, p, entity, range, allowThroughBlocks, allowThroughEntities)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static boolean hasValidAimPoint(Entity entity, double hMult, double vMult, double range) {
+    return hasValidAimPoint(entity, hMult, vMult, range, false, true);
+  }
+
+  public static boolean isPathBlockedByEntity(Vec3 eye, Vec3 hitVec, Entity target) {
+    if (eye == null || hitVec == null || target == null) return false;
+    double targetDistSq = eye.squareDistanceTo(hitVec);
+    return hasEntityBlockingPath(eye, hitVec, target, targetDistSq);
+  }
+
+  public static float[] getRotationsToPoint(
+      double x, double y, double z, float baseYaw, float basePitch) {
+    double deltaX = x - mc.thePlayer.posX;
+    double deltaZ = z - mc.thePlayer.posZ;
+    double deltaY = y - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
+    double horizDistSq = deltaX * deltaX + deltaZ * deltaZ;
+
+    float yaw;
+    float targetPitch;
+    if (horizDistSq < 1.0E-12) {
+      yaw = baseYaw;
+      targetPitch = (float) (-(Math.atan2(deltaY, 0) * 57.295780181884766));
+    } else {
+      float targetYaw = (float) (Math.atan2(deltaZ, deltaX) * 57.295780181884766) - 90.0f;
+      yaw = baseYaw + MathHelper.wrapAngleTo180_float(targetYaw - baseYaw);
+      double horizDist = MathHelper.sqrt_double(horizDistSq);
+      targetPitch = (float) (-(Math.atan2(deltaY, horizDist) * 57.295780181884766));
+    }
+
+    float pitch = basePitch + MathHelper.wrapAngleTo180_float(targetPitch - basePitch) + 3.0f;
+    return new float[] {yaw, clampPitch(pitch)};
+  }
+
+  public static float clampPitch(final float n) {
+    return MathHelper.clamp_float(n, -90.0f, 90.0f);
+  }
+
+  public static float[] getRotations(
+      final Entity entity,
+      double horizontalMultipoint,
+      double verticalMultipoint,
+      final float baseYaw,
+      final float basePitch) {
+    Vec3 aimPoint = getAimPoint(entity, horizontalMultipoint, verticalMultipoint);
+    if (aimPoint == null) return null;
+    return getRotationsToPoint(
+        aimPoint.xCoord, aimPoint.yCoord, aimPoint.zCoord, baseYaw, basePitch);
+  }
+
+  /** Gets rotations with full backup: main point -> closest fallback -> grid backup. */
+  public static float[] getRotationsWithBackup(
+      Entity entity,
+      double horizontalMultipoint,
+      double verticalMultipoint,
+      float baseYaw,
+      float basePitch,
+      double range,
+      boolean allowThroughBlocks,
+      boolean allowThroughEntities) {
+    if (entity == null || mc.thePlayer == null) return null;
+    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    if (bb.isVecInside(eye)) {
+      double centerX = (bb.minX + bb.maxX) / 2.0;
+      double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+      return getRotationsToPoint(centerX, eye.yCoord, centerZ, baseYaw, basePitch);
+    }
+    Vec3 mainPoint = getAimPoint(entity, horizontalMultipoint, verticalMultipoint);
+    if (mainPoint == null) return null;
+    if (eye.squareDistanceTo(mainPoint) < 1e-6) return null;
+
+    if (!mainRayHitsTargetAABB(eye, mainPoint, entity, range)) {
+      return getRotationsToPoint(
+          mainPoint.xCoord, mainPoint.yCoord, mainPoint.zCoord, baseYaw, basePitch);
+    }
+
+    if (canAimAtPoint(eye, mainPoint, entity, range, allowThroughBlocks, allowThroughEntities)) {
+      return getRotationsToPoint(
+          mainPoint.xCoord, mainPoint.yCoord, mainPoint.zCoord, baseYaw, basePitch);
+    }
+
+    List<Vec3> backups = buildBackupPoints(entity, eye);
+    Collections.sort(
+        backups,
+        Comparator.comparingDouble(
+            p -> {
+              double dx = p.xCoord - eye.xCoord;
+              double dy = p.yCoord - eye.yCoord;
+              double dz = p.zCoord - eye.zCoord;
+              return dx * dx + dy * dy + dz * dz;
+            }));
+
+    for (Vec3 p : backups) {
+      if (canAimAtPoint(eye, p, entity, range, allowThroughBlocks, allowThroughEntities)) {
+        return getRotationsToPoint(p.xCoord, p.yCoord, p.zCoord, baseYaw, basePitch);
+      }
+    }
+    return null;
+  }
+
+  // ================================================================
+  //  RAVEN BS — SMOOTH ROTATION + SENSITIVITY QUANTIZATION
+  // ================================================================
+
+  private static final float FAR_THRESHOLD = 180f;
+
+  /**
+   * Smoothly interpolates from base -> target rotation with proximity-based slowdown,
+   * randomization, and sensitivity quantization (mouse simulation).
+   */
+  public static float[] smoothRotation(
+      float baseYaw,
+      float basePitch,
+      float targetYaw,
+      float targetPitch,
+      int speed,
+      float randomizationPercent) {
+    if (speed <= 0) {
+      return new float[] {baseYaw, clampPitch(basePitch)};
+    }
+    if (speed >= 30) {
+      return flexRotation(targetYaw, targetPitch, baseYaw, basePitch);
+    }
+    float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - baseYaw);
+    float deltaPitch = targetPitch - basePitch;
+    float magnitude = (float) MathHelper.sqrt_double(deltaYaw * deltaYaw + deltaPitch * deltaPitch);
+    if (magnitude < 0.001f) {
+      return flexRotation(targetYaw, targetPitch, baseYaw, basePitch);
+    }
+    float t = speed / 30f;
+    float stepSize = t * t * 180f;
+    float range = 0.6f * (float) (randomizationPercent / 100.0);
+    float multiplier =
+        (range <= 0.001f) ? 1.0f : (1.0f - range / 2f + (float) (Math.random() * range));
+    stepSize *= multiplier;
+    float proximityFactor = Math.min(1f, magnitude / FAR_THRESHOLD);
+    proximityFactor = (float) Math.pow(proximityFactor, 0.7);
+    float maxSlowdown = (float) (randomizationPercent / 100.0);
+    float proximityMult = Math.max(0.8f, 1.0f - maxSlowdown * (1.0f - proximityFactor));
+    stepSize *= proximityMult;
+    float stepLength = Math.min(stepSize, magnitude);
+    float scale = stepLength / magnitude;
+    float stepYaw = deltaYaw * scale;
+    float stepPitch = deltaPitch * scale;
+    float yaw = baseYaw + stepYaw;
+    float pitch = basePitch + stepPitch;
+    return new float[] {yaw, clampPitch(pitch)};
+  }
+
+  /**
+   * Áp dụng sensitivity curve quantization. Tái tạo cách Minecraft xử lý input chuột, giúp rotation
+   * giống người thật hơn.
+   */
+  public static float[] flexRotation(
+      float targetYaw, float targetPitch, float baseYaw, float basePitch) {
+    float sensitivity =
+        (float)
+            (mc.gameSettings.mouseSensitivity * (1.0 + Math.random() / 10000000.0) * 0.6F + 0.2F);
+    double multiplier = sensitivity * sensitivity * sensitivity * 8.0F * 0.15D;
+    float yaw = baseYaw + (float) (Math.round((targetYaw - baseYaw) / multiplier) * multiplier);
+    float pitch =
+        basePitch + (float) (Math.round((targetPitch - basePitch) / multiplier) * multiplier);
+    return new float[] {yaw, MathHelper.clamp_float(pitch, -90.0F, 90.0F)};
+  }
+
+  // ================================================================
+  //  EXISTING METHODS — PRESERVED
+  // ================================================================
 
   private static float randomAngle = 0.0f;
   private static float offsetX = 0.0f;
@@ -289,7 +741,7 @@ public class RotationUtil {
         randomAngle =
             (float)
                     Math.toDegrees(
-                        Math.atan2(targetRotation[0] - targetYaw, targetPitch - targetRotation[1]))
+                        Math.atan2(targetRotation[0] - targetYaw, lastPitch - targetRotation[1]))
                 - 180.0F;
         targetYaw -= offsetX;
         targetPitch -= offsetY;
