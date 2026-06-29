@@ -105,7 +105,7 @@ public class Speed extends Module {
     }
 
     if (this.mode.getValue() != lastMode) {
-      mc.timer.timerSpeed = 1.0F;
+      ((myau.mixin.IAccessorMinecraft) mc).getTimer().timerSpeed = 1.0F;
       lastMode = this.mode.getValue();
     }
 
@@ -168,7 +168,7 @@ public class Speed extends Module {
   @Override
   public void onDisabled() {
     this.hopping = false;
-    mc.timer.timerSpeed = 1.0F;
+    ((myau.mixin.IAccessorMinecraft) mc).getTimer().timerSpeed = 1.0F;
   }
 
   @EventTarget(Priority.LOW)

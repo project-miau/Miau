@@ -240,10 +240,7 @@ public class KillAura extends Module {
               (myau.module.modules.movement.KeepSprint)
                   Myau.moduleManager.modules.get(myau.module.modules.movement.KeepSprint.class);
           boolean ksWillPreserveSprint =
-              ks != null
-                  && ks.isEnabled()
-                  && ks.shouldKeepSprint()
-                  && mc.thePlayer.isSprinting();
+              ks != null && ks.isEnabled() && ks.shouldKeepSprint() && mc.thePlayer.isSprinting();
 
           if (ksWillPreserveSprint && !PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
             PingSpoofComponent.beginSession(

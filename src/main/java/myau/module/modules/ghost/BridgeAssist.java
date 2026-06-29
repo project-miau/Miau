@@ -1,9 +1,7 @@
 package myau.module.modules.ghost;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import myau.event.EventTarget;
 import myau.event.impl.MoveInputEvent;
 import myau.event.impl.PacketEvent;
@@ -17,7 +15,6 @@ import myau.property.properties.IntProperty;
 import myau.util.client.KeyBindUtil;
 import myau.util.player.RotationUtil;
 import myau.util.world.BlockUtil;
-import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.ItemBlock;
@@ -50,19 +47,8 @@ public class BridgeAssist extends Module {
   private int unsneakDelayTicks = -1;
   private int unsneakStartTick = -1;
 
-  private static final Map<String, Integer> BLOCK_SCORE = new HashMap<>();
-
   public BridgeAssist() {
     super("Bridge Assist", false);
-    BLOCK_SCORE.put("obsidian", 0);
-    BLOCK_SCORE.put("end_stone", 1);
-    BLOCK_SCORE.put("planks", 2);
-    BLOCK_SCORE.put("log", 2);
-    BLOCK_SCORE.put("glass", 3);
-    BLOCK_SCORE.put("stained_glass", 3);
-    BLOCK_SCORE.put("hardened_clay", 4);
-    BLOCK_SCORE.put("stained_hardened_clay", 4);
-    BLOCK_SCORE.put("cloth", 5);
   }
 
   @Override
@@ -187,12 +173,6 @@ public class BridgeAssist extends Module {
     if (held == null || !(held.getItem() instanceof ItemBlock)) return;
     if (lookingDown.getValue() && mc.thePlayer.rotationPitch < 70f) return;
     if (notMovingForward.getValue() && mc.thePlayer.movementInput.moveForward > 0f) return;
-
-    // Prefer strongest block if holding multiple block types
-    int bestSlot = findBestBlockSlot();
-    if (bestSlot != -1 && bestSlot != mc.thePlayer.inventory.currentItem) {
-      mc.thePlayer.inventory.currentItem = bestSlot;
-    }
 
     float basePitch = mc.thePlayer.rotationPitch;
     double reach = mc.playerController.getBlockReachDistance();
@@ -381,6 +361,10 @@ public class BridgeAssist extends Module {
     if (bestSupport == null || bestFace == null || Float.isNaN(bestPitch)) return null;
     return new TargetResult(yaw, bestPitch, bestSupport, bestFace);
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  Inner classes
+  // ══════════════════════════════════════════════════════════════════════════
 
   private static class FaceTarget {
     final BlockPos block;

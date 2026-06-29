@@ -34,18 +34,9 @@ import net.minecraft.util.Vec3;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
-/**
- * TowerScaffold — Advanced clutch scaffold module.
- *
- * <p>Port of a third-party script. Automatically places blocks under the player when they are
- * about to walk off an edge, with silent rotation, future position simulation, and smart block
- * selection.
- */
 public class Clutch extends Module {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
-
-  // ── Block scoring (higher = prefer to use first = save good blocks) ──
   private static final Map<String, Integer> BLOCK_SCORE = new HashMap<>();
 
   static {
@@ -64,37 +55,30 @@ public class Clutch extends Module {
 
   // ── Blocks the player can fall through ──
   private static boolean canPlaceThrough(Block block) {
-    return block instanceof BlockAir
-        || block instanceof BlockLiquid
-        || block instanceof BlockFire;
+    return block instanceof BlockAir || block instanceof BlockLiquid || block instanceof BlockFire;
   }
 
   private static final double HW = 0.3;
   private static final double[][] CORNERS = {{-HW, -HW}, {HW, -HW}, {-HW, HW}, {HW, HW}};
 
   // ── Properties ──
-  public final FloatProperty reach =
-      new FloatProperty("Reach", 4.5f, 0.5f, 6.0f);
-  public final FloatProperty speed =
-      new FloatProperty("Speed", 8f, 0f, 100f);
-  public final FloatProperty snapbackSpeed =
-      new FloatProperty("Snapback Speed", 12f, 0f, 100f);
-  public final IntProperty maxDistance =
-      new IntProperty("Max distance", 10, 0, 20);
+  public final FloatProperty reach = new FloatProperty("Reach", 4.5f, 0.5f, 6.0f);
+  public final FloatProperty speed = new FloatProperty("Speed", 8f, 0f, 100f);
+  public final FloatProperty snapbackSpeed = new FloatProperty("Snapback Speed", 12f, 0f, 100f);
+  public final IntProperty maxDistance = new IntProperty("Max distance", 10, 0, 20);
   public final FloatProperty rotationTolerance =
       new FloatProperty("Rotation Tolerance", 25f, 20f, 100f);
   public final BooleanProperty simulateFuture =
       new BooleanProperty("Simulate future position", true);
-  public final IntProperty selectKeybind =
-      new IntProperty("Select Keybind", 0);
+  public final IntProperty selectKeybind = new IntProperty("Select Keybind", 0, 0, 0);
 
   // ── Internal state ──
   private float serverYaw;
   private float serverPitch;
-  private BlockPos placePos;       // BlockPos where the new block goes
-  private BlockPos hitBlockPos;    // BlockPos of the support block being clicked
-  private EnumFacing hitSide;      // Face of the support block being clicked
-  private Vec3 hitVec;             // Exact hit point on the support block face
+  private BlockPos placePos; // BlockPos where the new block goes
+  private BlockPos hitBlockPos; // BlockPos of the support block being clicked
+  private EnumFacing hitSide; // Face of the support block being clicked
+  private Vec3 hitVec; // Exact hit point on the support block face
   private boolean placeQueued;
   private boolean placing;
   private boolean slotWasSwapped;
@@ -132,20 +116,12 @@ public class Clutch extends Module {
     disablePlacing();
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  //  UpdateEvent PRE — main logic loop
-  //  Combines: onPrePlayerInteract → getRotations → onPreUpdate (original script)
-  // ══════════════════════════════════════════════════════════════════════════
-
   @EventTarget(Priority.LOWEST)
   public void onUpdate(UpdateEvent event) {
     if (event.getType() != EventType.PRE) return;
     if (!this.isEnabled()) return;
 
-    // ── Step 1: onPrePlayerInteract equivalent ──
-    boolean pressed =
-        selectKeybind.getValue() != 0
-            && Keyboard.isKeyDown(selectKeybind.getValue());
+    boolean pressed = selectKeybind.getValue() != 0 && Keyboard.isKeyDown(selectKeybind.getValue());
     if (!pressed || mc.currentScreen != null) {
       clearAim();
       disablePlacing();
@@ -171,7 +147,6 @@ public class Clutch extends Module {
 
     Object[] tgt = clutchAim();
     if (tgt != null) {
-      // tgt[0] = MovingObjectPosition (hit info), tgt[1] = yaw, tgt[2] = pitch
       MovingObjectPosition mop = (MovingObjectPosition) tgt[0];
       targetBlockPos = mop.getBlockPos();
       targetSide = mop.sideHit;
@@ -184,7 +159,6 @@ public class Clutch extends Module {
     if (hasAim && !placing) enablePlacing();
 
     if (placing) {
-      // Suppress attack/use while placing
       KeyBinding.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
       KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
       equipPlannedSlot();
@@ -195,23 +169,15 @@ public class Clutch extends Module {
     if (rots != null) {
       event.setRotation(rots[0], rots[1], 100);
     }
-
-    // ── Step 3: onPreUpdate equivalent (placement) ──
     executePlacement();
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  //  Rotation computation (original getRotations)
-  // ══════════════════════════════════════════════════════════════════════════
-
   private Float[] computeRotations() {
     if (resetting) {
-      // Smoothly snap back to natural player rotation
       aimYaw = mc.thePlayer.rotationYaw;
       aimPitch = mc.thePlayer.rotationPitch;
       Float[] sm = getRotationsSmoothed(aimYaw, aimPitch, true);
-      if (Math.abs(sm[0] - aimYaw) < 0.5f
-          && Math.abs(sm[1] - aimPitch) < 0.5f) {
+      if (Math.abs(sm[0] - aimYaw) < 0.5f && Math.abs(sm[1] - aimPitch) < 0.5f) {
         resetting = false;
         return null;
       }
@@ -226,15 +192,12 @@ public class Clutch extends Module {
       double r = reach.getValue().doubleValue();
       MovingObjectPosition chk = raycastBlock(r, sm[0], sm[1]);
 
-      if (chk != null
-          && chk.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
-        if (chk.getBlockPos().equals(targetBlockPos)
-            && chk.sideHit == targetSide) {
+      if (chk != null && chk.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+        if (chk.getBlockPos().equals(targetBlockPos) && chk.sideHit == targetSide) {
           int max = maxDistance.getValue();
           if (max == 0 || clutchBlocksPlaced < max) {
             double tol = rotationTolerance.getValue().doubleValue();
-            if (Math.abs(sm[0] - serverYaw) <= tol
-                && Math.abs(sm[1] - serverPitch) <= tol) {
+            if (Math.abs(sm[0] - serverYaw) <= tol && Math.abs(sm[1] - serverPitch) <= tol) {
               hitBlockPos = chk.getBlockPos();
               hitSide = chk.sideHit;
               hitVec = chk.hitVec;
@@ -274,7 +237,9 @@ public class Clutch extends Module {
         held,
         hitBlockPos,
         hitSide,
-        hitVec != null ? hitVec : new Vec3(placePos.getX() + 0.5, placePos.getY() + 0.5, placePos.getZ() + 0.5));
+        hitVec != null
+            ? hitVec
+            : new Vec3(placePos.getX() + 0.5, placePos.getY() + 0.5, placePos.getZ() + 0.5));
 
     if (hitSide != EnumFacing.UP) clutchBlocksPlaced++;
 
@@ -283,10 +248,6 @@ public class Clutch extends Module {
     lastPlacedZ = placePos.getZ();
     mc.thePlayer.swingItem();
   }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  //  Packet tracking — capture server-side yaw/pitch from C03
-  // ══════════════════════════════════════════════════════════════════════════
 
   @EventTarget
   public void onPacket(PacketEvent event) {
@@ -301,10 +262,6 @@ public class Clutch extends Module {
       }
     }
   }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  //  Mouse click suppression while placing
-  // ══════════════════════════════════════════════════════════════════════════
 
   @EventTarget
   public void onRightClick(RightClickMouseEvent event) {
@@ -339,9 +296,7 @@ public class Clutch extends Module {
     if (!placing) return;
 
     // Restore previous hotbar slot
-    if (slotWasSwapped
-        && prevSlot != -1
-        && prevSlot != mc.thePlayer.inventory.currentItem) {
+    if (slotWasSwapped && prevSlot != -1 && prevSlot != mc.thePlayer.inventory.currentItem) {
       mc.thePlayer.inventory.currentItem = prevSlot;
     }
 
@@ -352,12 +307,9 @@ public class Clutch extends Module {
 
     // Restore actual mouse key state (sync with hardware)
     if (mc.currentScreen == null) {
+      KeyBinding.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), Mouse.isButtonDown(0));
       KeyBinding.setKeyBindState(
-          mc.gameSettings.keyBindAttack.getKeyCode(),
-          Mouse.isButtonDown(0));
-      KeyBinding.setKeyBindState(
-          mc.gameSettings.keyBindUseItem.getKeyCode(),
-          Mouse.isButtonDown(1));
+          mc.gameSettings.keyBindUseItem.getKeyCode(), Mouse.isButtonDown(1));
     }
 
     // Re-enable AutoClicker if it was on
@@ -401,8 +353,7 @@ public class Clutch extends Module {
    */
   private Object[] clutchAim() {
     Vec3 p = mc.thePlayer.getPositionVector();
-    Vec3 eye =
-        p.addVector(0, mc.thePlayer.getEyeHeight(), 0);
+    Vec3 eye = p.addVector(0, mc.thePlayer.getEyeHeight(), 0);
     double r = reach.getValue().doubleValue();
 
     boolean simulate = simulateFuture.getValue();
@@ -431,9 +382,7 @@ public class Clutch extends Module {
           double currentDist = distToAABB(p, bp);
           double futureDist = distToAABB(futurePos, bp);
           double score = simulate ? (currentDist * 0.3 + futureDist * 0.7) : currentDist;
-          if (bp.getX() == lastPlacedX
-              && bp.getY() == lastPlacedY
-              && bp.getZ() == lastPlacedZ) {
+          if (bp.getX() == lastPlacedX && bp.getY() == lastPlacedY && bp.getZ() == lastPlacedZ) {
             score *= 0.95;
           }
           cands.add(new Object[] {score, bp});
@@ -455,8 +404,8 @@ public class Clutch extends Module {
   }
 
   /**
-   * Simulate the player's position up to 20 ticks ahead, applying gravity and horizontal
-   * movement prediction.
+   * Simulate the player's position up to 20 ticks ahead, applying gravity and horizontal movement
+   * prediction.
    */
   private Vec3 simulateFuturePosition(Vec3 startPos) {
     double simX = startPos.xCoord;
@@ -481,13 +430,13 @@ public class Clutch extends Module {
 
       // Collision stop: if y drops far or we'd be "on ground"
       if (simY < startPos.yCoord - 2.0) break;
-      if (simMotionY < 0
-          && simY <= Math.floor(startPos.yCoord)) {
+      if (simMotionY < 0 && simY <= Math.floor(startPos.yCoord)) {
         // Simplified ground detection
-        BlockPos below = new BlockPos(
-            MathHelper.floor_double(simX),
-            MathHelper.floor_double(simY) - 1,
-            MathHelper.floor_double(simZ));
+        BlockPos below =
+            new BlockPos(
+                MathHelper.floor_double(simX),
+                MathHelper.floor_double(simY) - 1,
+                MathHelper.floor_double(simZ));
         Block b = BlockUtil.getBlock(below);
         if (!canPlaceThrough(b)) break;
       }
@@ -517,12 +466,8 @@ public class Clutch extends Module {
   private Object[] getBestRotationsToBlock(
       ItemStack held, BlockPos bp, Vec3 eye, double reach, boolean underPlayer) {
     double INSET = 0.05, STEP = 0.2, JIT = STEP * 0.1;
-    boolean faceSOUTH =
-        Math.abs(eye.zCoord - (bp.getZ() + 1))
-            < Math.abs(eye.zCoord - bp.getZ());
-    boolean faceEAST =
-        Math.abs(eye.xCoord - (bp.getX() + 1))
-            < Math.abs(eye.xCoord - bp.getX());
+    boolean faceSOUTH = Math.abs(eye.zCoord - (bp.getZ() + 1)) < Math.abs(eye.zCoord - bp.getZ());
+    boolean faceEAST = Math.abs(eye.xCoord - (bp.getX() + 1)) < Math.abs(eye.xCoord - bp.getX());
     float baseYaw = normYaw(serverYaw);
     float basePit = serverPitch;
     int n = (int) Math.round(1.0 / STEP);
@@ -543,14 +488,9 @@ public class Clutch extends Module {
         if (underPlayer) {
           // Top face (hardened Y)
           float[] rV =
-              getRotationsWrapped(
-                  eye,
-                  bp.getX() + u,
-                  bp.getY() + 1 - INSET,
-                  bp.getZ() + v);
+              getRotationsWrapped(eye, bp.getX() + u, bp.getY() + 1 - INSET, bp.getZ() + v);
           double costV =
-              Math.abs(wrapYawDelta(baseYaw, rV[0]))
-                  + Math.abs(rV[1] - (double) basePit);
+              Math.abs(wrapYawDelta(baseYaw, rV[0])) + Math.abs(rV[1] - (double) basePit);
           cands.add(new Object[] {costV, rV[0], rV[1]});
         }
 
@@ -561,9 +501,7 @@ public class Clutch extends Module {
                 bp.getX() + u,
                 bp.getY() + v,
                 faceSOUTH ? bp.getZ() + 1 - INSET : bp.getZ() + INSET);
-        double costZ =
-            Math.abs(wrapYawDelta(baseYaw, rZ[0]))
-                + Math.abs(rZ[1] - (double) basePit);
+        double costZ = Math.abs(wrapYawDelta(baseYaw, rZ[0])) + Math.abs(rZ[1] - (double) basePit);
         cands.add(new Object[] {costZ, rZ[0], rZ[1]});
 
         // X face
@@ -573,27 +511,20 @@ public class Clutch extends Module {
                 faceEAST ? bp.getX() + 1 - INSET : bp.getX() + INSET,
                 bp.getY() + v,
                 bp.getZ() + u);
-        double costX =
-            Math.abs(wrapYawDelta(baseYaw, rX[0]))
-                + Math.abs(rX[1] - (double) basePit);
+        double costX = Math.abs(wrapYawDelta(baseYaw, rX[0])) + Math.abs(rX[1] - (double) basePit);
         cands.add(new Object[] {costX, rX[0], rX[1]});
       }
     }
 
     cands.sort(
-        (a, b) ->
-            Double.compare(
-                ((Number) a[0]).doubleValue(),
-                ((Number) b[0]).doubleValue()));
+        (a, b) -> Double.compare(((Number) a[0]).doubleValue(), ((Number) b[0]).doubleValue()));
 
     for (Object[] candidate : cands) {
-      float yawW = unwrapYaw(
-          ((Number) candidate[1]).floatValue(), serverYaw);
+      float yawW = unwrapYaw(((Number) candidate[1]).floatValue(), serverYaw);
       float pit = ((Number) candidate[2]).floatValue();
 
       MovingObjectPosition ray = raycastBlock(reach, yawW, pit);
-      if (ray == null
-          || ray.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) continue;
+      if (ray == null || ray.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) continue;
 
       if (ray.sideHit == EnumFacing.DOWN) continue;
       if (ray.sideHit == EnumFacing.UP && !underPlayer) continue;
@@ -658,8 +589,7 @@ public class Clutch extends Module {
   //  Smooth rotation helpers
   // ══════════════════════════════════════════════════════════════════════════
 
-  private Float[] getRotationsSmoothed(
-      float targetYaw, float targetPitch, boolean snapback) {
+  private Float[] getRotationsSmoothed(float targetYaw, float targetPitch, boolean snapback) {
     float curYaw = serverYaw;
     float curPitch = serverPitch;
 
@@ -672,10 +602,7 @@ public class Clutch extends Module {
       return new Float[] {curYaw, curPitch};
     }
 
-    float maxStep =
-        snapback
-            ? snapbackSpeed.getValue()
-            : speed.getValue();
+    float maxStep = snapback ? snapbackSpeed.getValue() : speed.getValue();
     float random = 20f;
 
     if (random > 0f) {
@@ -700,15 +627,12 @@ public class Clutch extends Module {
   //  Ray casting (block-only)
   // ══════════════════════════════════════════════════════════════════════════
 
-  private MovingObjectPosition raycastBlock(
-      double distance, float yaw, float pitch) {
+  private MovingObjectPosition raycastBlock(double distance, float yaw, float pitch) {
     Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
     Vec3 lookVec = RayCastUtil.getVectorForRotation(pitch, yaw);
     Vec3 targetPos =
         eyePos.addVector(
-            lookVec.xCoord * distance,
-            lookVec.yCoord * distance,
-            lookVec.zCoord * distance);
+            lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
     return mc.theWorld.rayTraceBlocks(eyePos, targetPos, false, false, true);
   }
 
@@ -729,26 +653,21 @@ public class Clutch extends Module {
   }
 
   private static float unwrapYaw(float yaw, float prevYaw) {
-    return prevYaw
-        + ((((yaw - prevYaw + 180f) % 360f) + 360f) % 360f - 180f);
+    return prevYaw + ((((yaw - prevYaw + 180f) % 360f) + 360f) % 360f - 180f);
   }
 
-  private static float[] getRotationsWrapped(
-      Vec3 eye, double tx, double ty, double tz) {
+  private static float[] getRotationsWrapped(Vec3 eye, double tx, double ty, double tz) {
     double dx = tx - eye.xCoord;
     double dy = ty - eye.yCoord;
     double dz = tz - eye.zCoord;
     double hd = Math.sqrt(dx * dx + dz * dz);
-    float yawWrapped =
-        (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
+    float yawWrapped = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
     yawWrapped = normYaw(yawWrapped);
-    float pitch =
-        (float) Math.toDegrees(-Math.atan2(dy, hd));
+    float pitch = (float) Math.toDegrees(-Math.atan2(dy, hd));
     return new float[] {yawWrapped, pitch};
   }
 
-  private static double clamp(
-      double v, double lo, double hi) {
+  private static double clamp(double v, double lo, double hi) {
     return v < lo ? lo : (v > hi ? hi : v);
   }
 

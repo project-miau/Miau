@@ -214,17 +214,9 @@ public class RotationUtil {
     return new Vec3(targetX, targetY, targetZ);
   }
 
-  // ================================================================
-  //  RAVEN BS — BACKUP POINT GRID
-  // ================================================================
-
   private static final double BACKUP_FACE_INSET = 0.05;
   private static final int BACKUP_TARGET_TOTAL = 30;
 
-  /**
-   * Builds a set of backup aim points on visible faces of entity's AABB. Ported from Raven BS
-   * RotationUtils.
-   */
   public static List<Vec3> buildBackupPoints(Entity entity, Vec3 eye) {
     if (entity == null || mc.thePlayer == null) return new ArrayList<>();
     float borderSize = entity.getCollisionBorderSize();
@@ -561,72 +553,7 @@ public class RotationUtil {
   }
 
   // ================================================================
-  //  RAVEN BS — SMOOTH ROTATION + SENSITIVITY QUANTIZATION
-  // ================================================================
-
-  private static final float FAR_THRESHOLD = 180f;
-
-  /**
-   * Smoothly interpolates from base -> target rotation with proximity-based slowdown,
-   * randomization, and sensitivity quantization (mouse simulation).
-   */
-  public static float[] smoothRotation(
-      float baseYaw,
-      float basePitch,
-      float targetYaw,
-      float targetPitch,
-      int speed,
-      float randomizationPercent) {
-    if (speed <= 0) {
-      return new float[] {baseYaw, clampPitch(basePitch)};
-    }
-    if (speed >= 30) {
-      return flexRotation(targetYaw, targetPitch, baseYaw, basePitch);
-    }
-    float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - baseYaw);
-    float deltaPitch = targetPitch - basePitch;
-    float magnitude = (float) MathHelper.sqrt_double(deltaYaw * deltaYaw + deltaPitch * deltaPitch);
-    if (magnitude < 0.001f) {
-      return flexRotation(targetYaw, targetPitch, baseYaw, basePitch);
-    }
-    float t = speed / 30f;
-    float stepSize = t * t * 180f;
-    float range = 0.6f * (float) (randomizationPercent / 100.0);
-    float multiplier =
-        (range <= 0.001f) ? 1.0f : (1.0f - range / 2f + (float) (Math.random() * range));
-    stepSize *= multiplier;
-    float proximityFactor = Math.min(1f, magnitude / FAR_THRESHOLD);
-    proximityFactor = (float) Math.pow(proximityFactor, 0.7);
-    float maxSlowdown = (float) (randomizationPercent / 100.0);
-    float proximityMult = Math.max(0.8f, 1.0f - maxSlowdown * (1.0f - proximityFactor));
-    stepSize *= proximityMult;
-    float stepLength = Math.min(stepSize, magnitude);
-    float scale = stepLength / magnitude;
-    float stepYaw = deltaYaw * scale;
-    float stepPitch = deltaPitch * scale;
-    float yaw = baseYaw + stepYaw;
-    float pitch = basePitch + stepPitch;
-    return new float[] {yaw, clampPitch(pitch)};
-  }
-
-  /**
-   * Áp dụng sensitivity curve quantization. Tái tạo cách Minecraft xử lý input chuột, giúp rotation
-   * giống người thật hơn.
-   */
-  public static float[] flexRotation(
-      float targetYaw, float targetPitch, float baseYaw, float basePitch) {
-    float sensitivity =
-        (float)
-            (mc.gameSettings.mouseSensitivity * (1.0 + Math.random() / 10000000.0) * 0.6F + 0.2F);
-    double multiplier = sensitivity * sensitivity * sensitivity * 8.0F * 0.15D;
-    float yaw = baseYaw + (float) (Math.round((targetYaw - baseYaw) / multiplier) * multiplier);
-    float pitch =
-        basePitch + (float) (Math.round((targetPitch - basePitch) / multiplier) * multiplier);
-    return new float[] {yaw, MathHelper.clamp_float(pitch, -90.0F, 90.0F)};
-  }
-
-  // ================================================================
-  //  EXISTING METHODS — PRESERVED
+  //  ROTATION UTILITIES (existing)
   // ================================================================
 
   private static float randomAngle = 0.0f;
@@ -703,15 +630,6 @@ public class RotationUtil {
     return new float[] {fixedYaw, MathHelper.clamp_float(fixedPitch, -90.0F, 90.0F)};
   }
 
-  public static float clampPitch(float n) {
-    return MathHelper.clamp_float(n, -90.0F, 90.0F);
-  }
-
-  public static float[] smoothRotation(
-      float baseYaw, float basePitch, float targetYaw, float targetPitch, int speed) {
-    return smoothRotation(baseYaw, basePitch, targetYaw, targetPitch, speed, 0f);
-  }
-
   public static float[] smoothRotation(
       float baseYaw,
       float basePitch,
@@ -723,13 +641,13 @@ public class RotationUtil {
       return new float[] {baseYaw, clampPitch(basePitch)};
     }
     if (speed >= 30) {
-      return new float[] {targetYaw, clampPitch(targetPitch)};
+      return flexRotation(targetYaw, targetPitch, baseYaw, basePitch);
     }
     float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - baseYaw);
     float deltaPitch = targetPitch - basePitch;
     float magnitude = (float) MathHelper.sqrt_double(deltaYaw * deltaYaw + deltaPitch * deltaPitch);
     if (magnitude < 0.001f) {
-      return new float[] {targetYaw, clampPitch(targetPitch)};
+      return flexRotation(targetYaw, targetPitch, baseYaw, basePitch);
     }
     float t = speed / 30f;
     float stepSize = t * t * 180f;
@@ -749,6 +667,18 @@ public class RotationUtil {
     float yaw = baseYaw + stepYaw;
     float pitch = basePitch + stepPitch;
     return new float[] {yaw, clampPitch(pitch)};
+  }
+
+  public static float[] flexRotation(
+      float targetYaw, float targetPitch, float baseYaw, float basePitch) {
+    float sensitivity =
+        (float)
+            (mc.gameSettings.mouseSensitivity * (1.0 + Math.random() / 10000000.0) * 0.6F + 0.2F);
+    double multiplier = sensitivity * sensitivity * sensitivity * 8.0F * 0.15D;
+    float yaw = baseYaw + (float) (Math.round((targetYaw - baseYaw) / multiplier) * multiplier);
+    float pitch =
+        basePitch + (float) (Math.round((targetPitch - basePitch) / multiplier) * multiplier);
+    return new float[] {yaw, MathHelper.clamp_float(pitch, -90.0F, 90.0F)};
   }
 
   public static float[] getRotationsFromEye(Vec3 eye, double tx, double ty, double tz) {

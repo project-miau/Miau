@@ -8,7 +8,6 @@ import myau.util.network.PacketUtil;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
 
-
 public class OMAACNoSlow extends NoSlowMode {
 
   public OMAACNoSlow(String name, NoSlow parent) {
@@ -40,6 +39,5 @@ public class OMAACNoSlow extends NoSlowMode {
   }
 
   @Override
-  public void onRightClick(RightClickMouseEvent event) {
-  }
+  public void onRightClick(RightClickMouseEvent event) {}
 }
