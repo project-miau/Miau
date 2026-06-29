@@ -136,7 +136,7 @@ public class Myau {
     moduleManager.modules.put(Capes.class, new Capes());
     moduleManager.modules.put(FastPlace.class, new FastPlace());
     moduleManager.modules.put(AutoLadderClutch.class, new AutoLadderClutch());
-    moduleManager.modules.put(TowerScaffold.class, new TowerScaffold());
+    moduleManager.modules.put(Clutch.class, new Clutch());
     moduleManager.modules.put(FakeLag.class, new FakeLag());
     moduleManager.modules.put(Freeze.class, new Freeze());
     moduleManager.modules.put(Displace.class, new Displace());

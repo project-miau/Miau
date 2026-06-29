@@ -12,23 +12,6 @@ import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
 import net.minecraft.network.play.server.S08PacketPlayerPosLook;
 
-/**
- * Rise 6 Spartan NoSlow bypass.
- *
- * <p><b>Tech:</b> Spartan AC check "use item spamming" + "invalid block placement" + timer. Cần
- * cooldown timer + BadPackets check để tránh flag. Khác với Intave/NewNCP: Spartan đặc biệt nhạy
- * với C08 gửi trong inv, cần check inventory.
- *
- * <p><b>Flow:</b>
- *
- * <pre>
- *   Tick 0-10: idle (disable counter)
- *   Tick 10+:  C09 swap → C09 swap back → C08 block (nếu không bad packets)
- *   S08:       reset disable counter
- * </pre>
- *
- * <p>Giống NewNCP nhưng thêm check inventory + timer ngắn hơn (10 ticks vs 10 ticks).
- */
 public class OMSpartanNoSlow extends NoSlowMode {
   private int disable;
 
@@ -70,10 +53,9 @@ public class OMSpartanNoSlow extends NoSlowMode {
 
   private void performBypass() {
     KillAura aura = (KillAura) Myau.moduleManager.getModule(KillAura.class);
-    // Spartan nhạy với inventory open + block placement
     if (this.disable > 10
         && !BadPacketsComponent.bad(false, true, true, false, false)
-        && !BadPacketsComponent.bad(true, false, false, false, false) // check inventory
+        && !BadPacketsComponent.bad(true, false, false, false, false)
         && (aura == null || aura.getTarget() == null)) {
       int currentSlot = mc.thePlayer.inventory.currentItem;
       PacketUtil.sendPacket(new C09PacketHeldItemChange(currentSlot % 8 + 1));
