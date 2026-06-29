@@ -13,6 +13,7 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
 import myau.util.client.KeyBindUtil;
+import myau.util.player.RotationUtil;
 import myau.util.world.BlockUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
@@ -180,7 +181,7 @@ public class BridgeAssist extends Module {
     if (target == null) return;
 
     float baseYaw = mc.thePlayer.rotationYaw;
-    float[] sm = smoothRotation(baseYaw, basePitch, target.yaw, target.pitch, 15, 20f);
+    float[] sm = RotationUtil.smoothRotation(baseYaw, basePitch, target.yaw, target.pitch, 15, 20f);
 
     e.setRotation(sm[0], sm[1], 100);
   }
@@ -336,7 +337,7 @@ public class BridgeAssist extends Module {
       pitch += step;
       float samplePitch = Math.min(pitch, 90f);
 
-      MovingObjectPosition mop = rayCastBlock(reach, yaw, samplePitch);
+      MovingObjectPosition mop = RotationUtil.rayCastBlock(reach, yaw, samplePitch);
       if (mop == null) continue;
       EnumFacing hitFace = mop.sideHit;
       if (hitFace == EnumFacing.UP || hitFace == EnumFacing.DOWN) continue;
@@ -359,32 +360,6 @@ public class BridgeAssist extends Module {
 
     if (bestSupport == null || bestFace == null || Float.isNaN(bestPitch)) return null;
     return new TargetResult(yaw, bestPitch, bestSupport, bestFace);
-  }
-
-  private MovingObjectPosition rayCastBlock(double reach, float yaw, float pitch) {
-    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0F);
-    Vec3 lookVec = myau.util.player.RayCastUtil.getVectorForRotation(pitch, yaw);
-    Vec3 targetPos =
-        eyePos.addVector(lookVec.xCoord * reach, lookVec.yCoord * reach, lookVec.zCoord * reach);
-    return mc.theWorld.rayTraceBlocks(eyePos, targetPos, false, false, true);
-  }
-
-  private float[] smoothRotation(
-      float currentYaw,
-      float currentPitch,
-      float targetYaw,
-      float targetPitch,
-      float speed,
-      float maxDiff) {
-    float yawDiff = MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
-    yawDiff = MathHelper.clamp_float(yawDiff, -maxDiff, maxDiff);
-    float pitchDiff = targetPitch - currentPitch;
-    pitchDiff = MathHelper.clamp_float(pitchDiff, -maxDiff, maxDiff);
-
-    float yawStep = Math.max(Math.abs(yawDiff) / speed, 1);
-    float pitchStep = Math.max(Math.abs(pitchDiff) / speed, 1);
-
-    return new float[] {currentYaw + yawDiff / yawStep, currentPitch + pitchDiff / pitchStep};
   }
 
   // ══════════════════════════════════════════════════════════════════════════

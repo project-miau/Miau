@@ -84,6 +84,7 @@ public class Displace extends Module {
   private boolean displaceLeft = false;
   private boolean wasDisplacingLastTick = false;
   private boolean releaseBlinkNextGameTick = false;
+  private boolean blinkingModule = false;
   private Float dynamicVoidYaw = null;
   private Float renderDisplaceYaw = null;
   private EntityPlayer renderTarget = null;
@@ -380,7 +381,7 @@ public class Displace extends Module {
   }
 
   private float getFixedDisplaceYaw() {
-    float baseYaw = RotationUtil.serverYaw != 0 ? RotationUtil.serverYaw : mc.thePlayer.rotationYaw;
+    float baseYaw = RotationUtil.customRots ? RotationUtil.serverYaw : mc.thePlayer.rotationYaw;
     float offset = yawOffset.getValue();
     return displaceLeft ? baseYaw - offset : baseYaw + offset;
   }
@@ -464,7 +465,9 @@ public class Displace extends Module {
   }
 
   private void releaseBlink() {
+    if (!blinkingModule) return;
     Myau.blinkManager.setBlinkState(false, BlinkModules.DISPLACE);
+    blinkingModule = false;
   }
 
   @EventTarget(Priority.HIGHEST)
@@ -636,11 +639,10 @@ public class Displace extends Module {
     if (!(e.getPacket() instanceof C03PacketPlayer)) {
       return;
     }
-    if (Myau.blinkManager.getBlinkingModule() == BlinkModules.DISPLACE) {
-      return;
-    }
+    if (blinkingModule) return;
 
     Myau.blinkManager.setBlinkState(true, BlinkModules.DISPLACE);
+    blinkingModule = true;
     releaseBlinkNextGameTick = true;
   }
 
