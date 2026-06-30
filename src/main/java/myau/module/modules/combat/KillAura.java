@@ -15,6 +15,7 @@ import myau.event.EventTarget;
 import myau.event.impl.*;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
+import myau.management.RotationState;
 import myau.mixin.IAccessorPlayerControllerMP;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Module;
@@ -1050,13 +1051,14 @@ public class KillAura extends Module {
   @EventTarget
   public void onMove(MoveInputEvent event) {
     if (this.isEnabled()) {
-      if (this.moveFix.getValue() == 1) {
-        MoveUtil.fixMovement(mc.thePlayer.rotationYaw);
+      if (this.moveFix.getValue() == 1 && RotationState.isActived()) {
+        MoveUtil.fixMovement(RotationState.getRotationYawHead());
       }
       if (this.moveFix.getValue() == 4
           && this.rotations.getValue() != 4
+          && RotationState.isActived()
           && MoveUtil.isForwardPressed()) {
-        MoveUtil.fixStrafe(mc.thePlayer.rotationYaw);
+        MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
       }
       if (this.shouldAutoBlock()) {
         mc.thePlayer.movementInput.jump = false;
@@ -1066,20 +1068,20 @@ public class KillAura extends Module {
 
   @EventTarget
   public void onStrafe(StrafeEvent event) {
-    if (this.isEnabled() && this.target != null) {
+    if (this.isEnabled() && RotationState.isActived() && this.target != null) {
       if (this.moveFix.getValue() == 1 || this.moveFix.getValue() == 2) {
-        event.setYaw(mc.thePlayer.rotationYaw);
+        event.setYaw(RotationState.getRotationYawHead());
       }
     }
   }
 
   @EventTarget
   public void onJump(JumpEvent event) {
-    if (this.isEnabled() && this.target != null) {
+    if (this.isEnabled() && RotationState.isActived() && this.target != null) {
       if (this.moveFix.getValue() == 1
           || this.moveFix.getValue() == 2
           || this.moveFix.getValue() == 3) {
-        event.setYaw(mc.thePlayer.rotationYaw);
+        event.setYaw(RotationState.getRotationYawHead());
       }
     }
   }
