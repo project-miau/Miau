@@ -1,83 +1,88 @@
 package miau.module.modules.ghost;
 
 import miau.event.EventTarget;
+import miau.event.impl.AttackEvent;
 import miau.event.impl.MoveInputEvent;
-import miau.event.impl.PacketEvent;
-import miau.event.types.EventType;
 import miau.event.types.Priority;
 import miau.module.Module;
 import miau.property.properties.FloatProperty;
-import miau.util.time.TimerUtil;
+import miau.property.properties.ModeProperty;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.play.client.C02PacketUseEntity;
-import net.minecraft.network.play.client.C02PacketUseEntity.Action;
-import net.minecraft.potion.Potion;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.network.play.client.C0BPacketEntityAction;
 
 public class Wtap extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
-  private final TimerUtil timer = new TimerUtil();
-  private boolean active = false;
-  private boolean stopForward = false;
-  private long delayTicks = 0L;
-  private long durationTicks = 0L;
-  public final FloatProperty delay = new FloatProperty("delay", 5.5F, 0.0F, 10.0F);
-  public final FloatProperty duration = new FloatProperty("duration", 1.5F, 1.0F, 5.0F);
 
-  private boolean canTrigger() {
-    return !(mc.thePlayer.movementInput.moveForward < 0.8F)
-        && !mc.thePlayer.isCollidedHorizontally
-        && (!((float) mc.thePlayer.getFoodStats().getFoodLevel() <= 6.0F)
-            || mc.thePlayer.capabilities.allowFlying)
-        && (mc.thePlayer.isSprinting()
-            || !mc.thePlayer.isUsingItem()
-                && !mc.thePlayer.isPotionActive(Potion.blindness)
-                && mc.gameSettings.keyBindSprint.isKeyDown());
-  }
+  public final ModeProperty mode = new ModeProperty("Mode", 0, new String[] {"Legit", "Silent"});
+  public final FloatProperty chance = new FloatProperty("WTap Chance", 100.0F, 0.0F, 100.0F);
+
+  private boolean wTap;
+  private boolean unsprint;
+  private EntityLivingBase silentTarget;
 
   public Wtap() {
     super("WTap", false);
   }
 
-  @EventTarget(Priority.LOWEST)
-  public void onMoveInput(MoveInputEvent event) {
-    if (this.active) {
-      if (!this.stopForward && !this.canTrigger()) {
-        this.active = false;
-        while (this.delayTicks > 0L) {
-          this.delayTicks -= 50L;
+  @EventTarget
+  public void onAttack(AttackEvent event) {
+    if (!isEnabled()) return;
+
+    Entity entity = event.getTarget();
+    if (!(entity instanceof EntityLivingBase)) return;
+    EntityLivingBase target = (EntityLivingBase) entity;
+
+    switch (mode.getModeString()) {
+      case "Legit":
+        {
+          wTap = Math.random() * 100 < chance.getValue() && target.hurtTime >= 6;
+          if (!wTap || unsprint) return;
+          if (mc.thePlayer.isSprinting() || mc.gameSettings.keyBindSprint.isKeyDown()) {
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+            unsprint = true;
+          }
+          break;
         }
-        while (this.durationTicks > 0L) {
-          this.durationTicks -= 50L;
+      case "Silent":
+        {
+          silentTarget = target;
+          break;
         }
-      } else if (this.delayTicks > 0L) {
-        this.delayTicks -= 50L;
-      } else {
-        if (this.durationTicks > 0L) {
-          this.durationTicks -= 50L;
-          this.stopForward = true;
-          mc.thePlayer.movementInput.moveForward = 0.0F;
-        }
-        if (this.durationTicks <= 0L) {
-          this.active = false;
-        }
-      }
     }
   }
 
-  @EventTarget
-  public void onPacket(PacketEvent event) {
-    if (this.isEnabled() && !event.isCancelled() && event.getType() == EventType.SEND) {
-      if (event.getPacket() instanceof C02PacketUseEntity
-          && ((C02PacketUseEntity) event.getPacket()).getAction() == Action.ATTACK
-          && !this.active
-          && this.timer.hasTimeElapsed(500L)
-          && mc.thePlayer.isSprinting()) {
-        this.timer.reset();
-        this.active = true;
-        this.stopForward = false;
-        this.delayTicks = this.delayTicks + (long) (50.0F * this.delay.getValue());
-        this.durationTicks = this.durationTicks + (long) (50.0F * this.duration.getValue());
-      }
+  @EventTarget(Priority.LOWEST)
+  public void onMoveInput(MoveInputEvent event) {
+    if (!isEnabled()) return;
+
+    switch (mode.getModeString()) {
+      case "Legit":
+        {
+          if (!wTap) return;
+          if (unsprint && Math.random() * 100 < chance.getValue()) {
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+            unsprint = false;
+          }
+          break;
+        }
+      case "Silent":
+        {
+          if (silentTarget != null) {
+            if (silentTarget.hurtTime == 9) {
+              mc.getNetHandler()
+                  .addToSendQueue(
+                      new C0BPacketEntityAction(
+                          mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
+              silentTarget = null;
+            } else if (silentTarget.isDead || silentTarget.hurtTime < 9) {
+              silentTarget = null;
+            }
+          }
+          break;
+        }
     }
   }
 }
