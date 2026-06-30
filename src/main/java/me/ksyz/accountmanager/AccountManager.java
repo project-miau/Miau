@@ -20,7 +20,7 @@ import net.minecraftforge.common.MinecraftForge;
  */
 public class AccountManager {
   private static final Minecraft mc = Minecraft.getMinecraft();
-  private static final File file = new File(mc.mcDataDir, "openmyau.accounts.json");
+  private static final File file = new File(mc.mcDataDir, "openmiau.accounts.json");
   private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
   private static final Logger LOGGER = Logger.getLogger(AccountManager.class.getName());
 
@@ -34,11 +34,11 @@ public class AccountManager {
       try {
         if (file.getParentFile().exists() || file.getParentFile().mkdirs()) {
           if (file.createNewFile()) {
-            LOGGER.info("Successfully created openmyau.accounts.json");
+            LOGGER.info("Successfully created openmiau.accounts.json");
           }
         }
       } catch (IOException e) {
-        LOGGER.log(Level.WARNING, "Couldn't create openmyau.accounts.json", e);
+        LOGGER.log(Level.WARNING, "Couldn't create openmiau.accounts.json", e);
       }
     }
   }
@@ -80,9 +80,9 @@ public class AccountManager {
         }
       }
     } catch (FileNotFoundException e) {
-      LOGGER.log(Level.WARNING, "Couldn't find openmyau.accounts.json", e);
+      LOGGER.log(Level.WARNING, "Couldn't find openmiau.accounts.json", e);
     } catch (Exception e) {
-      LOGGER.log(Level.WARNING, "Couldn't load openmyau.accounts.json", e);
+      LOGGER.log(Level.WARNING, "Couldn't load openmiau.accounts.json", e);
     }
   }
 
@@ -108,7 +108,7 @@ public class AccountManager {
         printWriter.println(gson.toJson(jsonArray));
       }
     } catch (IOException e) {
-      LOGGER.log(Level.WARNING, "Couldn't save openmyau.accounts.json", e);
+      LOGGER.log(Level.WARNING, "Couldn't save openmiau.accounts.json", e);
     }
   }
 }
