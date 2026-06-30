@@ -153,7 +153,6 @@ public abstract class MixinGuiNewChat {
     net.minecraft.client.renderer.GlStateManager.translate(x, animY, z);
   }
 
-  /** Before drawChat renders, push matrix and set up blur if needed. */
   @Inject(method = "drawChat", at = @At("HEAD"))
   private void onDrawChatPre(int updateCounter, CallbackInfo ci) {
     try {

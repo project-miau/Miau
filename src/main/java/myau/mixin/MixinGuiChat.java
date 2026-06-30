@@ -1,15 +1,12 @@
 package myau.mixin;
 
 import java.awt.*;
-import java.io.IOException;
 import myau.util.animation.Direction;
 import myau.util.animation.impl.DecelerateAnimation;
 import myau.util.client.ChatUtil;
-import myau.util.shader.RoundedUtils;
 import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.client.renderer.GlStateManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -41,52 +38,5 @@ public abstract class MixinGuiChat extends GuiScreen {
   @Inject(method = "onGuiClosed", at = @At("HEAD"))
   private void onGuiClosedInject(CallbackInfo ci) {
     ChatUtil.openingAnimation.setDirection(Direction.BACKWARDS);
-  }
-
-  @Inject(method = "keyTyped", at = @At("HEAD"), cancellable = true)
-  private void onKeyTyped(char typedChar, int keyCode, CallbackInfo ci) throws IOException {
-    if (keyCode == 1) {
-      ChatUtil.openingAnimation.setDirection(Direction.BACKWARDS);
-      ci.cancel();
-    } else if (keyCode == 28 || keyCode == 156) {
-      String s = this.inputField.getText().trim();
-      if (s.length() > 0) {
-        this.sendChatMessage(s);
-      }
-      ChatUtil.openingAnimation.setDirection(Direction.BACKWARDS);
-      ci.cancel();
-    }
-  }
-
-  @Inject(method = "drawScreen", at = @At("HEAD"), cancellable = true)
-  private void onDrawScreenHead(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
-
-    openMyau$cachedAnimOut = ChatUtil.openingAnimation.getOutput().floatValue();
-
-    if (ChatUtil.openingAnimation.finished(Direction.BACKWARDS)) {
-      this.mc.displayGuiScreen((GuiScreen) null);
-      ci.cancel();
-      return;
-    }
-
-    this.inputField.yPosition = (int) (this.height - (12 * openMyau$cachedAnimOut));
-  }
-
-  @Inject(method = "drawScreen", at = @At("RETURN"))
-  private void onDrawScreenReturn(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
-    if (openMyau$cachedAnimOut < 0.001f) return;
-
-    float bgHeight = 14 * openMyau$cachedAnimOut;
-    float bgY = this.height - bgHeight;
-
-    GlStateManager.disableDepth();
-
-    // Rise-style: rounded background with themed accent outline border
-    Color outlineColor =
-        myau.util.render.Themes.getCurrentTheme()
-            .getAccentColor(new myau.util.vector.Vector2d(2, bgY));
-    RoundedUtils.drawRoundOutline(
-        2, bgY, this.width - 4, 12, 4, 1.0f, new Color(0, 0, 0, 150), outlineColor);
-    GlStateManager.enableDepth();
   }
 }

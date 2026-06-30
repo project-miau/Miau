@@ -143,18 +143,23 @@ public class ConfigWindow {
 
     height = expanded ? 250 : 18;
 
-    Color themeAccent =
+    Color themeColor1 =
         myau.util.render.Themes.getCurrentTheme()
             .getAccentColor(new myau.util.vector.Vector2d(x, y));
+    Color themeColor2 =
+        myau.util.render.Themes.getCurrentTheme()
+            .getAccentColor(new myau.util.vector.Vector2d(x + width, y + height));
 
     int mode = getClickGuiMode();
     if (mode == 0) {
+      myau.util.shader.RoundedUtils.drawGradientHorizontal(
+          x - 1, y - 1, width + 2, height + 2, 6.0f, themeColor1, themeColor2);
       myau.util.shader.RoundedUtils.drawRound(
           x, y, width, height, 6.0f, new Color(20, 20, 20, 235));
-      myau.util.shader.RoundedUtils.drawRoundOutline(
-          x, y, width, height, 6.0f, 1.0f, new Color(0, 0, 0, 0), themeAccent);
     } else {
-      RenderUtil.drawOutLineRect(x, y, width, height, 1F, new Color(25, 25, 25), themeAccent);
+      RenderUtil.drawHorizontalGradientRect(
+          x - 1, y - 1, x + width + 1, y + height + 1, themeColor1.getRGB(), themeColor2.getRGB());
+      RenderUtil.drawRect(x, y, x + width, y + height, new Color(25, 25, 25).getRGB());
     }
 
     Font titleFont = FontRepository.getHudFont(15);

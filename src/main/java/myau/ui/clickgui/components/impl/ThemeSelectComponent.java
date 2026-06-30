@@ -87,21 +87,6 @@ public class ThemeSelectComponent extends Component {
         cx + w / 2.0f,
         cy + 22 + 8 + (hoverAnim * 2),
         textColor.getRGB());
-
-    float popFactor = Math.max(hoverAnim, selectAnim);
-    if (popFactor > 0.01f) {
-      int safeAlpha = Math.max(0, Math.min(255, (int) (150 * popFactor)));
-      Color bloomColor = new Color(c1.getRed(), c1.getGreen(), c1.getBlue(), safeAlpha);
-      myau.util.shader.RoundedUtils.drawRoundOutline(
-          cx - 0.5f,
-          cy - 0.5f,
-          w + 1,
-          h + 1,
-          6,
-          1.5f + hoverAnim,
-          new Color(0, 0, 0, 0),
-          bloomColor);
-    }
   }
 
   @Override

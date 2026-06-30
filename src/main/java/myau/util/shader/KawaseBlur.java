@@ -90,17 +90,14 @@ public class KawaseBlur {
     ShaderUtils.drawQuads();
     kawaseUp.unload();
 
-    mc.getFramebuffer().bindFramebuffer(false);
-    org.lwjgl.opengl.GL11.glBindTexture(
-        org.lwjgl.opengl.GL11.GL_TEXTURE_2D, framebufferList.get(0).framebufferTexture);
+    mc.getFramebuffer().bindFramebuffer(true);
+    RenderUtil.bindTexture(framebufferList.get(0).framebufferTexture);
     RenderUtil.setAlphaLimit(0);
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     ShaderUtils.drawQuads();
-    org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0);
+    RenderUtil.bindTexture(0);
     GlStateManager.disableBlend();
-
-    GlStateManager.alphaFunc(GL_GREATER, 0.1F);
   }
 
   private static void renderFBO(

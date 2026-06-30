@@ -51,10 +51,11 @@ public class RoundedUtils {
 
   public static void drawRound(
       float x, float y, float width, float height, float radius, boolean blur, int color) {
-    RenderUtil.setAlphaLimit(0);
+    RenderUtil.resetColor();
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    RenderUtil.setAlphaLimit(0);
 
     roundedShader.init();
     setupRoundedRectUniforms(x, y, width, height, radius, roundedShader);
@@ -156,10 +157,11 @@ public class RoundedUtils {
 
   public static void drawRound(
       float x, float y, float width, float height, float radius, boolean blur, Color color) {
-    RenderUtil.setAlphaLimit(0);
+    RenderUtil.resetColor();
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    RenderUtil.setAlphaLimit(0);
 
     roundedShader.init();
     setupRoundedRectUniforms(x, y, width, height, radius, roundedShader);
@@ -185,10 +187,11 @@ public class RoundedUtils {
       float outlineThickness,
       Color color,
       Color outlineColor) {
-    RenderUtil.setAlphaLimit(0);
+    RenderUtil.resetColor();
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    RenderUtil.setAlphaLimit(0);
 
     roundedOutlineShader.init();
     ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
@@ -218,6 +221,7 @@ public class RoundedUtils {
 
   public static void drawRoundTextured(
       float x, float y, float width, float height, float radius, float alpha) {
+    RenderUtil.resetColor();
     RenderUtil.setAlphaLimit(0);
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

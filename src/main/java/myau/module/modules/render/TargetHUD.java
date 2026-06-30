@@ -50,6 +50,7 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 
 public class TargetHUD extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
@@ -88,6 +89,9 @@ public class TargetHUD extends Module {
             "Exhibition",
             "Bingus"
           });
+  public final ModeProperty ravenMode =
+      new ModeProperty(
+          "Raven Mode", 0, new String[] {"Modern", "Legacy"}, () -> this.mode.getValue() == 0);
   public final ModeProperty color =
       new ModeProperty(
           "Color", 0, new String[] {"DEFAULT", "HUD"}, () -> this.mode.getValue() == 1);
@@ -245,6 +249,7 @@ public class TargetHUD extends Module {
         }
       }
     } else {
+      // Mode 0 - Raven (ported from RavenB)
       KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
       if (killAura == null) return;
 
@@ -282,8 +287,17 @@ public class TargetHUD extends Module {
           " "
               + (target.getHealth() == (int) target.getHealth()
                   ? String.valueOf((int) target.getHealth())
-                  : String.format("%.1f", target.getHealth()));
-      playerInfo += healthStr;
+                  : healthFormat.format(target.getHealth()));
+
+      // Add RavenB-style color prefix based on health percentage
+      double healthPct = target.getHealth() / target.getMaxHealth();
+      if (healthPct >= 0.5) {
+        playerInfo += " §a" + healthStr.trim();
+      } else if (healthPct >= 0.2) {
+        playerInfo += " §e" + healthStr.trim();
+      } else {
+        playerInfo += " §c" + healthStr.trim();
+      }
 
       drawTargetHUD(playerInfo, health);
     }
@@ -326,6 +340,10 @@ public class TargetHUD extends Module {
       }
     }
   }
+
+  // ============================================================
+  //  PORTED RAVENB TARGETHUD (Modern / Legacy)
+  // ============================================================
 
   private void drawTargetHUD(String string, double health) {
     if (showStatus.getValue()) {
@@ -385,67 +403,88 @@ public class TargetHUD extends Module {
       float n8 = (absX + boxWidth) * invSc;
       float n9 = (absY + boxHeight - 13f) * invSc;
 
-      float x = n6 + padding * invSc;
-      float y = n7 + padding * invSc;
+      // Use Miau's current theme for gradient colors
+      int[] gradientColors =
+          new int[] {
+            Themes.getCurrentTheme().getFirstColor().getRGB(),
+            Themes.getCurrentTheme().getSecondColor().getRGB()
+          };
 
-      HUD hud = (HUD) Myau.moduleManager.modules.get(HUD.class);
-      boolean shaders = hud != null && hud.shaders.getValue();
-
-      if (shaders) {
-        float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
-        float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
-        BlurUtils.prepareBloom();
-        RoundedUtils.drawRound(
-            n6,
-            n7,
-            Math.abs(n6 - n8),
-            Math.abs(n7 - (n9 + 13f * invSc)),
-            8.0f,
-            true,
-            new Color(0, 0, 0, maxAlphaBackground));
-        BlurUtils.bloomEnd(3, bloomRadius);
-        BlurUtils.prepareBlur();
-        RoundedUtils.drawRound(
-            n6,
-            n7,
-            Math.abs(n6 - n8),
-            Math.abs(n7 - (n9 + 13f * invSc)),
-            8.0f,
-            true,
-            new Color(mergeAlpha(Color.black.getRGB(), maxAlphaOutline)));
-        BlurUtils.blurEnd(2, blurRadius);
-      } else {
-        drawRoundedRectangle(
-            n6,
-            n7,
-            Math.abs(n6 - n8),
-            Math.abs(n7 - (n9 + 13f * invSc)),
-            8.0f,
-            mergeAlpha(Color.black.getRGB(), maxAlphaBackground));
+      // --- Background ---
+      switch (this.ravenMode.getValue()) {
+        case 0: // Modern - bloom + blur
+          {
+            float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
+            float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
+            BlurUtils.prepareBloom();
+            RoundedUtils.drawRound(
+                n6,
+                n7,
+                Math.abs(n6 - n8),
+                Math.abs(n7 - (n9 + 13f * invSc)),
+                8.0f,
+                true,
+                new Color(0, 0, 0, maxAlphaBackground));
+            BlurUtils.bloomEnd(3, bloomRadius);
+            BlurUtils.prepareBlur();
+            RoundedUtils.drawRound(
+                n6,
+                n7,
+                Math.abs(n6 - n8),
+                Math.abs(n7 - (n9 + 13f * invSc)),
+                8.0f,
+                true,
+                new Color(mergeAlpha(Color.black.getRGB(), maxAlphaOutline)));
+            BlurUtils.blurEnd(2, blurRadius);
+            break;
+          }
+        case 1: // Legacy - gradient outlined rect
+          drawRoundedGradientOutlinedRectangle(
+              n6,
+              n7,
+              n8,
+              n9 + 13f * invSc,
+              10.0f,
+              mergeAlpha(Color.black.getRGB(), maxAlphaOutline),
+              mergeAlpha(gradientColors[0], alpha),
+              mergeAlpha(gradientColors[1], alpha));
+          break;
       }
 
       float n13 = n6 + 6f * invSc;
       float n14 = n8 - 6f * invSc;
       float n15 = n9;
 
+      // --- Bar background ---
       drawRoundedRectangle(
           n13, n15, n14, n15 + 5f * invSc, 4.0f, mergeAlpha(Color.black.getRGB(), maxAlphaOutline));
 
-      int mergedGradientLeft = mergeAlpha(new Color(0x70CEFF).getRGB(), maxAlphaBackground);
-      int mergedGradientRight = mergeAlpha(new Color(0x4D8DFF).getRGB(), maxAlphaBackground);
+      int mergedGradientLeft = mergeAlpha(gradientColors[0], maxAlphaBackground);
+      int mergedGradientRight = mergeAlpha(gradientColors[1], maxAlphaBackground);
 
       float healthBar = n14 + (n13 - n14) * (float) (1 - health);
 
+      // --- Health bar smooth animation ---
       boolean smoothBack = false;
       if (healthBar != lastHealthBar
           && Math.abs(lastHealthBar - n13) >= 3f * invSc
           && healthBarTimer != null) {
         float diff = lastHealthBar - healthBar;
+        long elapsed = healthBarTimer.getElapsedTime();
+        long duration = this.ravenMode.getValue() == 0 ? 500 : 350;
+        float t = Math.min(1.0f, (float) elapsed / (float) duration);
+
+        if (this.ravenMode.getValue() == 0) {
+          t = quadInOut(t);
+        } else {
+          t = easeInOutCubic(t);
+        }
+
         if (diff > 0) {
-          lastHealthBar = lastHealthBar - getTimedProgress(diff, 400);
+          lastHealthBar = lastHealthBar - diff * t;
         } else {
           smoothBack = true;
-          lastHealthBar = lastHealthBar + getTimedProgress(-diff, 400);
+          lastHealthBar = lastHealthBar + (healthBar - lastHealthBar) * t;
         }
       } else {
         lastHealthBar = healthBar;
@@ -461,34 +500,63 @@ public class TargetHUD extends Module {
         lastHealthBar = n14;
       }
 
-      drawRoundedRectangle(
-          n13,
-          n15,
-          lastHealthBar,
-          n15 + 5f * invSc,
-          4.0f,
-          mergeAlpha(
-              ColorUtil.darker(new Color(mergedGradientRight), 0.25f).getRGB(),
-              maxAlphaBackground));
-      drawRoundedGradientRect(
-          n13,
-          n15,
-          smoothBack ? lastHealthBar : healthBar,
-          n15 + 5f * invSc,
-          4.0f,
-          mergedGradientLeft,
-          mergedGradientLeft,
-          mergedGradientRight,
-          mergedGradientRight);
+      // --- Health bar fill ---
+      switch (this.ravenMode.getValue()) {
+        case 0: // Modern - dark back + gradient fill
+          drawRoundedRectangle(
+              n13,
+              n15,
+              lastHealthBar,
+              n15 + 5f * invSc,
+              4.0f,
+              mergeAlpha(
+                  ColorUtil.darker(new Color(mergedGradientRight), 0.75f).getRGB(),
+                  maxAlphaBackground));
+          drawRoundedGradientRect(
+              n13,
+              n15,
+              smoothBack ? lastHealthBar : healthBar,
+              n15 + 5f * invSc,
+              4.0f,
+              mergedGradientLeft,
+              mergedGradientLeft,
+              mergedGradientRight,
+              mergedGradientRight);
+          break;
+        case 1: // Legacy - gradient only
+          drawRoundedGradientRect(
+              n13,
+              n15,
+              lastHealthBar,
+              n15 + 5f * invSc,
+              4.0f,
+              mergedGradientLeft,
+              mergedGradientLeft,
+              mergedGradientRight,
+              mergedGradientRight);
+          break;
+      }
 
-      GL11.glPushMatrix();
-      GL11.glEnable(GL11.GL_BLEND);
+      // --- Text ---
+      // Defensive GL state reset: FBO/shader operations (bloom, blur) make raw GL11
+      // calls that bypass GlStateManager, causing its texture tracking cache to become
+      // stale. When FontRenderer then calls GlStateManager.bindTexture(fontTexture),
+      // GlStateManager may SKIP the actual glBindTexture because its cache wrongly
+      // thinks the texture is already bound. The FBO texture remains active instead of
+      // the font glyph texture, producing garbled characters.
+      // Force-reset the cache by binding texture 0, then restore proper state.
+      GlStateManager.bindTexture(0);
+      GlStateManager.enableTexture2D();
+      GlStateManager.enableBlend();
+      GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+      GlStateManager.alphaFunc(GL11.GL_GREATER, 0.01F);
+      GL13.glActiveTexture(GL13.GL_TEXTURE0);
       int textColor =
           (new Color(220, 220, 220, 255).getRGB() & 0xFFFFFF)
               | (MathHelper.clamp_int(alpha + 15, 0, 255) << 24);
-      mc.fontRendererObj.drawString(string, x, y, textColor, shadow.getValue());
-      GL11.glDisable(GL11.GL_BLEND);
-      GL11.glPopMatrix();
+      mc.fontRendererObj.drawString(
+          string, n6 + padding * invSc, n7 + padding * invSc, textColor, shadow.getValue());
+      GlStateManager.disableBlend();
 
       GlStateManager.popMatrix();
     } else {
@@ -496,6 +564,120 @@ public class TargetHUD extends Module {
       healthBarTimer = null;
     }
   }
+
+  // ============================================================
+  //  Easing helpers (ported from RavenB Timer)
+  // ============================================================
+
+  private float quadInOut(float t) {
+    if (t < 0.5f) return 2 * t * t;
+    return -1 + (4 - 2 * t) * t;
+  }
+
+  private float easeInOutCubic(float t) {
+    return t < 0.5F ? 4.0F * t * t * t : (t - 1.0F) * (2.0F * t - 2.0F) * (2.0F * t - 2.0F) + 1.0F;
+  }
+
+  // ============================================================
+  //  Gradient outlined rectangle (ported from RavenB RenderUtils)
+  // ============================================================
+
+  private void drawRoundedGradientOutlinedRectangle(
+      float x,
+      float y,
+      float x2,
+      float y2,
+      float radius,
+      int fillColor,
+      int startColor,
+      int endColor) {
+    x *= 2.0f;
+    y *= 2.0f;
+    x2 *= 2.0f;
+    y2 *= 2.0f;
+    GL11.glPushMatrix();
+    GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+    GL11.glScaled(0.5, 0.5, 0.5);
+    GL11.glEnable(GL11.GL_BLEND);
+    GL11.glDisable(GL11.GL_TEXTURE_2D);
+    GL11.glEnable(GL11.GL_LINE_SMOOTH);
+
+    // Fill (solid)
+    GL11.glBegin(GL11.GL_TRIANGLE_FAN);
+    glColor(fillColor);
+    for (int i = 0; i <= 90; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x + radius + Math.sin(angle) * radius * -1.0,
+          y + radius + Math.cos(angle) * radius * -1.0);
+    }
+    for (int i = 90; i <= 180; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x + radius + Math.sin(angle) * radius * -1.0,
+          y2 - radius + Math.cos(angle) * radius * -1.0);
+    }
+    for (int i = 0; i <= 90; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x2 - radius + Math.sin(angle) * radius, y2 - radius + Math.cos(angle) * radius);
+    }
+    for (int i = 90; i <= 180; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x2 - radius + Math.sin(angle) * radius, y + radius + Math.cos(angle) * radius);
+    }
+    GL11.glEnd();
+
+    // Gradient outline
+    GL11.glPushMatrix();
+    GL11.glShadeModel(GL11.GL_SMOOTH);
+    GL11.glLineWidth(2.0f);
+    GL11.glBegin(GL11.GL_LINE_LOOP);
+    if (startColor != 0) {
+      glColor(startColor);
+    }
+    for (int i = 0; i <= 90; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x + radius + Math.sin(angle) * radius * -1.0,
+          y + radius + Math.cos(angle) * radius * -1.0);
+    }
+    for (int i = 90; i <= 180; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x + radius + Math.sin(angle) * radius * -1.0,
+          y2 - radius + Math.cos(angle) * radius * -1.0);
+    }
+    if (endColor != 0) {
+      glColor(endColor);
+    }
+    for (int i = 0; i <= 90; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x2 - radius + Math.sin(angle) * radius, y2 - radius + Math.cos(angle) * radius);
+    }
+    for (int i = 90; i <= 180; i += 3) {
+      double angle = i * 0.017453292f;
+      GL11.glVertex2d(
+          x2 - radius + Math.sin(angle) * radius, y + radius + Math.cos(angle) * radius);
+    }
+    GL11.glEnd();
+    GL11.glPopMatrix();
+
+    GL11.glEnable(GL11.GL_TEXTURE_2D);
+    GL11.glDisable(GL11.GL_BLEND);
+    GL11.glDisable(GL11.GL_LINE_SMOOTH);
+    GL11.glPopAttrib();
+    GL11.glPopMatrix();
+    GL11.glLineWidth(1.0f);
+    GL11.glShadeModel(GL11.GL_FLAT);
+    GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+  }
+
+  // ============================================================
+  //  Myau-style rendering (unchanged)
+  // ============================================================
 
   private void renderMyauStyle(EntityLivingBase previousTarget) {
     float health = (mc.thePlayer.getHealth() + mc.thePlayer.getAbsorptionAmount()) / 2.0F;

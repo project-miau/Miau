@@ -10,14 +10,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Tenacity-style HUD chat offset: when chat opens with animation, the player stats, exp bar, horse
- * jump bar, hotbar, and selected item name slide up by 15 pixels * animation progress.
- *
- * <p>PERFORMANCE CRITICAL: Animation value is cached ONCE at the first HEAD inject and reused
- * across all 10 method hooks, eliminating 9 redundant calls to
- * ChatUtil.openingAnimation.getOutput() which internally calls System.currentTimeMillis().
- */
 @Mixin(GuiIngame.class)
 public abstract class MixinGuiIngame_ChatOffset {
 

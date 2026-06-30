@@ -110,9 +110,11 @@ public class KawaseBloom {
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     ShaderUtils.drawQuads();
     org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0);
+    RenderUtil.setAlphaLimit(0);
 
-    GlStateManager.alphaFunc(GL_GREATER, 0.1F);
-    GlStateManager.disableBlend();
+    // start blend
+    GlStateManager.enableBlend();
+    GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
 
   private static void renderFBO(
