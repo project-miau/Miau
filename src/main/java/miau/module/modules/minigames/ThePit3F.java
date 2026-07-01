@@ -69,32 +69,32 @@ public class ThePit3F extends Module {
 
       double parseExpression() {
         double x = parseTerm();
-        for (;;) {
-          if (eat('+')) x += parseTerm(); 
-          else if (eat('-')) x -= parseTerm(); 
+        for (; ; ) {
+          if (eat('+')) x += parseTerm();
+          else if (eat('-')) x -= parseTerm();
           else return x;
         }
       }
 
       double parseTerm() {
         double x = parseFactor();
-        for (;;) {
-          if (eat('*') || eat('x') || eat('X')) x *= parseFactor(); 
+        for (; ; ) {
+          if (eat('*') || eat('x') || eat('X')) x *= parseFactor();
           else if (eat('/')) x /= parseFactor();
           else return x;
         }
       }
 
       double parseFactor() {
-        if (eat('+')) return parseFactor(); 
-        if (eat('-')) return -parseFactor(); 
+        if (eat('+')) return parseFactor();
+        if (eat('-')) return -parseFactor();
 
         double x;
         int startPos = this.pos;
-        if (eat('(')) { 
+        if (eat('(')) {
           x = parseExpression();
           eat(')');
-        } else if ((ch >= '0' && ch <= '9') || ch == '.') { 
+        } else if ((ch >= '0' && ch <= '9') || ch == '.') {
           while ((ch >= '0' && ch <= '9') || ch == '.') nextChar();
           x = Double.parseDouble(str.substring(startPos, this.pos));
         } else {

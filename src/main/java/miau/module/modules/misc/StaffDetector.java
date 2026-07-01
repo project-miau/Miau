@@ -17,7 +17,7 @@ import net.minecraft.network.play.server.S38PacketPlayerListItem;
 public class StaffDetector extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"3FMC"});
+  public final ModeProperty mode = new ModeProperty("mode", 0, new String[] {"3FMC"});
   public final BooleanProperty autoLeave = new BooleanProperty("auto-leave", false);
 
   private static final Set<String> STAFF_LIST =
