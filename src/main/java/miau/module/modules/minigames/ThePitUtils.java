@@ -7,21 +7,29 @@ import miau.event.types.EventType;
 import miau.module.Module;
 import miau.property.properties.BooleanProperty;
 import miau.util.client.ChatUtil;
+import miau.util.network.PacketUtil;
+import miau.util.time.TimerUtil;
+import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
+import net.minecraft.init.Blocks;
 import net.minecraft.network.Packet;
+import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.server.S02PacketChat;
+import net.minecraft.util.BlockPos;
 
-public class ThePit3F extends Module {
+public class ThePitUtils extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
   public final BooleanProperty autoFlashQuestion = new BooleanProperty("autoflashquestion", true);
   public final BooleanProperty safe = new BooleanProperty("safe", false);
+  public final BooleanProperty autoEgg = new BooleanProperty("autoegg", true);
   public final BooleanProperty debug = new BooleanProperty("debug", false);
 
   private String pendingAnswer = null;
   private long answerTime = 0;
+  private final TimerUtil eggTimer = new TimerUtil();
 
-  public ThePit3F() {
-    super("ThePit3F", false);
+  public ThePitUtils() {
+    super("ThePitUtils", false);
   }
 
   @EventTarget
@@ -29,9 +37,44 @@ public class ThePit3F extends Module {
     if (pendingAnswer != null && System.currentTimeMillis() >= answerTime) {
       mc.thePlayer.sendChatMessage(pendingAnswer);
       if (debug.getValue()) {
-        ChatUtil.display("&a[ThePit3F] Answered: &f" + pendingAnswer);
+        ChatUtil.display("&a[ThePitUtils] Answered: &f" + pendingAnswer);
       }
       pendingAnswer = null;
+    }
+
+    if (autoEgg.getValue()) {
+      if (mc.thePlayer != null && mc.theWorld != null && mc.playerController != null) {
+        float reach = mc.playerController.getBlockReachDistance();
+        int range = (int) Math.ceil(reach);
+        for (int x = -range; x <= range; x++) {
+          for (int y = -range; y <= range; y++) {
+            for (int z = -range; z <= range; z++) {
+              BlockPos pos =
+                  new BlockPos(mc.thePlayer.posX + x, mc.thePlayer.posY + y, mc.thePlayer.posZ + z);
+              Block block = mc.theWorld.getBlockState(pos).getBlock();
+              if (block == Blocks.dragon_egg) {
+                double distSq = mc.thePlayer.getDistanceSqToCenter(pos);
+                if (distSq <= reach * reach) {
+                  PacketUtil.sendPacket(
+                      new C08PacketPlayerBlockPlacement(
+                          pos, 1, mc.thePlayer.getHeldItem(), 0.5f, 0.5f, 0.5f));
+                  mc.thePlayer.swingItem();
+                  if (debug.getValue()) {
+                    ChatUtil.display(
+                        "&a[ThePitUtils] Clicked Dragon Egg at "
+                            + pos.getX()
+                            + ", "
+                            + pos.getY()
+                            + ", "
+                            + pos.getZ());
+                  }
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -57,12 +100,12 @@ public class ThePit3F extends Module {
           } else {
             mc.thePlayer.sendChatMessage(answerStr);
             if (debug.getValue()) {
-              ChatUtil.display("&a[ThePit3F] Answered: &f" + answerStr);
+              ChatUtil.display("&a[ThePitUtils] Answered: &f" + answerStr);
             }
           }
         } catch (Exception e) {
           if (debug.getValue()) {
-            ChatUtil.display("&c[ThePit3F] Failed to parse equation: " + equation);
+            ChatUtil.display("&c[ThePitUtils] Failed to parse equation: " + equation);
           }
         }
       }

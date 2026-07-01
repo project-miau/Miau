@@ -120,7 +120,8 @@ public class Miau {
     moduleManager.modules.put(BedESP.class, new BedESP());
     moduleManager.modules.put(BedwarUtils.class, new BedwarUtils());
     moduleManager.modules.put(
-        miau.module.modules.minigames.ThePit3F.class, new miau.module.modules.minigames.ThePit3F());
+        miau.module.modules.minigames.ThePitUtils.class,
+        new miau.module.modules.minigames.ThePitUtils());
     moduleManager.modules.put(Blink.class, new Blink());
     moduleManager.modules.put(BlockHit.class, new BlockHit());
     moduleManager.modules.put(BlockOverlay.class, new BlockOverlay());
