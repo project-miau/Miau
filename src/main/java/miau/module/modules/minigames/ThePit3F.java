@@ -2,6 +2,7 @@ package miau.module.modules.minigames;
 
 import miau.event.EventTarget;
 import miau.event.impl.PacketEvent;
+import miau.event.impl.UpdateEvent;
 import miau.event.types.EventType;
 import miau.module.Module;
 import miau.property.properties.BooleanProperty;
@@ -13,9 +14,25 @@ import net.minecraft.network.play.server.S02PacketChat;
 public class ThePit3F extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
   public final BooleanProperty autoFlashQuestion = new BooleanProperty("autoflashquestion", true);
+  public final BooleanProperty safe = new BooleanProperty("safe", false);
+  public final BooleanProperty debug = new BooleanProperty("debug", false);
+
+  private String pendingAnswer = null;
+  private long answerTime = 0;
 
   public ThePit3F() {
     super("ThePit3F", false);
+  }
+
+  @EventTarget
+  public void onUpdate(UpdateEvent event) {
+    if (pendingAnswer != null && System.currentTimeMillis() >= answerTime) {
+      mc.thePlayer.sendChatMessage(pendingAnswer);
+      if (debug.getValue()) {
+        ChatUtil.display("&a[ThePit3F] Answered: &f" + pendingAnswer);
+      }
+      pendingAnswer = null;
+    }
   }
 
   @EventTarget
@@ -31,13 +48,22 @@ public class ThePit3F extends Module {
         String equation = unformattedText.substring(unformattedText.indexOf("Giải: ") + 6).trim();
         try {
           double result = eval(equation);
-          if (result == (long) result) {
-            mc.thePlayer.sendChatMessage(String.valueOf((long) result));
+          String answerStr =
+              (result == (long) result) ? String.valueOf((long) result) : String.valueOf(result);
+
+          if (safe.getValue()) {
+            pendingAnswer = answerStr;
+            answerTime = System.currentTimeMillis() + 500 + (long) (Math.random() * 2000);
           } else {
-            mc.thePlayer.sendChatMessage(String.valueOf(result));
+            mc.thePlayer.sendChatMessage(answerStr);
+            if (debug.getValue()) {
+              ChatUtil.display("&a[ThePit3F] Answered: &f" + answerStr);
+            }
           }
         } catch (Exception e) {
-          ChatUtil.display("&c[ThePit3F] Failed to parse equation: " + equation);
+          if (debug.getValue()) {
+            ChatUtil.display("&c[ThePit3F] Failed to parse equation: " + equation);
+          }
         }
       }
     }
