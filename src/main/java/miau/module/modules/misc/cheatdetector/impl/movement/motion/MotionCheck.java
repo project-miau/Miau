@@ -4,13 +4,11 @@ import java.util.Arrays;
 import java.util.List;
 import miau.event.impl.PacketEvent;
 import miau.module.modules.misc.cheatdetector.Check;
-import miau.module.modules.misc.cheatdetector.impl.movement.motion.subchecks.MotionA;
 import miau.module.modules.misc.cheatdetector.impl.movement.motion.subchecks.MotionB;
-import miau.module.modules.misc.cheatdetector.impl.movement.motion.subchecks.MotionC;
 import net.minecraft.entity.player.EntityPlayer;
 
 public class MotionCheck extends Check {
-  private final List<Check> checks = Arrays.asList(new MotionA(), new MotionB(), new MotionC());
+  private final List<Check> checks = Arrays.asList(new MotionB());
 
   @Override
   public String getName() {

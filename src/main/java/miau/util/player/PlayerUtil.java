@@ -1,15 +1,7 @@
 package miau.util.player;
 
-import miau.Miau;
-import miau.module.modules.movement.KeepSprint;
-import miau.util.animation.*;
-import miau.util.client.*;
-import miau.util.math.*;
-import miau.util.misc.*;
-import miau.util.network.*;
-import miau.util.render.*;
-import miau.util.time.*;
-import miau.util.world.*;
+import miau.util.client.KeyBindUtil;
+import miau.util.world.BlockUtil;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockAir;
 import net.minecraft.client.Minecraft;
@@ -18,15 +10,10 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.EnumCreatureAttribute;
 import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.network.play.server.S12PacketEntityVelocity;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
-import net.minecraft.stats.AchievementList;
-import net.minecraft.stats.StatList;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
-import net.minecraft.util.DamageSource;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
@@ -132,15 +119,12 @@ public class PlayerUtil {
   }
 
   public static boolean canMove(double x, double z) {
-    return PlayerUtil.canMove(x, z, -1.0);
+    return canMove(x, z, -1.0);
   }
 
   public static boolean canMove(double x, double z, double y) {
-    AxisAlignedBB boundingBox = PlayerUtil.mc.thePlayer.getEntityBoundingBox().offset(x, y, z);
-    return PlayerUtil.mc
-        .theWorld
-        .getCollidingBoundingBoxes(PlayerUtil.mc.thePlayer, boundingBox)
-        .isEmpty();
+    AxisAlignedBB boundingBox = mc.thePlayer.getEntityBoundingBox().offset(x, y, z);
+    return mc.theWorld.getCollidingBoundingBoxes(mc.thePlayer, boundingBox).isEmpty();
   }
 
   public static boolean isAirBelow() {
@@ -198,12 +182,14 @@ public class PlayerUtil {
     return Double.MAX_VALUE;
   }
 
-  /**
-   * Returns the Block at the given BlockPos. Alias for world.getBlockState(pos).getBlock(). Ported
-   * from Rise 6.
-   */
+  /** Returns the Block at the given BlockPos. */
   public static Block getBlock(BlockPos pos) {
     return mc.theWorld.getBlockState(pos).getBlock();
+  }
+
+  /** Returns the Block at the given coordinates. */
+  public static Block block(final double x, final double y, final double z) {
+    return mc.theWorld.getBlockState(new BlockPos(x, y, z)).getBlock();
   }
 
   /**
@@ -219,6 +205,32 @@ public class PlayerUtil {
         .getBlock();
   }
 
+  /** Returns the Block at the given offset relative to the player's position (double overload). */
+  public static Block blockRelativeToPlayer(
+      final double offsetX, final double offsetY, final double offsetZ) {
+    return block(
+        mc.thePlayer.posX + offsetX, mc.thePlayer.posY + offsetY, mc.thePlayer.posZ + offsetZ);
+  }
+
+  public static boolean isBlockUnder(final double height) {
+    return isBlockUnder(height, true);
+  }
+
+  public static boolean isBlockUnder(final double height, final boolean boundingBox) {
+    if (boundingBox) {
+      final AxisAlignedBB bb = mc.thePlayer.getEntityBoundingBox().offset(0, -height, 0);
+      return !mc.theWorld.getCollidingBoundingBoxes(mc.thePlayer, bb).isEmpty();
+    } else {
+      for (int offset = 0; offset < height; offset++) {
+        if (blockRelativeToPlayer(0, -offset, 0).isFullBlock()) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
+  /** Attacks the given entity, applying enchantment effects and Forge hooks. Ported from Rise 6. */
   public static void attackEntity(Entity target) {
     if (ForgeHooks.onPlayerAttackTarget(mc.thePlayer, target)) {
       if (target.canAttackWithItem() && !target.hitByEntity(mc.thePlayer)) {
@@ -237,85 +249,7 @@ public class PlayerUtil {
         if (mc.thePlayer.isSprinting()) {
           ++knockbackLevel;
         }
-        if (baseDamage > 0.0F || enchantmentBonus > 0.0F) {
-          boolean isCritical =
-              mc.thePlayer.fallDistance > 0.0F
-                  && !mc.thePlayer.onGround
-                  && !mc.thePlayer.isOnLadder()
-                  && !mc.thePlayer.isInWater()
-                  && !mc.thePlayer.isPotionActive(Potion.blindness)
-                  && mc.thePlayer.ridingEntity == null;
-          if (isCritical && baseDamage > 0.0F) {
-            baseDamage *= 1.5F;
-          }
-          baseDamage += enchantmentBonus;
-          boolean isFireAspectApplied = false;
-          int fireAspectLevel = EnchantmentHelper.getFireAspectModifier(mc.thePlayer);
-          if (target instanceof EntityLivingBase && fireAspectLevel > 0 && !target.isBurning()) {
-            isFireAspectApplied = true;
-            target.setFire(1);
-          }
-          double originalMotionX = target.motionX;
-          double originalMotionY = target.motionY;
-          double originalMotionZ = target.motionZ;
-          if (target.attackEntityFrom(DamageSource.causePlayerDamage(mc.thePlayer), baseDamage)) {
-            if (knockbackLevel > 0) {
-              target.addVelocity(
-                  -MathHelper.sin(mc.thePlayer.rotationYaw * (float) Math.PI / 180.0F)
-                      * (float) knockbackLevel
-                      * 0.5F,
-                  0.1,
-                  MathHelper.cos(mc.thePlayer.rotationYaw * (float) Math.PI / 180.0F)
-                      * (float) knockbackLevel
-                      * 0.5F);
-              KeepSprint keepSprint = (KeepSprint) Miau.moduleManager.modules.get(KeepSprint.class);
-              if (keepSprint.isEnabled()
-                  && (!keepSprint.groundOnly.getValue() || mc.thePlayer.onGround)
-                  && (!keepSprint.reachOnly.getValue()
-                      || !(RotationUtil.distanceToEntity(target) <= 3.0))) {
-                mc.thePlayer.motionX *=
-                    0.6 + 0.4 * (1.0 - keepSprint.slowdown.getValue().doubleValue() / 100.0);
-                mc.thePlayer.motionZ *=
-                    0.6 + 0.4 * (1.0 - keepSprint.slowdown.getValue().doubleValue() / 100.0);
-              } else {
-                mc.thePlayer.motionX *= 0.6;
-                mc.thePlayer.motionZ *= 0.6;
-                mc.thePlayer.setSprinting(false);
-              }
-            }
-            if (target instanceof EntityPlayerMP && target.velocityChanged) {
-              ((EntityPlayerMP) target)
-                  .playerNetServerHandler.sendPacket(new S12PacketEntityVelocity(target));
-              target.velocityChanged = false;
-              target.motionX = originalMotionX;
-              target.motionY = originalMotionY;
-              target.motionZ = originalMotionZ;
-            }
-            if (isCritical) {
-              mc.thePlayer.onCriticalHit(target);
-            }
-            if (enchantmentBonus > 0.0F) {
-              mc.thePlayer.onEnchantmentCritical(target);
-            }
-            if (baseDamage >= 18.0F) {
-              mc.thePlayer.triggerAchievement(AchievementList.overkill);
-            }
-            mc.thePlayer.setLastAttacker(target);
-            if (target instanceof EntityLivingBase) {
-              EnchantmentHelper.applyThornEnchantments((EntityLivingBase) target, mc.thePlayer);
-            }
-            EnchantmentHelper.applyArthropodEnchantments(mc.thePlayer, target);
-            if (target instanceof EntityLivingBase) {
-              mc.thePlayer.addStat(StatList.damageDealtStat, Math.round(baseDamage * 10.0F));
-              if (fireAspectLevel > 0) {
-                target.setFire(fireAspectLevel * 4);
-              }
-            }
-            mc.thePlayer.addExhaustion(0.3F);
-          } else if (isFireAspectApplied) {
-            target.extinguish();
-          }
-        }
+        mc.thePlayer.attackTargetEntityWithCurrentItem(target);
       }
     }
   }

@@ -12,7 +12,9 @@ import miau.event.impl.PacketEvent;
 import miau.event.impl.UpdateEvent;
 import miau.module.Module;
 import miau.module.modules.misc.cheatdetector.Check;
-import miau.module.modules.misc.cheatdetector.impl.combat.InvalidInteract;
+import miau.module.modules.misc.cheatdetector.impl.combat.AutoBlockCheck;
+import miau.module.modules.misc.cheatdetector.impl.combat.ConsumeCheck;
+import miau.module.modules.misc.cheatdetector.impl.combat.MovementFixCheck;
 import miau.module.modules.misc.cheatdetector.impl.combat.VelocityCheck;
 import miau.module.modules.misc.cheatdetector.impl.combat.aim.AimCheck;
 import miau.module.modules.misc.cheatdetector.impl.movement.OmniSprintCheck;
@@ -30,7 +32,9 @@ public class CheatDetector extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
   public final BooleanProperty checkAim = new BooleanProperty("aim", true);
-  public final BooleanProperty checkInvalidInteract = new BooleanProperty("invalid-interact", true);
+  public final BooleanProperty checkAutoBlock = new BooleanProperty("auto-block", true);
+  public final BooleanProperty checkConsume = new BooleanProperty("consume", true);
+  public final BooleanProperty checkMovementFix = new BooleanProperty("movement-fix", true);
   public final BooleanProperty checkMotion = new BooleanProperty("motion", true);
   public final BooleanProperty checkNoFall = new BooleanProperty("no-fall", true);
   public final BooleanProperty checkNoSlow = new BooleanProperty("no-slow", true);
@@ -49,7 +53,9 @@ public class CheatDetector extends Module {
     super("CheatDetector", false);
     addChecks(
         new AimCheck(),
-        new InvalidInteract(),
+        new AutoBlockCheck(),
+        new ConsumeCheck(),
+        new MovementFixCheck(),
         new MotionCheck(),
         new NoFallCheck(),
         new NoSlowCheck(),
@@ -61,7 +67,9 @@ public class CheatDetector extends Module {
 
   public boolean isCheckEnabled(String name) {
     if ("Aim".equals(name)) return checkAim.getValue();
-    if ("Invalid interact".equals(name)) return checkInvalidInteract.getValue();
+    if ("AutoBlock".equals(name)) return checkAutoBlock.getValue();
+    if ("Consume".equals(name)) return checkConsume.getValue();
+    if ("MovementFix".equals(name)) return checkMovementFix.getValue();
     if ("Motion".equals(name)) return checkMotion.getValue();
     if ("No fall".equals(name)) return checkNoFall.getValue();
     if ("No slow".equals(name)) return checkNoSlow.getValue();

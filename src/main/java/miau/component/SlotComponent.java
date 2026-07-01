@@ -1,9 +1,10 @@
 package miau.component;
 
 import miau.event.EventTarget;
-import miau.event.impl.TickEvent;
+import miau.event.impl.UpdateEvent;
 import miau.event.types.EventType;
 import miau.event.types.Priority;
+import miau.mixin.IAccessorPlayerControllerMP;
 import miau.util.player.IInventoryPlayerAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
@@ -14,13 +15,36 @@ public final class SlotComponent {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  public void setSlot(int slot) {
-    if (mc.thePlayer == null) return;
-    if (slot < 0 || slot > 8) return;
+  private static boolean render = true;
+  public static boolean finished = true;
+
+  public void setSlot(final int slot) {
+    setSlot(slot, true);
+  }
+
+  public void setSlot(final int slot, final boolean renderEffect) {
+    if (slot < 0 || slot >= 9) return;
 
     IInventoryPlayerAccessor inv = (IInventoryPlayerAccessor) mc.thePlayer.inventory;
-    inv.miau$setAlternativeSlot(true);
     inv.miau$setAlternativeCurrentItem(slot);
+    inv.miau$setAlternativeSlot(true);
+    render = renderEffect;
+    finished = false;
+
+    ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
+  }
+
+  public void setSlotDelayed(final int slot, boolean force) {
+    setSlotDelayed(slot, force, true);
+  }
+
+  public void setSlotDelayed(final int slot, boolean force, boolean renderEffect) {
+    if (Math.random() * Math.random() > 0.25 || force) {
+      setSlot(
+          ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem(), renderEffect);
+    } else {
+      setSlot(slot, renderEffect);
+    }
   }
 
   public int getItemIndex() {
@@ -47,7 +71,7 @@ public final class SlotComponent {
   }
 
   @EventTarget(Priority.HIGHEST)
-  public void onTickReset(TickEvent event) {
+  public void onPreUpdate(UpdateEvent event) {
     if (event.getType() != EventType.PRE) return;
     if (mc.thePlayer == null) return;
 

@@ -3,8 +3,6 @@ package miau.module.modules.misc.cheatdetector.impl.player.scaffold;
 import java.util.*;
 import miau.event.impl.PacketEvent;
 import miau.module.modules.misc.cheatdetector.Check;
-import miau.module.modules.misc.cheatdetector.impl.player.scaffold.subchecks.ScaffoldA;
-import miau.module.modules.misc.cheatdetector.impl.player.scaffold.subchecks.ScaffoldB;
 import miau.module.modules.misc.cheatdetector.impl.player.scaffold.subchecks.ScaffoldC;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemBlock;
@@ -16,8 +14,7 @@ public class ScaffoldCheck extends Check {
     return "Scaffold";
   }
 
-  private final List<Check> checks =
-      Arrays.asList(new ScaffoldA(), new ScaffoldB(), new ScaffoldC());
+  private final List<Check> checks = Arrays.asList(new ScaffoldC());
   public static final Map<UUID, Integer> blocksPlacedMap = new HashMap<>();
   private final Map<UUID, Boolean> bridgingMap = new HashMap<>();
 

@@ -12,12 +12,15 @@ import miau.util.render.*;
 import miau.util.time.*;
 import miau.util.world.*;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.MathHelper;
 
 public class MoveUtil {
   private static final Minecraft mc = Minecraft.getMinecraft();
+
+  public static final double HEAD_HITTER_MOTION = -0.0784000015258789;
 
   public static boolean isForwardPressed() {
     if (MoveUtil.mc.gameSettings.keyBindForward.isKeyDown()
@@ -123,6 +126,98 @@ public class MoveUtil {
 
   public static double getSpeed(double motionX, double motionZ) {
     return Math.hypot(motionX, motionZ);
+  }
+
+  public static double speed() {
+    return getSpeed();
+  }
+
+  public static void strafe() {
+    strafe(speed());
+  }
+
+  public static void strafe(final double speed) {
+    if (!isMoving()) return;
+    final double yaw = getMoveDirection();
+    mc.thePlayer.motionX = -MathHelper.sin((float) yaw) * speed;
+    mc.thePlayer.motionZ = MathHelper.cos((float) yaw) * speed;
+  }
+
+  public static void strafe(final double speed, final Entity entity) {
+    if (!isMoving()) return;
+    final double yaw = getMoveDirection();
+    entity.motionX = -MathHelper.sin((float) yaw) * speed;
+    entity.motionZ = MathHelper.cos((float) yaw) * speed;
+  }
+
+  public static void strafe(final double speed, final float yaw) {
+    if (!isMoving()) return;
+    final double rad = Math.toRadians(yaw);
+    mc.thePlayer.motionX = -MathHelper.sin((float) rad) * speed;
+    mc.thePlayer.motionZ = MathHelper.cos((float) rad) * speed;
+  }
+
+  /** Stops the player's horizontal movement. */
+  public static void stop() {
+    mc.thePlayer.motionX = 0;
+    mc.thePlayer.motionZ = 0;
+  }
+
+  /** Gets the movement direction yaw in radians, based on the player's movement input. */
+  public static double getMoveDirection() {
+    float rotationYaw = mc.thePlayer.rotationYaw;
+    if (mc.thePlayer.moveForward < 0) rotationYaw += 180;
+    float forward = 1;
+    if (mc.thePlayer.moveForward < 0) forward = -0.5F;
+    else if (mc.thePlayer.moveForward > 0) forward = 0.5F;
+    if (mc.thePlayer.moveStrafing > 0) rotationYaw -= 90 * forward;
+    if (mc.thePlayer.moveStrafing < 0) rotationYaw += 90 * forward;
+    return Math.toRadians(rotationYaw);
+  }
+
+  /** Calculates the predicted motion after the specified number of ticks. */
+  public static double predictedMotion(final double motion, final int ticks) {
+    if (ticks <= 0) return motion;
+    double predicted = motion;
+    for (int i = 0; i < ticks; i++) {
+      predicted = (predicted - 0.08) * 0.98F;
+    }
+    return predicted;
+  }
+
+  public static double getbaseMoveSpeed() {
+    double baseSpeed = 0.2873;
+    if (mc.thePlayer.isPotionActive(Potion.moveSpeed)) {
+      baseSpeed *=
+          1.0 + 0.2 * (mc.thePlayer.getActivePotionEffect(Potion.moveSpeed).getAmplifier() + 1);
+    }
+    return baseSpeed;
+  }
+
+  /** Prevents diagonal speed increase by reducing motion when moving diagonally. */
+  public static void preventDiagonalSpeed() {
+    final net.minecraft.client.settings.KeyBinding[] gameSettings =
+        new net.minecraft.client.settings.KeyBinding[] {
+          mc.gameSettings.keyBindForward, mc.gameSettings.keyBindRight,
+          mc.gameSettings.keyBindBack, mc.gameSettings.keyBindLeft
+        };
+    int down = 0;
+    for (net.minecraft.client.settings.KeyBinding kb : gameSettings) {
+      if (kb.isKeyDown()) down++;
+    }
+    if (down == 1) return;
+    final double groundIncrease = (0.1299999676734952 - 0.12739998266255503) + 1E-7 - 1E-8;
+    final double airIncrease = (0.025999999334873708 - 0.025479999685988748) - 1E-8;
+    final double increase = mc.thePlayer.onGround ? groundIncrease : airIncrease;
+    moveFlying(-increase);
+  }
+
+  /** Adjusts the player's motion in the movement direction by the given increase. */
+  public static void moveFlying(double increase) {
+    if (!isMoving()) return;
+    final double yaw = getMoveDirection();
+    mc.thePlayer.motionX += -MathHelper.sin((float) yaw) * increase;
+    mc.thePlayer.motionZ += MathHelper.cos((float) yaw) * increase;
   }
 
   public static void setSpeed(double speed) {
