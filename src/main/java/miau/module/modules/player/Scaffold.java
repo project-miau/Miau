@@ -34,6 +34,7 @@ import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
@@ -90,6 +91,23 @@ public class Scaffold extends Module {
   private int offGroundTicks;
   private int onGroundTicks;
 
+  // Watchdog Sprint state fields
+  private boolean watchdogJump = false;
+  private boolean watchdogJumpHandled = false;
+  private int watchdogPreviousTick = -1;
+  private int watchdogPreviousBlockValue = -1;
+  private int watchdogHasC08Packet = 0;
+  private boolean watchdogStart2 = false;
+  private boolean watchdogStart3 = false;
+  private boolean watchdogStart4 = false;
+  private int watchdogStartTriggerCount = 0;
+  private int watchdogBlock = 0;
+  private int watchdogTime = 0;
+  private double watchdogSpeed = 0;
+  private boolean watchdogEnable = false;
+  private int watchdogTicks = 0;
+  private int watchdogOngroundticks = 0;
+
   public final ModeProperty rotationMode =
       new ModeProperty(
           "rotations",
@@ -103,11 +121,17 @@ public class Scaffold extends Module {
             "GODBRIDGE",
             "EAGLE",
             "BREESILY",
-            "SNAP"
+            "SNAP",
+            "TELLY"
           });
 
   public final ModeProperty sprintMode =
-      new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA", "LEGIT"});
+      new ModeProperty(
+          "sprint",
+          0,
+          new String[] {
+            "NONE", "VANILLA", "LEGIT", "WATCHDOG_SLOW", "WATCHDOG_FAST", "WATCHDOG_JUMP"
+          });
   public final BooleanProperty jumpSprint =
       new BooleanProperty("jump-sprint", true, () -> this.sprintMode.getValue() == 1);
   public final BooleanProperty diaSprint =
@@ -198,6 +222,9 @@ public class Scaffold extends Module {
             ? !this.jumpSprint.getValue()
             : !(this.diaSprint.getValue() && this.isDiagonal(this.getCurrentYaw()));
       case 2:
+      case 3: // WATCHDOG_SLOW
+      case 4: // WATCHDOG_FAST
+      case 5: // WATCHDOG_JUMP
         return false;
       default:
         return false;
@@ -338,6 +365,10 @@ public class Scaffold extends Module {
   }
 
   private boolean isTowering() {
+    // When Watchdog modes are active, they handle their own Y-control - skip tower/keepY checks
+    int sprint = this.sprintMode.getValue();
+    if (sprint >= 3) return false;
+
     if (mc.thePlayer.onGround && MoveUtil.isForwardPressed() && !PlayerUtil.isAirAbove()) {
       boolean keepYTelly = this.keepY.getValue() == 3;
       boolean towerTelly = this.tower.getValue() == 3;
@@ -546,7 +577,6 @@ public class Scaffold extends Module {
     GlStateManager.popMatrix();
   }
 
-  @EventTarget
   public void onRender3D(Render3DEvent event) {
     if (!this.isEnabled()
         || !this.blockRender.getValue()
@@ -701,7 +731,9 @@ public class Scaffold extends Module {
           && this.keepY.getValue() != 0
           && (!this.keepYonPress.getValue() || PlayerUtil.isUsingItem())
           && (!this.disableWhileJumpActive.getValue() || !mc.thePlayer.isPotionActive(Potion.jump))
-          && !mc.gameSettings.keyBindJump.isKeyDown()) {
+          && !mc.gameSettings.keyBindJump.isKeyDown()
+          // When Watchdog modes are active, they handle their own Y-control - skip keepY stage
+          && this.sprintMode.getValue() < 3) {
         this.stage = 1;
       }
       this.startY = this.shouldKeepY ? this.startY : MathHelper.floor_double(mc.thePlayer.posY);
@@ -710,6 +742,146 @@ public class Scaffold extends Module {
     }
 
     if (!this.canPlace()) return;
+
+    int sprint = this.sprintMode.getValue();
+
+    // Watchdog Jump - ground speed multipliers + jump handling (equivalent to Rise PreMotionEvent)
+    if (sprint == 5) {
+      this.recursions = 1;
+
+      // onPreMotionEvent logic
+      if (event.getType() == EventType.PRE) {
+        if (mc.thePlayer.onGround) {
+          watchdogOngroundticks++;
+        } else {
+          watchdogOngroundticks = 0;
+        }
+
+        // Speed multipliers when on ground with no jump
+        if (this.onGroundTicks > 2 && !mc.gameSettings.keyBindJump.isKeyDown()) {
+          MoveUtil.strafe();
+          if (!mc.thePlayer.isPotionActive(Potion.moveSpeed)) {
+            mc.thePlayer.motionZ *= 1.129;
+            mc.thePlayer.motionX *= 1.129;
+          } else if (mc.thePlayer.getActivePotionEffect(Potion.moveSpeed).getAmplifier() + 1 >= 2) {
+            mc.thePlayer.motionZ *= 1.143;
+            mc.thePlayer.motionX *= 1.143;
+          } else {
+            mc.thePlayer.motionZ *= 1.131;
+            mc.thePlayer.motionX *= 1.131;
+          }
+        }
+
+        // C08 ice packet spoofing
+        if (watchdogStart3 && MoveUtil.isMoving() && Math.random() > 0.5) {
+          java.util.Random random = new java.util.Random();
+          float hitX = random.nextFloat();
+          float hitZ = random.nextFloat();
+          PacketUtil.sendPacket(
+              new C08PacketPlayerBlockPlacement(
+                  new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ),
+                  EnumFacing.UP.getIndex(),
+                  new ItemStack(Blocks.ice),
+                  hitX,
+                  1.0F,
+                  hitZ));
+          watchdogStart3 = false;
+        }
+
+        // Previous tick tracking
+        if (watchdogPreviousTick != -1 && mc.thePlayer.ticksExisted - watchdogPreviousTick >= 4) {
+          watchdogPreviousBlockValue = watchdogBlock;
+        } else if (watchdogPreviousTick == -1) {
+          watchdogPreviousTick = mc.thePlayer.ticksExisted;
+          watchdogPreviousBlockValue = watchdogBlock;
+        }
+
+        // Ground strafe
+        if (mc.thePlayer.onGround) {
+          MoveUtil.strafe();
+        }
+
+        // PosY offset
+        if (mc.thePlayer.onGround) {
+          event.setRotation(event.getNewYaw(), event.getNewPitch(), 3);
+        }
+
+        // Jump release handling
+        if (watchdogJump && !mc.gameSettings.keyBindJump.isKeyDown()) {
+          MoveUtil.stop();
+          watchdogJump = false;
+          // Set rotations to 90 pitch for scaffold placement
+          float newYaw = mc.thePlayer.rotationYaw + (float) ((Math.random() - 0.5) * 3);
+          event.setRotation(newYaw, 90.0F, 3);
+          if (!(PlayerUtil.block(mc.thePlayer.posX, mc.thePlayer.prevPosY, mc.thePlayer.posY)
+              instanceof BlockAir)) {
+            this.startY = (int) mc.thePlayer.posY - 1;
+          }
+        }
+
+        if (mc.gameSettings.keyBindJump.isKeyDown()) {
+          watchdogJump = true;
+        }
+      }
+    }
+
+    // Watchdog Fast - enable state tracking
+    if (sprint == 4) {
+      if (mc.thePlayer.onGround && !watchdogEnable && !mc.gameSettings.keyBindJump.isKeyDown()) {
+        MoveUtil.stop();
+        watchdogEnable = true;
+      }
+      if (mc.thePlayer.onGround) {
+        event.setRotation(event.getNewYaw(), event.getNewPitch(), 3);
+      }
+    }
+
+    // Watchdog Jump - PreUpdate logic: auto-jump, block finding, safe walk
+    if (sprint == 5) {
+      boolean start = mc.thePlayer.posY <= this.startY + 1;
+
+      // Block finding when above startY and about to land
+      if (Miau.slotComponent.getItemStack() != null
+          && mc.thePlayer.posY > this.startY
+          && mc.thePlayer.posY + MoveUtil.predictedMotion(mc.thePlayer.motionY, 2)
+              < this.startY + 1) {
+        int blockSlot2 = SlotUtil.findBlock();
+        if (blockSlot2 != -1) Miau.slotComponent.setSlot(blockSlot2);
+      }
+
+      // Jump trigger when on ground
+      if (!start && mc.thePlayer.onGround && !mc.gameSettings.keyBindJump.isKeyDown()) {
+        MoveUtil.strafe(MoveUtil.getbaseMoveSpeed() * 0.9);
+        mc.thePlayer.jump();
+      }
+
+      // Auto-jump handling (sameY equivalent)
+      if (this.offGroundTicks == 1 && !mc.gameSettings.keyBindJump.isKeyDown()) {
+        MoveUtil.strafe();
+      }
+
+      // Safe walk control
+      // Safe walk control handled via SafeWalkEvent
+
+      // Jump key pressed - initial jump trigger
+      if (mc.gameSettings.keyBindJump.isPressed() && mc.thePlayer.onGround && watchdogStart2) {
+        watchdogStart2 = false;
+        MoveUtil.strafe(MoveUtil.getbaseMoveSpeed() * 0.9);
+      }
+
+      // Slow down when falling
+      if (start && !mc.gameSettings.keyBindJump.isKeyDown() && !mc.thePlayer.onGround) {
+        MoveUtil.stop();
+      }
+
+      // Start trigger tracking
+      if (start && mc.thePlayer.onGround && !mc.gameSettings.keyBindJump.isKeyDown()) {
+        watchdogStartTriggerCount++;
+      }
+      if (!start) {
+        watchdogStartTriggerCount = 0;
+      }
+    }
 
     int blockSlot = this.findBlock();
     if (blockSlot != -1) Miau.slotComponent.setSlot(blockSlot);
@@ -861,6 +1033,41 @@ public class Scaffold extends Module {
               targetYaw = movementYaw;
             } else {
               this.getRotations(Integer.parseInt(this.yawOffsetProp.getModeString()));
+            }
+            break;
+          }
+        case 9: // TELLY
+          {
+            if (recursions == 0) {
+              int time = this.offGroundTicks;
+
+              // Auto right-click at tick 0 or 2 (like Rise Telly)
+              if (time == 2 || time == 0) {
+                ItemStack held = mc.thePlayer.inventory.getCurrentItem();
+                if (held != null && held.getItem() instanceof ItemBlock) {
+                  ((IAccessorMinecraft) mc).callRightClickMouse();
+                }
+              }
+
+              int yawOff = Integer.parseInt(this.yawOffsetProp.getModeString());
+              int maxOffTicks = (this.keepY.getValue() != 0) ? 10 : 7;
+
+              if (time >= 3 && this.offGroundTicks <= maxOffTicks) {
+                // Check if we're over the target block
+                if (enumFacing == null
+                    || blockFace == null
+                    || !overBlockCheck(
+                        enumFacing.getEnumFacing(), blockFace, this.rayCast.getValue() == 2)) {
+                  this.getRotations(yawOff);
+                }
+              } else {
+                this.getRotations(yawOff);
+                targetYaw = mc.thePlayer.rotationYaw;
+              }
+
+              if (this.offGroundTicks <= 3) {
+                // Block placement disabled early in air
+              }
             }
             break;
           }
@@ -1160,6 +1367,30 @@ public class Scaffold extends Module {
   public void onStrafe(StrafeEvent event) {
     if (!this.isEnabled()) return;
 
+    int sprint = this.sprintMode.getValue();
+
+    // Watchdog Slow - speed limiting
+    if (sprint == 3) {
+      ((IAccessorKeyBinding) mc.gameSettings.keyBindSprint).setPressed(true);
+      mc.thePlayer.setSprinting(true);
+      double limit = mc.thePlayer.isPotionActive(Potion.moveSpeed) ? 0.118 : 0.083;
+      if (mc.thePlayer.onGround) MoveUtil.strafe(limit - (Math.random() * 0.0001));
+      if (MoveUtil.speed() >= limit && !mc.gameSettings.keyBindJump.isKeyDown()) {
+        MoveUtil.moveFlying((MoveUtil.speed() - limit) * -1);
+      }
+      return;
+    }
+
+    // Watchdog Fast - jump motion on enable
+    if (sprint == 4) {
+      if (mc.thePlayer.onGround
+          && watchdogHasC08Packet > 0
+          && !mc.gameSettings.keyBindJump.isKeyDown()) {
+        mc.thePlayer.motionY = 0.42;
+        watchdogHasC08Packet = 0;
+      }
+    }
+
     if (!this.yawOffsetProp.getModeString().equals("0") && this.moveFix.getValue() == 0) {}
 
     if (!mc.thePlayer.isCollidedHorizontally
@@ -1322,6 +1553,11 @@ public class Scaffold extends Module {
       MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
     }
 
+    // Telly rotation mode auto-jump (equivalent to Rise's runMode)
+    if (this.rotationMode.getValue() == 9 && mc.thePlayer.onGround && MoveUtil.isMoving()) {
+      mc.thePlayer.movementInput.jump = true;
+    }
+
     if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed()) {
       mc.thePlayer.movementInput.jump = true;
     }
@@ -1339,6 +1575,8 @@ public class Scaffold extends Module {
   public void onLivingUpdate(LivingUpdateEvent event) {
     if (!this.isEnabled()) return;
 
+    int sprint = this.sprintMode.getValue();
+
     float speed = this.getSpeed();
     if (speed != 1.0F) {
       if (mc.thePlayer.movementInput.moveForward != 0.0F
@@ -1354,11 +1592,18 @@ public class Scaffold extends Module {
       mc.thePlayer.setSprinting(false);
     }
 
-    if (this.sprintMode.getValue() == 3) {
-      float diff = Math.abs(MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw - this.yaw));
-      if (diff > 90) {
-        mc.thePlayer.setSprinting(false);
-      }
+    // Watchdog Slow - force sprint always
+    if (sprint == 3) {
+      ((IAccessorKeyBinding) mc.gameSettings.keyBindSprint).setPressed(true);
+      mc.thePlayer.setSprinting(true);
+    }
+
+    // Watchdog Fast - diagonal prevention
+    if (sprint == 4 && mc.thePlayer.onGround && !mc.gameSettings.keyBindJump.isKeyDown()) {
+      ((IAccessorMinecraft) mc).getTimer().timerSpeed = 1.0029f;
+      MoveUtil.preventDiagonalSpeed();
+      mc.thePlayer.motionZ *= .998;
+      mc.thePlayer.motionX *= .998;
     }
 
     if (slow > 0) {
@@ -1414,6 +1659,15 @@ public class Scaffold extends Module {
       if (!p.getPosition().equals(new BlockPos(-1, -1, -1))) {
         placements--;
       }
+      // Watchdog Jump: track C08 for ice packet assist
+      if (this.sprintMode.getValue() == 5) {
+        watchdogBlock++;
+        watchdogStart3 = true;
+      }
+      // Watchdog Fast: track C08 for jump motion trigger
+      if (this.sprintMode.getValue() == 4) {
+        watchdogHasC08Packet++;
+      }
     }
   }
 
@@ -1446,6 +1700,23 @@ public class Scaffold extends Module {
     this.offGroundTicks = 0;
     this.onGroundTicks = 0;
 
+    // Watchdog mode reset
+    this.watchdogJump = false;
+    this.watchdogJumpHandled = false;
+    this.watchdogPreviousTick = -1;
+    this.watchdogPreviousBlockValue = -1;
+    this.watchdogHasC08Packet = 0;
+    this.watchdogStart2 = true;
+    this.watchdogStart3 = false;
+    this.watchdogStart4 = false;
+    this.watchdogStartTriggerCount = 0;
+    this.watchdogBlock = 0;
+    this.watchdogTime = 0;
+    this.watchdogSpeed = 0;
+    this.watchdogEnable = true;
+    this.watchdogTicks = 0;
+    this.watchdogOngroundticks = 0;
+
     BadPacketsComponent.reset();
   }
 
@@ -1457,6 +1728,21 @@ public class Scaffold extends Module {
 
     ((IAccessorKeyBinding) mc.gameSettings.keyBindSneak)
         .setPressed(Keyboard.isKeyDown(mc.gameSettings.keyBindSneak.getKeyCode()));
+
+    // Watchdog mode cleanup
+    ((IAccessorMinecraft) mc).getTimer().timerSpeed = 1.0F;
+    mc.thePlayer.setSprinting(false);
+    // mc.thePlayer.safeWalk = false;
+
+    // Reset Watchdog Jump state
+    if (this.sprintMode.getValue() == 5) {
+      watchdogStart3 = false;
+      watchdogStart2 = false;
+      watchdogHasC08Packet = 0;
+      if (watchdogJump) {
+        MoveUtil.stop();
+      }
+    }
   }
 
   public static class BlockData {

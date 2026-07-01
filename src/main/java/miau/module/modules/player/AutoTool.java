@@ -1,20 +1,27 @@
 package miau.module.modules.player;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
+import miau.Miau;
 import miau.event.EventTarget;
-import miau.event.impl.SlotUpdateEvent;
+import miau.event.impl.Render2DEvent;
 import miau.event.impl.TickEvent;
 import miau.event.types.EventType;
 import miau.event.types.Priority;
 import miau.interfaces.IMixinItemRenderer;
-import miau.mixin.IAccessorPlayerControllerMP;
 import miau.module.Module;
 import miau.property.properties.*;
+import miau.util.player.IInventoryPlayerAccessor;
+import miau.util.shader.BlurUtils;
+import miau.util.shader.RoundedUtils;
 import miau.util.world.BlockUtil;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.MovingObjectPosition;
@@ -139,27 +146,28 @@ public class AutoTool extends Module {
       return;
     }
 
-    if (previousSlot == -1 && slot != mc.thePlayer.inventory.currentItem) {
-      previousSlot = mc.thePlayer.inventory.currentItem;
+    if (previousSlot == -1 && slot != getEffectiveSlot()) {
+      previousSlot = getEffectiveSlot();
     }
 
-    if (!hasSwapped) {
-      setSlot(slot);
-      return;
-    }
-
-    if (slot != mc.thePlayer.inventory.currentItem) {
-      setSlot(slot);
-    }
+    setSlotViaComponent(slot);
+    hasSwapped = true;
   }
 
-  @EventTarget
-  public void onSlotUpdate(SlotUpdateEvent e) {
-    if (!hasSwapped) return;
-    if (overrideSwapBack.getValue()) {
-      previousSlot = e.slot;
+  private void setSlotViaComponent(int slot) {
+    if (slot < 0 || slot > 8) return;
+    if (slot == getEffectiveSlot()) return;
+
+    if (spoofItem.getValue()) {
+      ((IMixinItemRenderer) mc.getItemRenderer()).setCancelUpdate(true);
+      ((IMixinItemRenderer) mc.getItemRenderer()).setCancelReset(true);
     }
-    e.setCancelled(true);
+
+    Miau.slotComponent.setSlot(slot);
+  }
+
+  private int getEffectiveSlot() {
+    return Miau.slotComponent.getItemIndex();
   }
 
   private void updateLeftMouseState(boolean leftMouseDown, int currentTick) {
@@ -242,30 +250,14 @@ public class AutoTool extends Module {
 
   private void resetSlot() {
     if (previousSlot != -1 && switchBackWhenDone.getValue()) {
-      setSlot(previousSlot);
+      Miau.slotComponent.setSlot(previousSlot);
     }
     previousSlot = -1;
     hasSwapped = false;
   }
 
-  private void setSlot(int currentItem) {
-    if (currentItem == -1 || currentItem == mc.thePlayer.inventory.currentItem) {
-      return;
-    }
-
-    if (spoofItem.getValue()) {
-      ((IMixinItemRenderer) mc.getItemRenderer()).setCancelUpdate(true);
-      ((IMixinItemRenderer) mc.getItemRenderer()).setCancelReset(true);
-    }
-    mc.thePlayer.inventory.currentItem = currentItem;
-    hasSwapped = true;
-    ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
-  }
-
   public void preInteractSpoof() {
-    if (spoofItem.getValue()
-        && previousSlot != mc.thePlayer.inventory.currentItem
-        && previousSlot != -1) {
+    if (spoofItem.getValue() && previousSlot != getEffectiveSlot() && previousSlot != -1) {
       ((IMixinItemRenderer) mc.getItemRenderer()).setCancelUpdate(true);
       ((IMixinItemRenderer) mc.getItemRenderer()).setCancelReset(true);
     }
@@ -319,5 +311,36 @@ public class AutoTool extends Module {
     BLACKLIST_BLOCKS.add("minecraft:bed");
     BLACKLIST_BLOCKS.add("minecraft:crafting_table");
     BLACKLIST_BLOCKS.add("minecraft:anvil");
+  }
+
+  @EventTarget
+  public void onRender2D(Render2DEvent event) {
+    if (mc.thePlayer == null || !spoofItem.getValue()) return;
+    if (!hasSwapped || Miau.slotComponent.getItemStack() == null) return;
+
+    IInventoryPlayerAccessor inv = (IInventoryPlayerAccessor) mc.thePlayer.inventory;
+    if (!inv.miau$getAlternativeSlot()) return;
+
+    ScaledResolution sr = new ScaledResolution(mc);
+    ItemStack toolStack = Miau.slotComponent.getItemStack();
+
+    float width = 16f + 8f + 8f;
+    float height = 22f;
+    float x = (sr.getScaledWidth() - width) / 2f;
+    float y = sr.getScaledHeight() - 50f;
+
+    GlStateManager.pushMatrix();
+    BlurUtils.prepareBlur();
+    RoundedUtils.drawRound(x, y, width, height, 4f, new Color(0, 0, 0, 150));
+    BlurUtils.blurEnd(2, 3);
+
+    RoundedUtils.drawRound(x, y, width, height, 4f, new Color(0, 0, 0, 150));
+
+    GlStateManager.pushMatrix();
+    RenderHelper.enableGUIStandardItemLighting();
+    mc.getRenderItem().renderItemAndEffectIntoGUI(toolStack, (int) x + 4, (int) y + 3);
+    RenderHelper.disableStandardItemLighting();
+    GlStateManager.popMatrix();
+    GlStateManager.popMatrix();
   }
 }

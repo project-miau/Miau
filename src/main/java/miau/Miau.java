@@ -108,7 +108,8 @@ public class Miau {
     moduleManager.modules.put(AutoAnduril.class, new AutoAnduril());
     moduleManager.modules.put(AutoAuth.class, new AutoAuth());
     moduleManager.modules.put(AutoBuy.class, new AutoBuy());
-    moduleManager.modules.put(AutoHeal.class, new AutoHeal());
+    moduleManager.modules.put(AutoHead.class, new AutoHead());
+    moduleManager.modules.put(AutoChest.class, new AutoChest());
     moduleManager.modules.put(AutoSoup.class, new AutoSoup());
     moduleManager.modules.put(AutoReconnect.class, new AutoReconnect());
     moduleManager.modules.put(AutoTool.class, new AutoTool());
@@ -189,6 +190,7 @@ public class Miau {
     moduleManager.modules.put(Spammer.class, new Spammer());
     moduleManager.modules.put(Speed.class, new Speed());
     moduleManager.modules.put(SpeedMine.class, new SpeedMine());
+    moduleManager.modules.put(AutoWalk.class, new AutoWalk());
     moduleManager.modules.put(Sprint.class, new Sprint());
     moduleManager.modules.put(TargetHUD.class, new TargetHUD());
     moduleManager.modules.put(Scoreboard.class, new Scoreboard());

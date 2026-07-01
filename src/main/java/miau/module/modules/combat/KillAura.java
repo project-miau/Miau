@@ -23,7 +23,7 @@ import miau.module.modules.combat.killaura.autoblocks.*;
 import miau.module.modules.misc.AntiBot;
 import miau.module.modules.movement.NoSlow;
 import miau.module.modules.player.AutoBlockIn;
-import miau.module.modules.player.AutoHeal;
+import miau.module.modules.player.AutoHead;
 import miau.module.modules.player.BedNuker;
 import miau.module.modules.player.Scaffold;
 import miau.module.modules.render.HUD;
@@ -364,8 +364,8 @@ public class KillAura extends Module {
       } else if ((ItemUtil.isEating() || ItemUtil.isUsingBow()) && PlayerUtil.isUsingItem()) {
         return false;
       } else {
-        AutoHeal autoHeal = (AutoHeal) Miau.moduleManager.modules.get(AutoHeal.class);
-        if (autoHeal.isEnabled() && autoHeal.isSwitching()) {
+        AutoHead autoHead = (AutoHead) Miau.moduleManager.modules.get(AutoHead.class);
+        if (autoHead.isEnabled() && autoHead.isHealing()) {
           return false;
         } else {
           BedNuker bedNuker = (BedNuker) Miau.moduleManager.modules.get(BedNuker.class);
