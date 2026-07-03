@@ -16,6 +16,26 @@ import org.lwjgl.opengl.GL11;
 public class ShapeUtil {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
+  public static void drawFilledCircle(double x, double y, double radius, int color) {
+    float a = (float) (color >> 24 & 255) / 255.0F;
+    float r = (float) (color >> 16 & 255) / 255.0F;
+    float g = (float) (color >> 8 & 255) / 255.0F;
+    float b = (float) (color & 255) / 255.0F;
+    GlStateManager.enableBlend();
+    GlStateManager.disableTexture2D();
+    GlStateManager.blendFunc(770, 771);
+    glColor4f(r, g, b, a);
+    glBegin(GL_TRIANGLE_FAN);
+    for (int i = 0; i <= 360; i++) {
+      double angle = Math.toRadians(i);
+      glVertex2d(x + Math.sin(angle) * radius, y + Math.cos(angle) * radius);
+    }
+    glEnd();
+    GlStateManager.enableTexture2D();
+    GlStateManager.disableBlend();
+    GlStateManager.resetColor();
+  }
+
   public static void drawRect(float x1, float y1, float x2, float y2, int color) {
     if (color == 0) {
       return;

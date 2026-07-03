@@ -2292,6 +2292,14 @@ public class RenderUtil {
     GlStateManager.color(1, 1, 1, 1);
   }
 
+  public static void startBlend() {
+    GLUtil.startBlend();
+  }
+
+  public static void endBlend() {
+    GLUtil.endBlend();
+  }
+
   public static Vec3 convertTo2D(int scaleFactor, double x, double y, double z) {
     GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MODELVIEW);
     GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, PROJECTION);
@@ -2967,6 +2975,34 @@ public class RenderUtil {
    * Draws a tinted icon texture at the given position with full GL state management. Saves and
    * restores depth/blend state automatically.
    */
+  public static void scaleStart(float x, float y, float scale) {
+    GlStateManager.pushMatrix();
+    GlStateManager.translate(x, y, 0);
+    GlStateManager.scale(scale, scale, 1);
+    GlStateManager.translate(-x, -y, 0);
+  }
+
+  public static void scaleEnd() {
+    GlStateManager.popMatrix();
+  }
+
+  /** Scissor with scale factor (for animated GUIs). Matches Demise signature. */
+  public static void scissor(float x, float y, float width, float height, float scale) {
+    ScaledResolution sr = new ScaledResolution(mc);
+    int scaleFactor = sr.getScaleFactor();
+
+    float scaledX = (x - sr.getScaledWidth() / 2f) * scale + sr.getScaledWidth() / 2f;
+    float scaledY = (y - sr.getScaledHeight() / 2f) * scale + sr.getScaledHeight() / 2f;
+    float scaledW = width * scale;
+    float scaledH = height * scale;
+
+    GL11.glScissor(
+        (int) (scaledX * scaleFactor),
+        (int) ((sr.getScaledHeight() - (scaledY + scaledH)) * scaleFactor),
+        (int) (scaledW * scaleFactor),
+        (int) (scaledH * scaleFactor));
+  }
+
   public static void drawIcon(ResourceLocation texture, float x, float y, int size, int argbColor) {
     if (texture == null) {
       return;

@@ -21,7 +21,7 @@ public class DelayedTransaction extends DisablerMode {
 
   @Override
   public void onDisable() {
-    mc.timer.timerSpeed = 1.0F;
+    ((miau.mixin.IAccessorMinecraft) mc).getTimer().timerSpeed = 1.0F;
 
     if (mc.thePlayer != null) {
       for (Packet<INetHandlerPlayClient> packet : packets) {
