@@ -34,8 +34,7 @@ public class HUD extends Module {
   private final java.util.List<InterfaceComponent> animatingComponents =
       new java.util.ArrayList<>();
   private final java.util.Comparator<InterfaceComponent> componentComparator =
-      java.util.Comparator.comparingInt((InterfaceComponent c) -> this.getModuleWidth(c.module))
-          .reversed();
+      (a, b) -> Integer.compare(this.getModuleWidth(b.module), this.getModuleWidth(a.module));
   private final java.util.List<net.minecraft.potion.PotionEffect> sortedEffects =
       new java.util.ArrayList<>();
 
@@ -201,7 +200,7 @@ public class HUD extends Module {
           this.activeModules.add(module);
         }
       }
-      this.activeModules.sort(java.util.Comparator.comparingInt(this::getModuleWidth).reversed());
+      this.activeModules.sort((a, b) -> Integer.compare(this.getModuleWidth(b), this.getModuleWidth(a)));
       try {
         Miau.clientName = ChatColors.getDynamicPrefix();
       } catch (Exception e) {

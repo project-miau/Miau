@@ -119,6 +119,7 @@ public class Miau {
     moduleManager.modules.put(BedwarUtils.class, new BedwarUtils());
     moduleManager.modules.put(ThePitUtils.class, new ThePitUtils());
     moduleManager.modules.put(Blink.class, new Blink());
+    moduleManager.modules.put(BridgeAssist.class, new BridgeAssist());
     moduleManager.modules.put(BlockHit.class, new BlockHit());
     moduleManager.modules.put(BlockOverlay.class, new BlockOverlay());
     moduleManager.modules.put(BreakProgress.class, new BreakProgress());
