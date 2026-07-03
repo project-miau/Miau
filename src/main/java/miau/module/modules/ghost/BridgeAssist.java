@@ -14,6 +14,7 @@ import miau.property.properties.FloatProperty;
 import miau.property.properties.IntProperty;
 import miau.util.client.KeyBindUtil;
 import miau.util.player.RotationUtil;
+import miau.util.player.SimulatedPlayer;
 import miau.util.world.BlockUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
@@ -121,9 +122,11 @@ public class BridgeAssist extends Module {
     }
 
     // Predict bounding box after one tick without sneak
-    double[] motion = getPredictedMotion();
-    AxisAlignedBB simBox =
-        mc.thePlayer.getEntityBoundingBox().offset(motion[0], motion[1], motion[2]);
+    SimulatedPlayer sim = SimulatedPlayer.fromClientPlayer(mc.thePlayer.movementInput);
+    sim.movementInput.sneak = false;
+    sim.tick();
+
+    AxisAlignedBB simBox = sim.getEntityBoundingBox();
 
     double offset = computeEdgeOffset(simBox);
 
@@ -262,14 +265,6 @@ public class BridgeAssist extends Module {
   // ══════════════════════════════════════════════════════════════════════════
   //  Edge detection (SimulatedPlayer equivalent)
   // ══════════════════════════════════════════════════════════════════════════
-
-  private double[] getPredictedMotion() {
-    // Horizontal motion without sneak
-    double[] hMotion = miau.util.player.MoveUtil.predictMovement();
-    // Vertical: if not on ground, apply gravity
-    double vMotion = mc.thePlayer.onGround ? 0.0 : mc.thePlayer.motionY;
-    return new double[] {hMotion[0], vMotion, hMotion[1]};
-  }
 
   private double computeEdgeOffset(AxisAlignedBB simBox) {
     AxisAlignedBB groundCheck =

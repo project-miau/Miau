@@ -1,8 +1,6 @@
 package miau.module.modules.render;
 
 import java.awt.*;
-import java.util.List;
-import java.util.stream.Collectors;
 import javax.vecmath.Vector4d;
 import miau.Miau;
 import miau.enums.ChatColors;
@@ -24,6 +22,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.shader.Framebuffer;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 
 public class ESP extends Module {
@@ -45,6 +44,8 @@ public class ESP extends Module {
   public final BooleanProperty enemies = new BooleanProperty("enemies", true);
   public final BooleanProperty self = new BooleanProperty("self", false);
   public final BooleanProperty bots = new BooleanProperty("bots", false);
+
+  private final java.util.List<EntityPlayer> cachedEntities = new java.util.ArrayList<>();
 
   private boolean shouldRenderPlayer(EntityPlayer entityPlayer) {
     if (entityPlayer.deathTime > 0) {
@@ -129,15 +130,13 @@ public class ESP extends Module {
         && (this.mode.getValue() == 1
             || this.mode.getValue() == 3
             || this.healthBar.getValue() == 1)) {
-      List<EntityPlayer> renderedEntities =
-          TeamUtil.getLoadedEntitiesSorted().stream()
-              .filter(
-                  entity ->
-                      entity instanceof EntityPlayer
-                          && this.shouldRenderPlayer((EntityPlayer) entity))
-              .map(EntityPlayer.class::cast)
-              .collect(Collectors.toList());
-      if (!renderedEntities.isEmpty()) {
+      this.cachedEntities.clear();
+      for (Entity entity : TeamUtil.getLoadedEntitiesSorted()) {
+        if (entity instanceof EntityPlayer && this.shouldRenderPlayer((EntityPlayer) entity)) {
+          this.cachedEntities.add((EntityPlayer) entity);
+        }
+      }
+      if (!this.cachedEntities.isEmpty()) {
         if (this.mode.getValue() == 3 && false) {
           try {
             GlStateManager.pushMatrix();
@@ -153,7 +152,7 @@ public class ESP extends Module {
             this.outline = false;
             this.glow = false;
 
-            for (EntityPlayer player : renderedEntities) {
+            for (EntityPlayer player : this.cachedEntities) {
               Color entityColor = this.getEntityColor(player);
 
               boolean invisible = player.isInvisible();
@@ -188,7 +187,7 @@ public class ESP extends Module {
           double scale = scaleFactor / Math.pow(scaleFactor, 2.0);
           GlStateManager.pushMatrix();
           GlStateManager.scale(scale, scale, scale);
-          for (EntityPlayer player : renderedEntities) {
+          for (EntityPlayer player : this.cachedEntities) {
             ((IAccessorEntityRenderer) mc.entityRenderer)
                 .callSetupCameraTransform(event.getPartialTicks(), 0);
             Vector4d screenPosition = RenderUtil.projectToScreen(player, scaleFactor);
@@ -231,14 +230,13 @@ public class ESP extends Module {
             || this.mode.getValue() == 5
             || this.healthBar.getValue() == 2)) {
       RenderUtil.enableRenderState();
-      for (EntityPlayer player :
-          TeamUtil.getLoadedEntitiesSorted().stream()
-              .filter(
-                  entity ->
-                      entity instanceof EntityPlayer
-                          && this.shouldRenderPlayer((EntityPlayer) entity))
-              .map(EntityPlayer.class::cast)
-              .collect(Collectors.toList())) {
+      this.cachedEntities.clear();
+      for (Entity entity : TeamUtil.getLoadedEntitiesSorted()) {
+        if (entity instanceof EntityPlayer && this.shouldRenderPlayer((EntityPlayer) entity)) {
+          this.cachedEntities.add((EntityPlayer) entity);
+        }
+      }
+      for (EntityPlayer player : this.cachedEntities) {
         if (this.mode.getValue() == 2) {
           Color color = this.getEntityColor(player);
           RenderUtil.drawEntityBoundingBox(

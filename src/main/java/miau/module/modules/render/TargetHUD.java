@@ -545,18 +545,19 @@ public class TargetHUD extends Module {
       // thinks the texture is already bound. The FBO texture remains active instead of
       // the font glyph texture, producing garbled characters.
       // Force-reset the cache by binding texture 0, then restore proper state.
+      GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+      GL13.glActiveTexture(GL13.GL_TEXTURE0);
       GlStateManager.bindTexture(0);
       GlStateManager.enableTexture2D();
       GlStateManager.enableBlend();
       GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
       GlStateManager.alphaFunc(GL11.GL_GREATER, 0.01F);
-      GL13.glActiveTexture(GL13.GL_TEXTURE0);
       int textColor =
           (new Color(220, 220, 220, 255).getRGB() & 0xFFFFFF)
               | (MathHelper.clamp_int(alpha + 15, 0, 255) << 24);
       mc.fontRendererObj.drawString(
           string, n6 + padding * invSc, n7 + padding * invSc, textColor, shadow.getValue());
-      GlStateManager.disableBlend();
+      GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
       GlStateManager.popMatrix();
     } else {

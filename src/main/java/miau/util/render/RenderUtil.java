@@ -199,12 +199,14 @@ public class RenderUtil {
     if (!blend) GL11.glEnable(GL11.GL_BLEND);
     GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
     RenderUtil.setColor(color);
-    GL11.glBegin(GL11.GL_QUADS);
-    GL11.glVertex2f(x1, y1);
-    GL11.glVertex2f(x1, y2);
-    GL11.glVertex2f(x2, y2);
-    GL11.glVertex2f(x2, y1);
-    GL11.glEnd();
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(7, DefaultVertexFormats.POSITION);
+    worldrenderer.pos((double) x1, (double) y1, 0.0D).endVertex();
+    worldrenderer.pos((double) x1, (double) y2, 0.0D).endVertex();
+    worldrenderer.pos((double) x2, (double) y2, 0.0D).endVertex();
+    worldrenderer.pos((double) x2, (double) y1, 0.0D).endVertex();
+    tessellator.draw();
     if (!blend) GL11.glDisable(GL11.GL_BLEND);
     if (texture2D) GL11.glEnable(GL11.GL_TEXTURE_2D);
     GlStateManager.resetColor();
@@ -238,14 +240,16 @@ public class RenderUtil {
     RenderUtil.setColor(color);
     GL11.glEnable(GL11.GL_POLYGON_SMOOTH);
     GL11.glHint(GL11.GL_POLYGON_SMOOTH_HINT, GL11.GL_NICEST);
-    GL11.glBegin(GL11.GL_POLYGON);
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(9, DefaultVertexFormats.POSITION);
     for (int i = 0; i < 2; ++i) {
-      GL11.glVertex2f(x1, y1);
-      GL11.glVertex2f(x1, y2);
-      GL11.glVertex2f(x2, y2);
-      GL11.glVertex2f(x2, y1);
+      worldrenderer.pos((double) x1, (double) y1, 0.0D).endVertex();
+      worldrenderer.pos((double) x1, (double) y2, 0.0D).endVertex();
+      worldrenderer.pos((double) x2, (double) y2, 0.0D).endVertex();
+      worldrenderer.pos((double) x2, (double) y1, 0.0D).endVertex();
     }
-    GL11.glEnd();
+    tessellator.draw();
     GL11.glDisable(GL11.GL_POLYGON_SMOOTH);
     GlStateManager.resetColor();
   }
@@ -260,16 +264,18 @@ public class RenderUtil {
     GL11.glLineWidth(lineWidth);
     GL11.glEnable(GL11.GL_LINE_SMOOTH);
     GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-    GL11.glBegin(GL11.GL_LINES);
-    GL11.glVertex2f(x1, y1);
-    GL11.glVertex2f(x1, y2);
-    GL11.glVertex2f(x2, y2);
-    GL11.glVertex2f(x2, y1);
-    GL11.glVertex2f(x1, y1);
-    GL11.glVertex2f(x2, y1);
-    GL11.glVertex2f(x1, y2);
-    GL11.glVertex2f(x2, y2);
-    GL11.glEnd();
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(1, DefaultVertexFormats.POSITION);
+    worldrenderer.pos((double) x1, (double) y1, 0.0D).endVertex();
+    worldrenderer.pos((double) x1, (double) y2, 0.0D).endVertex();
+    worldrenderer.pos((double) x2, (double) y2, 0.0D).endVertex();
+    worldrenderer.pos((double) x2, (double) y1, 0.0D).endVertex();
+    worldrenderer.pos((double) x1, (double) y1, 0.0D).endVertex();
+    worldrenderer.pos((double) x2, (double) y1, 0.0D).endVertex();
+    worldrenderer.pos((double) x1, (double) y2, 0.0D).endVertex();
+    worldrenderer.pos((double) x2, (double) y2, 0.0D).endVertex();
+    tessellator.draw();
     GL11.glDisable(GL11.GL_LINE_SMOOTH);
     GL11.glLineWidth(2.0f);
     GlStateManager.resetColor();
@@ -280,10 +286,12 @@ public class RenderUtil {
     GL11.glLineWidth(lineWidth);
     GL11.glEnable(GL11.GL_LINE_SMOOTH);
     GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-    GL11.glBegin(GL11.GL_LINES);
-    GL11.glVertex2f(x1, y1);
-    GL11.glVertex2f(x2, y2);
-    GL11.glEnd();
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(1, DefaultVertexFormats.POSITION);
+    worldrenderer.pos((double) x1, (double) y1, 0.0D).endVertex();
+    worldrenderer.pos((double) x2, (double) y2, 0.0D).endVertex();
+    tessellator.draw();
     GL11.glDisable(GL11.GL_LINE_SMOOTH);
     GL11.glLineWidth(2.0f);
     GlStateManager.resetColor();
@@ -310,13 +318,17 @@ public class RenderUtil {
     GL11.glLineWidth(lineWidth);
     GL11.glEnable(GL11.GL_LINE_SMOOTH);
     GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-    GL11.glBegin(GL11.GL_LINES);
-    GL11.glVertex3d(start.xCoord, start.yCoord, start.zCoord);
-    GL11.glVertex3d(
-        endX - ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosX(),
-        endY - ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosY(),
-        endZ - ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ());
-    GL11.glEnd();
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(1, DefaultVertexFormats.POSITION);
+    worldrenderer.pos(start.xCoord, start.yCoord, start.zCoord).endVertex();
+    worldrenderer
+        .pos(
+            endX - ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosX(),
+            endY - ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosY(),
+            endZ - ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ())
+        .endVertex();
+    tessellator.draw();
     GL11.glDisable(GL11.GL_LINE_SMOOTH);
     GL11.glLineWidth(2.0f);
     GlStateManager.resetColor();
@@ -331,14 +343,24 @@ public class RenderUtil {
     GL11.glLineWidth(lineWidth);
     GL11.glEnable(GL11.GL_LINE_SMOOTH);
     GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-    GL11.glBegin(GL11.GL_LINES);
-    GL11.glVertex2f(centerX, centerY);
-    GL11.glVertex2f(
-        centerX + length * (float) Math.cos(f6), centerY + length * (float) Math.sin(f6));
-    GL11.glVertex2f(centerX, centerY);
-    GL11.glVertex2f(
-        centerX + length * (float) Math.cos(f7), centerY + length * (float) Math.sin(f7));
-    GL11.glEnd();
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(1, DefaultVertexFormats.POSITION);
+    worldrenderer.pos((double) centerX, (double) centerY, 0.0D).endVertex();
+    worldrenderer
+        .pos(
+            (double) (centerX + length * (float) Math.cos(f6)),
+            (double) (centerY + length * (float) Math.sin(f6)),
+            0.0D)
+        .endVertex();
+    worldrenderer.pos((double) centerX, (double) centerY, 0.0D).endVertex();
+    worldrenderer
+        .pos(
+            (double) (centerX + length * (float) Math.cos(f7)),
+            (double) (centerY + length * (float) Math.sin(f7)),
+            0.0D)
+        .endVertex();
+    tessellator.draw();
     GL11.glDisable(GL11.GL_LINE_SMOOTH);
     GL11.glLineWidth(2.0f);
     GlStateManager.resetColor();
@@ -351,13 +373,23 @@ public class RenderUtil {
     RenderUtil.setColor(color);
     GL11.glEnable(GL11.GL_POLYGON_SMOOTH);
     GL11.glHint(GL11.GL_POLYGON_SMOOTH_HINT, GL11.GL_NICEST);
-    GL11.glBegin(9);
-    GL11.glVertex2f(centerX, centerY);
-    GL11.glVertex2f(
-        centerX + length * (float) Math.cos(f5), centerY + length * (float) Math.sin(f5));
-    GL11.glVertex2f(
-        centerX + length * (float) Math.cos(f6), centerY + length * (float) Math.sin(f6));
-    GL11.glEnd();
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(9, DefaultVertexFormats.POSITION);
+    worldrenderer.pos((double) centerX, (double) centerY, 0.0D).endVertex();
+    worldrenderer
+        .pos(
+            (double) (centerX + length * (float) Math.cos(f5)),
+            (double) (centerY + length * (float) Math.sin(f5)),
+            0.0D)
+        .endVertex();
+    worldrenderer
+        .pos(
+            (double) (centerX + length * (float) Math.cos(f6)),
+            (double) (centerY + length * (float) Math.sin(f6)),
+            0.0D)
+        .endVertex();
+    tessellator.draw();
     GL11.glDisable(GL11.GL_POLYGON_SMOOTH);
     GlStateManager.resetColor();
   }
@@ -365,16 +397,17 @@ public class RenderUtil {
   public static void drawFramebuffer(Framebuffer framebuffer) {
     ScaledResolution scaledResolution = new ScaledResolution(mc);
     GlStateManager.bindTexture(framebuffer.framebufferTexture);
-    GL11.glBegin(GL11.GL_QUADS);
-    GL11.glTexCoord2d(0.0, 1.0);
-    GL11.glVertex2d(0.0, 0.0);
-    GL11.glTexCoord2d(0.0, 0.0);
-    GL11.glVertex2d(0.0, scaledResolution.getScaledHeight());
-    GL11.glTexCoord2d(1.0, 0.0);
-    GL11.glVertex2d(scaledResolution.getScaledWidth(), scaledResolution.getScaledHeight());
-    GL11.glTexCoord2d(1.0, 1.0);
-    GL11.glVertex2d(scaledResolution.getScaledWidth(), 0.0);
-    GL11.glEnd();
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(7, DefaultVertexFormats.POSITION_TEX);
+    worldrenderer.pos(0.0, 0.0, 0.0D).tex(0.0, 1.0).endVertex();
+    worldrenderer.pos(0.0, scaledResolution.getScaledHeight(), 0.0D).tex(0.0, 0.0).endVertex();
+    worldrenderer
+        .pos(scaledResolution.getScaledWidth(), scaledResolution.getScaledHeight(), 0.0D)
+        .tex(1.0, 0.0)
+        .endVertex();
+    worldrenderer.pos(scaledResolution.getScaledWidth(), 0.0, 0.0D).tex(1.0, 1.0).endVertex();
+    tessellator.draw();
   }
 
   public static void fillCircle(double x, double y, double radius, int segments, int color) {
@@ -384,18 +417,17 @@ public class RenderUtil {
 
     RenderUtil.setColor(color);
 
-    GL11.glBegin(GL11.GL_TRIANGLE_FAN);
-
-    GL11.glVertex2d(x, y);
-
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(GL11.GL_TRIANGLE_FAN, DefaultVertexFormats.POSITION);
+    worldrenderer.pos(x, y, 0.0D).endVertex();
     for (int i = 0; i <= segments; i++) {
       double angle = i * (Math.PI * 2.0 / segments);
       double px = x + Math.cos(angle) * radius;
       double py = y + Math.sin(angle) * radius;
-      GL11.glVertex2d(px, py);
+      worldrenderer.pos(px, py, 0.0D).endVertex();
     }
-
-    GL11.glEnd();
+    tessellator.draw();
 
     GlStateManager.enableTexture2D();
     GlStateManager.disableBlend();
@@ -408,12 +440,16 @@ public class RenderUtil {
     GL11.glLineWidth(3.0f);
     GL11.glEnable(GL11.GL_LINE_SMOOTH);
     GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-    GL11.glBegin(GL11.GL_LINE_LOOP);
+    Tessellator tessellator = Tessellator.getInstance();
+    WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    worldrenderer.begin(GL11.GL_LINE_LOOP, DefaultVertexFormats.POSITION);
     for (int i = 0; i <= segments; ++i) {
       double d5 = (double) i * (Math.PI * 2 / (double) segments);
-      GL11.glVertex3d(centerX + Math.cos(d5) * radius, centerY, centerZ + Math.sin(d5) * radius);
+      worldrenderer
+          .pos(centerX + Math.cos(d5) * radius, centerY, centerZ + Math.sin(d5) * radius)
+          .endVertex();
     }
-    GL11.glEnd();
+    tessellator.draw();
     GL11.glDisable(GL11.GL_LINE_SMOOTH);
     GL11.glLineWidth(2.0f);
     GlStateManager.resetColor();
