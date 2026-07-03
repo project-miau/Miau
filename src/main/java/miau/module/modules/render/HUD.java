@@ -200,7 +200,8 @@ public class HUD extends Module {
           this.activeModules.add(module);
         }
       }
-      this.activeModules.sort((a, b) -> Integer.compare(this.getModuleWidth(b), this.getModuleWidth(a)));
+      this.activeModules.sort(
+          (a, b) -> Integer.compare(this.getModuleWidth(b), this.getModuleWidth(a)));
       try {
         Miau.clientName = ChatColors.getDynamicPrefix();
       } catch (Exception e) {
