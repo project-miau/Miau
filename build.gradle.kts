@@ -176,6 +176,7 @@ tasks.assemble.get().dependsOn(tasks.remapJar)
 spotless {
     java {
         googleJavaFormat()
+        lineEndings = com.diffplug.spotless.LineEnding.UNIX
         target("src/*/java/**/*.java")
         targetExclude("src/*/java/me/accountmanager/**/*.java", "src/*/java/de/viaversion/**/*.java")
     }

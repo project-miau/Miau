@@ -435,11 +435,9 @@ public class MiauMainMenu extends GuiScreen {
     if (fontMeta == null) return;
     Gui.drawRect(0, height - 1, width, height, new Color(255, 255, 255, 10).getRGB());
 
-    String left = "Miau Client v" + ClientInfo.VERSION;
     float footerY = height - fontMeta.height() - 5;
-    fontMeta.draw(left, 5, footerY, 0xD0FFFFFF, false);
 
-    String right = "Credits: [ksyz, OpenMiau Project, idle]";
+    String right = "Credits: [ksyz, project-miau]";
     int rw = fontMeta.width(right);
     fontMeta.draw(right, width - rw - 5, footerY, 0xD0FFFFFF, false);
   }
