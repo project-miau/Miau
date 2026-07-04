@@ -65,29 +65,25 @@ public class ESP extends Module {
     }
   }
 
-  private Color getEntityColor(EntityPlayer entityPlayer) {
+  private int getEntityColorInt(EntityPlayer entityPlayer) {
     if (TeamUtil.isFriend(entityPlayer)) {
-      return Miau.friendManager.getColor();
+      return Miau.friendManager.getColor().getRGB();
     } else if (TeamUtil.isTarget(entityPlayer)) {
-      return Miau.targetManager.getColor();
+      return Miau.targetManager.getColor().getRGB();
     } else {
       switch (this.color.getValue()) {
         case 0:
-          return TeamUtil.getTeamColor(entityPlayer, 1.0F);
+          return TeamUtil.getTeamColor(entityPlayer, 1.0F).getRGB();
         case 1:
-          int teamColor =
-              TeamUtil.isSameTeam(entityPlayer)
-                  ? ChatColors.BLUE.toAwtColor()
-                  : ChatColors.RED.toAwtColor();
-          return new Color(teamColor);
+          return TeamUtil.isSameTeam(entityPlayer)
+              ? ChatColors.BLUE.toAwtColor()
+              : ChatColors.RED.toAwtColor();
         case 2:
-          int hudColor =
-              ((HUD) Miau.moduleManager.modules.get(HUD.class))
-                  .getColor(System.currentTimeMillis())
-                  .getRGB();
-          return new Color(hudColor);
+          return ((HUD) Miau.moduleManager.modules.get(HUD.class))
+              .getColor(System.currentTimeMillis())
+              .getRGB();
         default:
-          return new Color(-1);
+          return -1;
       }
     }
   }
@@ -153,7 +149,6 @@ public class ESP extends Module {
             this.glow = false;
 
             for (EntityPlayer player : this.cachedEntities) {
-              Color entityColor = this.getEntityColor(player);
 
               boolean invisible = player.isInvisible();
               player.setInvisible(false);
@@ -184,7 +179,7 @@ public class ESP extends Module {
         if (this.mode.getValue() == 1 || this.healthBar.getValue() == 1) {
           RenderUtil.enableRenderState();
           double scaleFactor = new ScaledResolution(mc).getScaleFactor();
-          double scale = scaleFactor / Math.pow(scaleFactor, 2.0);
+          double scale = 1.0 / scaleFactor;
           GlStateManager.pushMatrix();
           GlStateManager.scale(scale, scale, scale);
           for (EntityPlayer player : this.cachedEntities) {
@@ -198,7 +193,7 @@ public class ESP extends Module {
               float z = (float) screenPosition.z;
               float w = (float) screenPosition.w;
               if (this.mode.getValue() == 1) {
-                int color = this.getEntityColor(player).getRGB();
+                int color = this.getEntityColorInt(player);
                 RenderUtil.drawOutlineRect(
                     x, y, z, w, 3.0F, 0, (color & 16579836) >> 2 | color & 0xFF000000);
                 RenderUtil.drawOutlineRect(x, y, z, w, 1.5F, 0, color);
@@ -238,26 +233,32 @@ public class ESP extends Module {
       }
       for (EntityPlayer player : this.cachedEntities) {
         if (this.mode.getValue() == 2) {
-          Color color = this.getEntityColor(player);
+          int color = this.getEntityColorInt(player);
           RenderUtil.drawEntityBoundingBox(
               player,
-              color.getRed(),
-              color.getGreen(),
-              color.getBlue(),
-              color.getAlpha(),
+              (color >> 16) & 0xFF,
+              (color >> 8) & 0xFF,
+              color & 0xFF,
+              (color >> 24) & 0xFF,
               1.5F,
               0.1F);
           GlStateManager.resetColor();
         }
         if (this.mode.getValue() == 4) {
-          Color color = this.getEntityColor(player);
+          int color = this.getEntityColorInt(player);
           RenderUtil.drawCornerESP(
-              player, color.getRed() / 255.0F, color.getGreen() / 255.0F, color.getBlue() / 255.0F);
+              player,
+              ((color >> 16) & 0xFF) / 255.0F,
+              ((color >> 8) & 0xFF) / 255.0F,
+              (color & 0xFF) / 255.0F);
         }
         if (this.mode.getValue() == 5) {
-          Color color = this.getEntityColor(player);
+          int color = this.getEntityColorInt(player);
           RenderUtil.drawFake2DESP(
-              player, color.getRed() / 255.0F, color.getGreen() / 255.0F, color.getBlue() / 255.0F);
+              player,
+              ((color >> 16) & 0xFF) / 255.0F,
+              ((color >> 8) & 0xFF) / 255.0F,
+              (color & 0xFF) / 255.0F);
         }
         if (this.healthBar.getValue() == 2) {
           double x =

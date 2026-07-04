@@ -18,19 +18,22 @@ public class SliderComponent extends Component {
   private boolean dragging2;
   private float previousSetting;
 
+  private final miau.util.font.Font font;
+  private final Color colorDarkest = Color.white.darker().darker().darker().darker();
+  private final Color colorDarker = Color.white.darker().darker();
+  private final int colorBrighter = Color.white.brighter().brighter().getRGB();
+  private final int colorGray = new Color(160, 160, 160).getRGB();
+
   public SliderComponent(FloatProperty setting) {
     this.setting = setting;
+    this.font = FontRepository.getFont("Inter Regular", 15f);
     previousSetting = setting.getValue();
-    setHeight(
-        FontRepository.getFont("Inter Regular", 15f).height() * 2
-            + FontRepository.getFont("Inter Regular", 15f).height()
-            + 2);
+    setHeight(font.height() * 2 + font.height() + 2);
   }
 
   @Override
   public void drawScreen(int mouseX, int mouseY) {
-    FontRepository.getFont("Inter Regular", 15f)
-        .draw(setting.getName(), (double) (getX() + 4), (double) (getY()), -1);
+    font.draw(setting.getName(), (double) (getX() + 4), (double) (getY()), -1);
 
     anim =
         animate(
@@ -51,73 +54,39 @@ public class SliderComponent extends Component {
     float sliderWidth = anim;
 
     RoundedUtils.drawRound(
-        getX() + 4,
-        getY() + FontRepository.getFont("Inter Regular", 15f).height() + 2,
-        getWidth() - 8,
-        2,
-        1,
-        Color.white.darker().darker().darker().darker());
+        getX() + 4, getY() + font.height() + 2, getWidth() - 8, 2, 1, colorDarkest);
 
     if (setting.isDoubleSlider()) {
       float minX = Math.min(anim, anim2);
       float maxX = Math.max(anim, anim2);
       RoundedUtils.drawRound(
-          getX() + 4 + minX,
-          getY() + FontRepository.getFont("Inter Regular", 15f).height() + 2,
-          maxX - minX,
-          2,
-          1,
-          Color.white.darker().darker());
-      ShapeUtil.drawFilledCircle(
-          getX() + 4 + anim,
-          getY() + FontRepository.getFont("Inter Regular", 15f).height() + 3,
-          3,
-          Color.white.brighter().brighter().getRGB());
-      ShapeUtil.drawFilledCircle(
-          getX() + 4 + anim2,
-          getY() + FontRepository.getFont("Inter Regular", 15f).height() + 3,
-          3,
-          Color.white.brighter().brighter().getRGB());
+          getX() + 4 + minX, getY() + font.height() + 2, maxX - minX, 2, 1, colorDarker);
+      ShapeUtil.drawFilledCircle(getX() + 4 + anim, getY() + font.height() + 3, 3, colorBrighter);
+      ShapeUtil.drawFilledCircle(getX() + 4 + anim2, getY() + font.height() + 3, 3, colorBrighter);
     } else {
       RoundedUtils.drawRound(
-          getX() + 4,
-          getY() + FontRepository.getFont("Inter Regular", 15f).height() + 2,
-          sliderWidth,
-          2,
-          1,
-          Color.white.darker().darker());
+          getX() + 4, getY() + font.height() + 2, sliderWidth, 2, 1, colorDarker);
       ShapeUtil.drawFilledCircle(
-          getX() + 4 + sliderWidth,
-          getY() + FontRepository.getFont("Inter Regular", 15f).height() + 3,
-          3,
-          Color.white.brighter().brighter().getRGB());
+          getX() + 4 + sliderWidth, getY() + font.height() + 3, 3, colorBrighter);
     }
 
-    FontRepository.getFont("Inter Regular", 15f)
-        .draw(
-            String.valueOf(setting.getMin()),
-            (double) (getX() + 2),
-            (double) (getY() + FontRepository.getFont("Inter Regular", 15f).height() * 2 + 2),
-            new Color(160, 160, 160).getRGB());
-    FontRepository.getFont("Inter Regular", 15f)
-        .drawCentered(
-            setting.isDoubleSlider()
-                ? setting.getValue() + " - " + setting.getSecondValue()
-                : String.valueOf(setting.getValue()),
-            (double) (getX() + getWidth() / 2),
-            (double) (getY() + FontRepository.getFont("Inter Regular", 15f).height() * 2 + 2),
-            -1);
-    FontRepository.getFont("Inter Regular", 15f)
-        .draw(
-            String.valueOf(setting.getMax()),
-            (double)
-                (getX()
-                    - 2
-                    + getWidth()
-                    - FontRepository.getFont("Inter Regular", 15f)
-                        .getStringWidth(String.valueOf(setting.getMax()))),
-            (double) (getY() + FontRepository.getFont("Inter Regular", 15f).height() * 2 + 2),
-            new Color(160, 160, 160).getRGB());
+    font.draw(
+        String.valueOf(setting.getMin()),
+        (double) (getX() + 2),
+        (double) (getY() + font.height() * 2 + 2),
+        colorGray);
+    font.drawCentered(
+        setting.isDoubleSlider()
+            ? setting.getValue() + " - " + setting.getSecondValue()
+            : String.valueOf(setting.getValue()),
+        (double) (getX() + getWidth() / 2),
+        (double) (getY() + font.height() * 2 + 2),
+        -1);
+    font.draw(
+        String.valueOf(setting.getMax()),
+        (double) (getX() - 2 + getWidth() - font.getStringWidth(String.valueOf(setting.getMax()))),
+        (double) (getY() + font.height() * 2 + 2),
+        colorGray);
 
     if (dragging || dragging2) {
       double clampedRatio =
@@ -143,12 +112,7 @@ public class SliderComponent extends Component {
   public void mouseClicked(int mouseX, int mouseY, int mouseButton) {
     if (mouseButton == 0
         && MouseUtils.isHovered(
-            getX() + 2,
-            getY() + FontRepository.getFont("Inter Regular", 15f).height() + 2,
-            getWidth(),
-            4f,
-            mouseX,
-            mouseY)) {
+            getX() + 2, getY() + font.height() + 2, getWidth(), 4f, mouseX, mouseY)) {
       if (setting.isDoubleSlider()) {
         float mouseRelX = mouseX - (getX() + 4);
         if (Math.abs(mouseRelX - anim) <= Math.abs(mouseRelX - anim2)) {
