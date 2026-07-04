@@ -8,7 +8,7 @@ import miau.event.impl.TickEvent;
 import miau.module.Module;
 import miau.module.modules.misc.disabler.DelayedTransaction;
 import miau.module.modules.misc.disabler.DisablerMode;
-import miau.module.modules.misc.disabler.VulcanTestDisabler;
+import miau.module.modules.misc.disabler.VulcanDisabler;
 import miau.property.Property;
 import miau.property.properties.ModeProperty;
 
@@ -21,7 +21,7 @@ public class Disabler extends Module {
           "Mode",
           0,
           new String[] {
-            register(new VulcanTestDisabler("VulcanTest", this)),
+            register(new VulcanDisabler("Vulcan", this)),
             register(new DelayedTransaction("DelayedTransaction", this)),
           });
 

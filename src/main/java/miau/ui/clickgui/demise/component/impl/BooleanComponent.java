@@ -4,8 +4,8 @@ import java.awt.*;
 import miau.property.properties.BooleanProperty;
 import miau.ui.clickgui.demise.Component;
 import miau.util.demise.MouseUtils;
-import miau.util.font.FontRepository;
 import miau.util.demise.RoundedUtils;
+import miau.util.font.FontRepository;
 
 public class BooleanComponent extends Component {
   private final BooleanProperty setting;

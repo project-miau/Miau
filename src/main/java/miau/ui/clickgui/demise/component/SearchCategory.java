@@ -30,9 +30,20 @@ public class SearchCategory implements IComponent {
 
   public void initCategory() {
     moduleComponents.clear();
+    java.util.Set<String> addedModules = new java.util.HashSet<String>();
+
     for (Module module : Miau.moduleManager.modules.values()) {
-      if (filter.isEmpty() || module.getName().toLowerCase().contains(filter.toLowerCase())) {
+      String name = module.getName().toLowerCase();
+      String query = filter.toLowerCase().trim();
+
+      boolean matches =
+          filter.isEmpty()
+              || name.contains(query)
+              || name.replace(" ", "").contains(query.replace(" ", ""));
+
+      if (matches && !addedModules.contains(name)) {
         moduleComponents.add(new ModuleComponent(module));
+        addedModules.add(name);
       }
     }
 
@@ -57,8 +68,7 @@ public class SearchCategory implements IComponent {
 
       handleScroll();
 
-      float componentStartY =
-          PanelGui.posY + 12 + FontRepository.getFont("Inter Bold", 35f).height();
+      float componentStartY = PanelGui.posY + 45;
       float viewHeight = 255;
 
       float totalHeight = 0;
@@ -79,12 +89,12 @@ public class SearchCategory implements IComponent {
         float moduleY = componentOffsetY - scrollOffset;
         module.setX(PanelGui.posX + 67);
         module.setY(moduleY);
-        module.render(shader);
         module.setVisible(
             moduleY + 35 >= componentStartY && moduleY <= componentStartY + viewHeight);
         module.setVisibleSetting(
             moduleY + module.getHeight() >= componentStartY
                 && moduleY <= componentStartY + viewHeight);
+        module.render(shader);
 
         componentOffsetY += module.getHeight() + 10;
       }

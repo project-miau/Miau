@@ -70,16 +70,15 @@ public class ConfigCategoryComponent implements IComponent {
       RenderUtil.drawRect(
           interpolatedX,
           (float) (y + FontRepository.getFont("Inter Regular", 18f).height() - 2.6f),
-          interpolatedLineWidth,
-          0.5f,
+          interpolatedX + interpolatedLineWidth,
+          (float) (y + FontRepository.getFont("Inter Regular", 18f).height() - 2.6f) + 0.5f,
           Color.white.getRGB());
     }
 
     if (isSelected) {
       handleScroll();
 
-      float componentStartY =
-          PanelGui.posY + 17 + FontRepository.getFont("Inter Bold", 35f).height();
+      float componentStartY = PanelGui.posY + 50;
       float viewHeight = 250;
 
       float totalHeight = 0;

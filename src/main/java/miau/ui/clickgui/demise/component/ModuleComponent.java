@@ -17,9 +17,9 @@ import miau.ui.clickgui.demise.component.impl.ColorPickerComponent;
 import miau.ui.clickgui.demise.component.impl.ModeComponent;
 import miau.ui.clickgui.demise.component.impl.SliderComponent;
 import miau.ui.clickgui.demise.component.impl.StringComponent;
+import miau.util.demise.RoundedUtils;
 import miau.util.font.FontRepository;
 import miau.util.render.RenderUtil;
-import miau.util.demise.RoundedUtils;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -63,6 +63,8 @@ public class ModuleComponent implements IComponent {
   }
 
   public void render(boolean shader) {
+    if (!visible) return;
+
     float width = 375;
     slideProgress = animate(slideProgress, visibleSetting ? 1 : 0, 0.1f);
     float slideOffset = (width / 4) * (1.0f - slideProgress);
@@ -123,12 +125,7 @@ public class ModuleComponent implements IComponent {
 
     float openOutput = isExpanded ? 1 : 0;
 
-    RenderUtil.scissor(
-        x,
-        PanelGui.posY + 12 + FontRepository.getFont("Inter Bold", 35f).height(),
-        width,
-        255,
-        PanelGui.interpolatedScale);
+    RenderUtil.scissor(x, PanelGui.posY + 45, width, 255, PanelGui.interpolatedScale);
     GL11.glEnable(GL11.GL_SCISSOR_TEST);
     float slideOffset = (width / 4) * (1.0f - slideProgress);
 
@@ -146,8 +143,8 @@ public class ModuleComponent implements IComponent {
           RenderUtil.drawRect(
               x + 3.5f + slideOffset,
               component.getY() - 2.8f,
-              1,
-              component.getHeight(),
+              x + 3.5f + slideOffset + 1,
+              component.getY() - 2.8f + component.getHeight(),
               Color.gray.getRGB());
         }
       }
@@ -162,8 +159,7 @@ public class ModuleComponent implements IComponent {
   @Override
   public void mouseClicked(int mouseX, int mouseY, int mouseButton) {
     if (isHovered) {
-      if (visible
-          && mouseY > PanelGui.posY + 12 + FontRepository.getFont("Inter Bold", 35f).height()) {
+      if (visible && mouseY > PanelGui.posY + 45) {
         if (mouseButton == 0) {
           module.toggle();
         } else if (mouseButton == 1) {

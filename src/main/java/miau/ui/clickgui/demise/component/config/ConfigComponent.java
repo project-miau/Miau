@@ -6,8 +6,8 @@ import java.util.Objects;
 import miau.config.Config;
 import miau.ui.clickgui.demise.IComponent;
 import miau.util.client.ChatUtil;
-import miau.util.font.FontRepository;
 import miau.util.demise.RoundedUtils;
+import miau.util.font.FontRepository;
 
 public class ConfigComponent implements IComponent {
   private float x, y;

@@ -69,16 +69,15 @@ public class Category implements IComponent {
       RenderUtil.drawRect(
           interpolatedX,
           (float) (y + FontRepository.getFont("Inter Regular", 18f).height() - 2.6f),
-          interpolatedLineWidth,
-          0.5f,
+          interpolatedX + interpolatedLineWidth,
+          (float) (y + FontRepository.getFont("Inter Regular", 18f).height() - 2.6f) + 0.5f,
           Color.white.getRGB());
     }
 
     if (isSelected) {
       handleScroll();
 
-      float componentStartY =
-          PanelGui.posY + 12 + FontRepository.getFont("Inter Bold", 35f).height();
+      float componentStartY = PanelGui.posY + 45;
       float viewHeight = 255;
 
       float totalHeight = 0;
@@ -99,12 +98,12 @@ public class Category implements IComponent {
         float moduleY = componentOffsetY - scrollOffset;
         module.setX(this.x + 60);
         module.setY(moduleY);
-        module.render(shader);
         module.setVisible(
             moduleY + 35 >= componentStartY && moduleY <= componentStartY + viewHeight);
         module.setVisibleSetting(
             moduleY + module.getHeight() >= componentStartY
                 && moduleY <= componentStartY + viewHeight);
+        module.render(shader);
 
         componentOffsetY += module.getHeight() + 10;
       }

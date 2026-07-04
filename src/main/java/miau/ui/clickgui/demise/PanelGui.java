@@ -10,9 +10,9 @@ import miau.module.Module;
 import miau.ui.clickgui.demise.component.Category;
 import miau.ui.clickgui.demise.component.SearchCategory;
 import miau.ui.clickgui.demise.component.config.ConfigCategoryComponent;
+import miau.util.demise.RoundedUtils;
 import miau.util.font.FontRepository;
 import miau.util.render.RenderUtil;
-import miau.util.demise.RoundedUtils;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import org.lwjgl.input.Keyboard;
@@ -20,9 +20,9 @@ import org.lwjgl.input.Mouse;
 
 public class PanelGui extends GuiScreen {
   private final List<Category> categories = new ArrayList<Category>();
-  public static Category selectedCategory;
-  public static ConfigCategoryComponent selectedConfigCategory;
-  public static SearchCategory selectedSearchCategory;
+  public Category selectedCategory;
+  public ConfigCategoryComponent selectedConfigCategory;
+  public SearchCategory selectedSearchCategory;
   public static boolean dragging;
   private float dragX, dragY;
   public static float posX = 255, posY = 120;
@@ -32,7 +32,7 @@ public class PanelGui extends GuiScreen {
   private boolean closing;
 
   public PanelGui() {
-    float height = 15 + FontRepository.getFont("Inter Bold", 35f).height();
+    float height = 45;
 
     for (Module module : Miau.moduleManager.modules.values()) {
       String cat = module.getCategory();

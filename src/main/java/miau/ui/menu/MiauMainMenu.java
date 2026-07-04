@@ -86,7 +86,7 @@ public class MiauMainMenu extends GuiScreen {
                   if (json.has("status") && json.get("status").getAsString().equals("success")) {
                     String latest = json.get("version").getAsString();
                     String url = json.get("updateUrl").getAsString();
-                    if (!ClientInfo.VERSION.equals(latest)) {
+                    if (MiauAPI.isOutdated(ClientInfo.VERSION, latest)) {
                       Minecraft.getMinecraft()
                           .addScheduledTask(
                               () ->

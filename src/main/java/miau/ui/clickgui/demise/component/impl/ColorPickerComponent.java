@@ -4,9 +4,9 @@ import java.awt.*;
 import miau.property.properties.ColorProperty;
 import miau.ui.clickgui.demise.Component;
 import miau.util.demise.MouseUtils;
+import miau.util.demise.RoundedUtils;
 import miau.util.font.FontRepository;
 import miau.util.render.ShapeUtil;
-import miau.util.demise.RoundedUtils;
 
 public class ColorPickerComponent extends Component {
   private final ColorProperty setting;
