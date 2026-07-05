@@ -165,6 +165,7 @@ public class Miau {
     moduleManager.modules.put(LightningTracker.class, new LightningTracker());
     moduleManager.modules.put(LongJump.class, new LongJump());
     moduleManager.modules.put(MCF.class, new MCF());
+    moduleManager.modules.put(MoveFix.class, new MoveFix());
     moduleManager.modules.put(MouseRawInput.class, new MouseRawInput());
     moduleManager.modules.put(MurderDetector.class, new MurderDetector());
     moduleManager.modules.put(NameTags.class, new NameTags());

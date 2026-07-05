@@ -3,7 +3,6 @@ package miau.module.modules.combat.killaura.autoblocks;
 import miau.Miau;
 import miau.enums.BlinkModules;
 import miau.module.modules.combat.KillAura;
-import miau.util.client.KeyBindUtil;
 import net.minecraft.client.Minecraft;
 
 public class LegitAutoBlock extends AutoBlockMode {
@@ -15,31 +14,38 @@ public class LegitAutoBlock extends AutoBlockMode {
 
   @Override
   public boolean processBlock(boolean attack, boolean block) {
-    if (parent.hasValidTarget() && parent.getTarget() != null) {
-      double range = mc.thePlayer.getDistanceToEntity(parent.getTarget());
-
-      boolean shouldPress = range < 3.0 && parent.ticksSinceVelocity >= 5;
-
-      KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), shouldPress);
-
-      parent.blockTick++;
-      if (mc.gameSettings.keyBindUseItem.isPressed() || mc.thePlayer.isUsingItem()) {
-        parent.blockTick = 0;
+    boolean swap = false;
+    if (parent.hasValidTarget()) {
+      if (!Miau.playerStateManager.digging && !Miau.playerStateManager.placing) {
+        switch (parent.blockTick) {
+          case 0:
+            if (!parent.isPlayerBlocking()) {
+              swap = true;
+            }
+            parent.blockTick = 1;
+            break;
+          case 1:
+            if (parent.isPlayerBlocking()) {
+              parent.stopBlock();
+              parent.cancelAttack = true;
+            }
+            if (parent.attackDelayMS <= 50L) {
+              parent.blockTick = 0;
+            }
+            break;
+          default:
+            parent.blockTick = 0;
+        }
       }
-
-      if (parent.blockTick < 2) {
-        parent.cancelAttack = true;
-      }
-
+      Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
       parent.isBlocking = true;
       parent.fakeBlockState = false;
-      Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
     } else {
-      KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
+      Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
       parent.isBlocking = false;
       parent.fakeBlockState = false;
     }
 
-    return false;
+    return swap;
   }
 }

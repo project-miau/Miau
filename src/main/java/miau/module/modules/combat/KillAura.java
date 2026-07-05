@@ -533,8 +533,7 @@ public class KillAura extends Module {
     this.autoBlockModes.add(new InteractAutoBlock(this));
     this.autoBlockModes.add(new LegitAutoBlock(this));
     this.autoBlockModes.add(new FakeAutoBlock(this));
-    this.autoBlockModes.add(new GrimAutoBlock(this));
-    this.autoBlockModes.add(new OpalWatchdogAutoBlock(this));
+    this.autoBlockModes.add(new TestAutoBlock(this));
 
     this.lastTickProcessed = 0;
     this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
@@ -553,9 +552,8 @@ public class KillAura extends Module {
     this.autoBlockModes.add(
         new miau.module.modules.combat.killaura.autoblocks.LegitAutoBlock(this));
     this.autoBlockModes.add(new miau.module.modules.combat.killaura.autoblocks.FakeAutoBlock(this));
-    this.autoBlockModes.add(new miau.module.modules.combat.killaura.autoblocks.GrimAutoBlock(this));
     this.autoBlockModes.add(
-        new miau.module.modules.combat.killaura.autoblocks.OpalWatchdogAutoBlock(this));
+        new miau.module.modules.combat.killaura.autoblocks.TestAutoBlock(this));
 
     String[] autoBlockNames =
         this.autoBlockModes.stream()

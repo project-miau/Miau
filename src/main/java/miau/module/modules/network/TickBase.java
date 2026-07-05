@@ -11,6 +11,7 @@ import miau.event.types.EventType;
 import miau.mixin.IAccessorMinecraft;
 import miau.module.Module;
 import miau.module.modules.combat.KillAura;
+import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
 import miau.property.properties.IntProperty;
 import miau.util.client.ChatUtil;
@@ -25,6 +26,7 @@ public class TickBase extends Module {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
 
+  public final BooleanProperty onlyKillaura = new BooleanProperty("Only KillAura", true);
   public final FloatProperty lagRange = new FloatProperty("Lag Range", 8f, 5f, 15f);
   public final FloatProperty targetRange = new FloatProperty("Target Range", 20f, 5f, 50f);
   public final FloatProperty minRange = new FloatProperty("Min Range", 3f, 1f, 10f);
@@ -45,6 +47,15 @@ public class TickBase extends Module {
   private EntityLivingBase getTarget(double range) {
     KillAura killAura = (KillAura) Miau.moduleManager.modules.get(KillAura.class);
     if (killAura == null) return null;
+
+    if (onlyKillaura.getValue()) {
+      if (!killAura.isEnabled()) return null;
+      EntityLivingBase kTarget = killAura.getTarget();
+      if (kTarget != null && mc.thePlayer.getDistanceToEntity(kTarget) <= range) {
+        return kTarget;
+      }
+      return null;
+    }
 
     List<EntityLivingBase> entities =
         mc.theWorld.loadedEntityList.stream()
