@@ -251,6 +251,11 @@ public final class EventManager {
    * @param argument The called Event which should be used as an argument for the targeted Method.
    */
   private static void invoke(MethodData data, Event argument) {
+    if (data.getSource() instanceof miau.module.Module) {
+      if (!((miau.module.Module) data.getSource()).isEnabled()) {
+        return;
+      }
+    }
     try {
       data.getTargetHandle().invoke(data.getSource(), argument);
     } catch (Throwable e) {
