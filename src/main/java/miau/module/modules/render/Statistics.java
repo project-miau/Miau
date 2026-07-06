@@ -23,7 +23,6 @@ import miau.property.properties.DragProperty;
 import miau.property.properties.ModeProperty;
 import miau.util.font.FontRepository;
 import miau.util.render.RenderUtil;
-import miau.util.shader.BlurUtils;
 import miau.util.shader.RoundedUtils;
 import miau.util.vector.Vector2d;
 import net.minecraft.client.Minecraft;
@@ -100,6 +99,59 @@ public class Statistics extends Module {
   }
 
   @EventTarget
+  public void onShaderEvent(miau.event.impl.ShaderEvent event) {
+    if (!this.isEnabled()) return;
+    miau.module.Module postProc =
+        Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
+    if (postProc == null || !postProc.isEnabled()) return;
+
+    float x = (float) this.dragging.position.x;
+    float y = (float) this.dragging.position.y;
+    boolean seperated = motionGraph.getValue() && separateMotionGraph.getValue();
+    float localWidth = 145; // using local temp to not desync
+    miau.util.font.Font font18 = FontRepository.getHudFont(18);
+    boolean moreHeight = motionGraph.getValue() && !separateMotionGraph.getValue();
+    float orginalHeight = statistics.size() * (font18.getFontHeight() + 6) + 26;
+    float localHeight = orginalHeight + (moreHeight ? 75 : 0);
+
+    Color c1 = applyOpacity(getColor1(), .85f);
+    Color c2 = applyOpacity(getColor2(), .85f);
+    Color c3 = applyOpacity(getColor3(), .85f);
+    Color c4 = applyOpacity(getColor4(), .85f);
+
+    if (event.isBloom()) {
+      RoundedUtils.drawGradientRound(x, y, localWidth, localHeight, 6, c2, c1, c4, c3);
+      if (seperated) {
+        RoundedUtils.drawGradientRound(
+            (float) motionDragging.position.x,
+            (float) motionDragging.position.y,
+            (float) motionDragging.scale.x,
+            (float) motionDragging.scale.y,
+            6,
+            c2,
+            c1,
+            c4,
+            c3);
+      }
+    } else {
+      RoundedUtils.drawGradientRound(
+          x, y, localWidth, localHeight, 6, Color.BLACK, Color.BLACK, Color.BLACK, Color.BLACK);
+      if (seperated) {
+        RoundedUtils.drawGradientRound(
+            (float) motionDragging.position.x,
+            (float) motionDragging.position.y,
+            (float) motionDragging.scale.x,
+            (float) motionDragging.scale.y,
+            6,
+            Color.BLACK,
+            Color.BLACK,
+            Color.BLACK,
+            Color.BLACK);
+      }
+    }
+  }
+
+  @EventTarget
   public void onRender2D(Render2DEvent e) {
     if (!this.isEnabled()) return;
 
@@ -129,42 +181,7 @@ public class Statistics extends Module {
     Color c4 = applyOpacity(getColor4(), .85f);
 
     HUD hud = (HUD) Miau.moduleManager.modules.get(HUD.class);
-    boolean shaders = hud != null && hud.shaders.getValue();
-
-    if (shaders) {
-      BlurUtils.prepareBloom();
-      RoundedUtils.drawGradientRound(x, y, width, height, 6, c2, c1, c4, c3);
-      if (seperated) {
-        RoundedUtils.drawGradientRound(
-            (float) motionDragging.position.x,
-            (float) motionDragging.position.y,
-            (float) motionDragging.scale.x,
-            (float) motionDragging.scale.y,
-            6,
-            c2,
-            c1,
-            c4,
-            c3);
-      }
-      BlurUtils.bloomEnd(3, 4);
-
-      BlurUtils.prepareBlur();
-      RoundedUtils.drawGradientRound(
-          x, y, width, height, 6, Color.BLACK, Color.BLACK, Color.BLACK, Color.BLACK);
-      if (seperated) {
-        RoundedUtils.drawGradientRound(
-            (float) motionDragging.position.x,
-            (float) motionDragging.position.y,
-            (float) motionDragging.scale.x,
-            (float) motionDragging.scale.y,
-            6,
-            Color.BLACK,
-            Color.BLACK,
-            Color.BLACK,
-            Color.BLACK);
-      }
-      BlurUtils.blurEnd(2, 3);
-    }
+    // Shaders are now handled in onShaderEvent
 
     RoundedUtils.drawGradientRound(x, y, width, height, 6, c2, c1, c4, c3);
 

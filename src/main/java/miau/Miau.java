@@ -89,8 +89,8 @@ public class Miau {
     EventManager.register(badPacketsComponent);
     slotComponent = new miau.component.SlotComponent();
     EventManager.register(slotComponent);
-    EventManager.register(new miau.component.RotationComponent());
     EventManager.register(new miau.component.PingSpoofComponent());
+    EventManager.register(new miau.component.BlinkComponent());
     playerTracker = new miau.util.player.PlayerTracker();
     EventManager.register(playerTracker);
     moduleManager.modules.put(AimAssist.class, new AimAssist());
@@ -200,6 +200,7 @@ public class Miau {
     moduleManager.modules.put(Wtap.class, new Wtap());
     moduleManager.modules.put(Statistics.class, new Statistics());
     moduleManager.modules.put(CheatDetector.class, new CheatDetector());
+    moduleManager.modules.put(PostProcessing.class, new PostProcessing());
     commandManager.commands.add(new BindCommand());
     commandManager.commands.add(new ConfigCommand());
     commandManager.commands.add(new OnlineConfigCommand());

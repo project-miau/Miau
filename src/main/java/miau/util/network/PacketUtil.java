@@ -21,13 +21,20 @@ public class PacketUtil {
   private static int chunkErrorCount = 0;
   private static long lastChunkErrorTime = 0;
 
+  public static boolean sendingNoEvent = false;
+
   public static void sendPacket(Packet<?> packet) {
     mc.getNetHandler().getNetworkManager().sendPacket(packet);
   }
 
   @SuppressWarnings("unchecked")
   public static void sendPacketNoEvent(Packet<?> packet) {
-    mc.getNetHandler().getNetworkManager().sendPacket(packet, null);
+    sendingNoEvent = true;
+    try {
+      mc.getNetHandler().getNetworkManager().sendPacket(packet, null);
+    } finally {
+      sendingNoEvent = false;
+    }
   }
 
   public static void handlePacket(Packet<INetHandlerPlayClient> packet) {

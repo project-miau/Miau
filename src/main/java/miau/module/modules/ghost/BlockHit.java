@@ -1,230 +1,421 @@
 package miau.module.modules.ghost;
 
-import com.google.common.base.CaseFormat;
 import miau.Miau;
 import miau.event.EventTarget;
-import miau.event.impl.AttackEvent;
-import miau.event.impl.TickEvent;
+import miau.event.impl.*;
 import miau.event.types.EventType;
+import miau.interfaces.IMixinItemRenderer;
 import miau.module.Module;
+import miau.module.modules.combat.KillAura;
 import miau.property.properties.*;
 import miau.util.client.KeyBindUtil;
 import miau.util.player.ItemUtil;
-import miau.util.time.TimerUtil;
+import miau.util.player.RotationUtil;
+import miau.util.player.TeamUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.network.play.client.C02PacketUseEntity;
+import net.minecraft.util.MovingObjectPosition;
+import org.lwjgl.input.Mouse;
 
 public class BlockHit extends Module {
-
   private static final Minecraft mc = Minecraft.getMinecraft();
-  private final ModeProperty mode =
-      new ModeProperty("Mode", 0, new String[] {"Helper", "Auto", "Lag"});
-  private final IntProperty stopTime =
-      new IntProperty("StopTicks", 2, 1, 5, () -> this.mode.getValue() == 0);
-  private final ModeProperty autoBlockTime =
-      new ModeProperty(
-          "AutoBlockTime",
-          0,
-          new String[] {"Delay", "HurtTime", "Sag"},
-          () -> this.mode.getValue() == 1);
-  private final ModeProperty autoMode =
-      new ModeProperty(
-          "AutoMode",
-          0,
-          new String[] {"Spam", "Hold"},
-          () -> this.mode.getValue() == 1 && this.autoBlockTime.getValue() == 0);
-  private final IntProperty holdTick =
-      new IntProperty(
-          "HoldTick",
-          2,
-          2,
-          5,
-          () ->
-              this.mode.getValue() == 1
-                  && this.autoMode.getValue() == 1
-                  && this.autoBlockTime.getValue() == 0);
-  private final IntProperty blockDelay =
-      new IntProperty(
-          "BlockDelay",
-          100,
-          0,
-          1000,
-          () -> this.mode.getValue() == 1 && this.autoBlockTime.getValue() == 0);
-  private final FloatProperty hurtTime =
-      new FloatProperty(
-          "HurtTime",
-          10.0F,
-          10.0F,
-          1.0F,
-          10.0F,
-          () -> this.mode.getValue() == 1 && this.autoBlockTime.getValue() == 1);
-  private final IntProperty delayPacketTick =
-      new IntProperty("DelayPacketTick", 2, 1, 10, () -> this.mode.getValue() == 2);
-  private final IntProperty blockTick =
-      new IntProperty("BlockTick", 3, 1, 5, () -> this.mode.getValue() == 2);
-  private final PercentProperty chance =
-      new PercentProperty("BlockHitChance", 50, () -> this.mode.getValue() == 1);
-  private final BooleanProperty smart =
-      new BooleanProperty("Smart", true, () -> this.mode.getValue() == 1);
-  private final BooleanProperty autoBlockRange =
-      new BooleanProperty("AutoBlockRange", true, () -> this.mode.getValue() == 1);
-  private final FloatProperty range =
-      new FloatProperty(
-          "Range", 3.0f, 1f, 4f, () -> autoBlockRange.getValue() && mode.getValue() == 1);
-  private final TimerUtil timer = new TimerUtil();
-  private int holdTicks, stopTick;
 
-  private boolean startBlocking;
-  private boolean attacking;
-  private int attackTicks;
-  private int sagTicks = 0;
-  private int blockTicks = 0;
-  private EntityLivingBase target;
+  private final ModeProperty mode;
+
+  private final FloatProperty range;
+  private final FloatProperty maxHurtTimeMs;
+  private final FloatProperty maxHoldMs;
+
+  private final PercentProperty lagChance;
+  private final FloatProperty lagMaxDuration;
+  private final BooleanProperty preventDelayAttacks;
+  private final BooleanProperty blockAgainImmediately;
+  private final BooleanProperty forceBlockAnimation;
+
+  private final BooleanProperty requireLmb;
+  private final BooleanProperty requireRmb;
+  private final BooleanProperty onlyWhenDamaged;
+  private final BooleanProperty ignoreTeammates;
+
+  private boolean isBlocking;
+  private boolean manualBlock;
+  private int blockStartTick = -1;
+  private EntityPlayer currentTarget;
+  private int lastSelfHurtTime;
+
+  private boolean isLagging;
+  private int lagStartTick = -1;
+  private int tickCounter;
 
   public BlockHit() {
     super("BlockHit", false, false);
+
+    this.registerProperty(
+        mode = new ModeProperty(
+            "Mode", 0, new String[]{"Normal", "Lag"}));
+
+    this.registerProperty(
+        range = new FloatProperty("Range", 4.0F, 2.0F, 6.0F));
+    this.registerProperty(
+        maxHurtTimeMs = new FloatProperty("Max Hurt Time", 200F, 50F, 500F));
+    this.registerProperty(
+        maxHoldMs = new FloatProperty("Max Hold Time", 150F, 50F, 500F));
+
+    this.registerProperty(
+        lagChance = new PercentProperty("Lag Chance", 100));
+    this.registerProperty(
+        lagMaxDuration = new FloatProperty("Lag Max Duration", 200F, 50F, 500F));
+    this.registerProperty(
+        preventDelayAttacks = new BooleanProperty("Prevent Delay Attacks", true));
+    this.registerProperty(
+        blockAgainImmediately = new BooleanProperty("Block Again Immediately", true));
+    this.registerProperty(
+        forceBlockAnimation = new BooleanProperty("Force Block Animation", true));
+
+    this.registerProperty(
+        requireLmb = new BooleanProperty("Require Left Mouse", true));
+    this.registerProperty(
+        requireRmb = new BooleanProperty("Require Right Mouse", false));
+    this.registerProperty(
+        onlyWhenDamaged = new BooleanProperty("Damaged Only", false));
+    this.registerProperty(
+        ignoreTeammates = new BooleanProperty("Ignore Teammates", true));
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────
+
+  @Override
+  public void onEnabled() {
+    tickCounter = 0;
+    resetState(false);
   }
 
   @Override
   public void onDisabled() {
-    reset();
-    target = null;
-    stopTick = 0;
-    blockTicks = 0;
-    Miau.lagManager.setDelay(0);
+    resetState(true);
   }
 
+  private static int msToTicks(double ms) {
+    if (ms <= 0.0) return 0;
+    return (int) Math.ceil(ms / 50.0);
+  }
+
+  // ── Mode helpers ───────────────────────────────────────────────────
+
+  private boolean isLagMode() {
+    return mode.getValue() == 1;
+  }
+
+  // ── Event handlers ────────────────────────────────────────────────
+
+  /** Cancel vanilla right‑click while we are lagging. */
   @EventTarget
-  public void onTick(TickEvent event) {
-    if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) return;
-    if (event.getType() == EventType.PRE) {
-      if (this.mode.getValue() == 0) {
-        if (mc.gameSettings.keyBindAttack.isKeyDown()) {
-          if (mc.thePlayer.isBlocking()) {
-            startBlocking = true;
-            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
-          }
-        }
-        if (startBlocking) stopTick++;
-        if (stopTick == 2) {
-          KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
-        }
-        if (stopTick > stopTime.getValue()) {
-          KeyBindUtil.updateKeyState(mc.gameSettings.keyBindUseItem.getKeyCode());
-          startBlocking = false;
-          stopTick = 0;
-        }
-      }
-      if (this.mode.getValue() == 1) {
-        if (target == null) return;
-        if (attacking) {
-          attackTicks++;
-        }
-        if (attackTicks > 5) {
-          reset();
-          target = null;
-          return;
-        }
-        if (Math.random() * 100.0D > chance.getValue()) {
-          reset();
-          target = null;
-          return;
-        }
-        if (autoBlockRange.getValue()
-            && mc.thePlayer.getDistanceToEntity(target) >= range.getValue()) {
-          reset();
-          return;
-        }
-        if (smart.getValue() && target.hurtTime >= 8 && target.hurtTime <= 10) {
-          reset();
-          return;
-        }
-        if (attacking) {
-          if (autoBlockTime.getValue() == 0) {
-            if (timer.hasTimeElapsed(blockDelay.getValue().longValue())) {
-              if (this.autoMode.getValue() == 0) {
-                KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
-                timer.reset();
-                reset();
-              }
-              if (this.autoMode.getValue() == 1) {
-                startBlocking = true;
-              }
-              if (startBlocking) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), true);
-                holdTicks++;
-              }
-              if (holdTicks > holdTick.getValue()) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
-                startBlocking = false;
-                holdTicks = 0;
-                timer.reset();
-              }
-            }
-          }
-          if (autoBlockTime.getValue() == 1) {
-            if (mc.thePlayer.hurtTime >= hurtTime.getValue().intValue()
-                && mc.thePlayer.hurtTime <= hurtTime.getSecondValue().intValue()) {
-              KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), true);
-              startBlocking = true;
-            } else if (startBlocking) {
-              KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
-              startBlocking = false;
-            }
-          }
-          if (autoBlockTime.getValue() == 2) {
-            if (sagTicks < 10) {
-              KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), true);
-              sagTicks++;
-            }
-            if (sagTicks >= 10) {
-              KeyBindUtil.updateKeyState(mc.gameSettings.keyBindUseItem.getKeyCode());
-              sagTicks = 0;
-            }
-          }
-        }
-      }
-      if (this.mode.getValue() == 2) {
-        if (mc.thePlayer.hurtTime == 10) {
-          blockTicks = 1;
-        }
-        Miau.lagManager.setDelay(delayPacketTick.getValue());
-        if (blockTicks >= 1) {
-          KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), true);
-          blockTicks++;
-        }
-        if (blockTicks > blockTick.getValue()) {
-          KeyBindUtil.updateKeyState(mc.gameSettings.keyBindUseItem.getKeyCode());
-          Miau.lagManager.setDelay(0);
-          blockTicks = 0;
-        }
-      } else Miau.lagManager.setDelay(0);
+  public void onRightClick(RightClickMouseEvent event) {
+    if (shouldBlockVanillaUse()) {
+      event.setCancelled(true);
     }
   }
 
-  private void reset() {
-    attacking = false;
-    startBlocking = false;
-    KeyBindUtil.updateKeyState(mc.gameSettings.keyBindUseItem.getKeyCode());
-    holdTicks = sagTicks = 0;
-    timer.reset();
+  /** Main per‑tick logic. */
+  @EventTarget
+  public void onLivingUpdate(LivingUpdateEvent event) {
+    if (!checkPreconditions()) {
+      resetState(true);
+      return;
+    }
+
+    if (!ItemUtil.isHoldingSword()) {
+      resetState(false);
+      return;
+    }
+
+    tickCounter++;
+    int currentTick = tickCounter;
+
+    // Track hurt‑time changes (for Damaged‑Only mode)
+    int selfHurtTime = mc.thePlayer.hurtTime;
+    boolean hurtAgain = selfHurtTime > lastSelfHurtTime;
+    lastSelfHurtTime = selfHurtTime;
+
+    // Find target
+    currentTarget =
+        findTarget(range.getValue() * range.getValue(), ignoreTeammates.getValue());
+    boolean killAuraAttacking = isKillAuraAttacking();
+    boolean rmbDown = Mouse.isButtonDown(1);
+    boolean lmbDown = Mouse.isButtonDown(0) || killAuraAttacking;
+
+    // Must have RMB held
+    if (!rmbDown) {
+      resetState(true);
+      return;
+    }
+
+    // ── RMB only (no LMB) → manual blocking ──
+    if (!lmbDown) {
+      if (isLagMode() && isLagging) releaseLag();
+      if (!isBlocking) {
+        startBlocking(currentTick);
+        manualBlock = true;
+      }
+      return;
+    }
+
+    // Transition from manual → auto
+    if (manualBlock) {
+      stopBlocking(true);
+      manualBlock = false;
+    }
+
+    boolean hasTarget = currentTarget != null;
+    boolean conditionsMet = hasTarget && checkConditions(lmbDown, rmbDown);
+
+    // ── Handle active lag (Lag mode only) ──
+    if (isLagMode() && isLagging) {
+      int lagMaxTicks = msToTicks(lagMaxDuration.getValue());
+      boolean lagExpired =
+          lagMaxTicks > 0
+              && lagStartTick >= 0
+              && currentTick - lagStartTick >= lagMaxTicks;
+
+      if (lagExpired || !conditionsMet) {
+        releaseLag();
+        if (lagExpired
+            && blockAgainImmediately.getValue()
+            && conditionsMet) {
+          startBlocking(currentTick);
+        }
+      }
+    }
+
+    if (!conditionsMet) {
+      stopBlocking(true);
+      return;
+    }
+
+    // ── Start blocking if needed ──
+    if (!isBlocking && !(isLagMode() && isLagging)) {
+      boolean shouldStart;
+      if (onlyWhenDamaged.getValue()) {
+        shouldStart = shouldPredictiveBlock();
+      } else {
+        shouldStart = true;
+      }
+      if (shouldStart) {
+        startBlocking(currentTick);
+      }
+    }
+
+    // ── Check stop conditions ──
+    if (isBlocking) {
+      int maxHoldTicks = msToTicks(maxHoldMs.getValue());
+      boolean timeExpired =
+          maxHoldTicks > 0
+              && blockStartTick >= 0
+              && currentTick - blockStartTick >= maxHoldTicks;
+      boolean shouldStop = timeExpired;
+      if (onlyWhenDamaged.getValue() && hurtAgain) {
+        shouldStop = true;
+      }
+      if (shouldStop) {
+        if (isLagMode() && shouldStartLag()) {
+          startLag(currentTick);
+        }
+        stopBlocking(true);
+      }
+    }
   }
 
+  /** Force the block animation every render frame. */
   @EventTarget
-  public void onAttack(AttackEvent event) {
-    if (this.isEnabled()
+  public void onRender3D(Render3DEvent event) {
+    if (mc.currentScreen != null && (isBlocking || isLagging)) {
+      resetState(true);
+      return;
+    }
+    if (!forceBlockAnimation.getValue() || !ItemUtil.isHoldingSword()) return;
+    ((IMixinItemRenderer) mc.getItemRenderer())
+        .setRenderItemInUse(isBlocking || isLagging);
+  }
+
+  /** Intercept attack packets during lag. */
+  @EventTarget
+  public void onPacket(PacketEvent event) {
+    if (event.getType() != EventType.SEND) return;
+    if (!isLagMode() || !isLagging || !preventDelayAttacks.getValue()) return;
+    if (!(event.getPacket() instanceof C02PacketUseEntity)) return;
+    if (((C02PacketUseEntity) event.getPacket()).getAction()
+        != C02PacketUseEntity.Action.ATTACK) return;
+
+    releaseLag();
+    if (blockAgainImmediately.getValue() && ItemUtil.isHoldingSword()) {
+      startBlocking(tickCounter);
+    }
+  }
+
+  // ── Internal helpers ──────────────────────────────────────────────
+
+  private boolean checkPreconditions() {
+    return isEnabled()
+        && mc.thePlayer != null
+        && !mc.thePlayer.isDead
+        && mc.theWorld != null
+        && mc.currentScreen == null;
+  }
+
+  private boolean checkConditions(boolean lmbDown, boolean rmbDown) {
+    if (requireLmb.getValue() && !lmbDown) return false;
+    if (requireRmb.getValue() && !rmbDown) return false;
+    return true;
+  }
+
+  private boolean shouldPredictiveBlock() {
+    int ourHurtTime = mc.thePlayer.hurtTime;
+    int triggerTick = (int) Math.round(maxHurtTimeMs.getValue() / 50.0);
+    triggerTick = Math.max(1, Math.min(10, triggerTick));
+    return ourHurtTime >= triggerTick;
+  }
+
+  private boolean shouldBlockVanillaUse() {
+    return isEnabled()
+        && isLagMode()
+        && isLagging
+        && mc.thePlayer != null
+        && mc.theWorld != null
         && ItemUtil.isHoldingSword()
-        && event.getTarget() instanceof EntityLivingBase) {
-      attacking = true;
-      attackTicks = 0;
-      target = (EntityLivingBase) event.getTarget();
-    }
+        && mc.currentScreen == null;
   }
+
+  private boolean isKillAuraAttacking() {
+    KillAura killAura =
+        (KillAura) Miau.moduleManager.modules.get(KillAura.class);
+    return killAura != null
+        && killAura.isEnabled()
+        && !killAura.requirePress.getValue()
+        && killAura.getTarget() != null;
+  }
+
+  private void startBlocking(int currentTick) {
+    if (!ItemUtil.isHoldingSword()) return;
+    int keyCode = mc.gameSettings.keyBindUseItem.getKeyCode();
+    KeyBindUtil.setKeyBindState(keyCode, true);
+    KeyBindUtil.pressKeyOnce(keyCode);
+    isBlocking = true;
+    blockStartTick = currentTick;
+  }
+
+  private void stopBlocking(boolean forceRelease) {
+    if (!isBlocking && !forceRelease) return;
+    int keyCode = mc.gameSettings.keyBindUseItem.getKeyCode();
+    KeyBindUtil.setKeyBindState(keyCode, false);
+    isBlocking = false;
+    blockStartTick = -1;
+  }
+
+  private boolean shouldStartLag() {
+    double chance = lagChance.getValue();
+    if (chance <= 0) return false;
+    if (chance >= 100) return true;
+    return Math.random() * 100 < chance;
+  }
+
+  private void startLag(int currentTick) {
+    if (!isLagMode() || isLagging) return;
+    int lagReferenceTick =
+        blockStartTick >= 0 ? blockStartTick : currentTick;
+    int lagMaxTicks = msToTicks(lagMaxDuration.getValue());
+    if (lagMaxTicks > 0
+        && currentTick - lagReferenceTick >= lagMaxTicks) {
+      return;
+    }
+    Miau.lagManager.setDelay(msToTicks(lagMaxDuration.getValue()));
+    isLagging = true;
+    lagStartTick = lagReferenceTick;
+  }
+
+  private void releaseLag() {
+    if (!isLagging) return;
+    Miau.lagManager.resetDelay();
+    isLagging = false;
+    lagStartTick = -1;
+  }
+
+  private void resetState(boolean releaseUseKey) {
+    boolean wasActive = isBlocking || isLagging;
+    releaseLag();
+    stopBlocking(releaseUseKey);
+    manualBlock = false;
+    if (forceBlockAnimation.getValue() && wasActive) {
+      ((IMixinItemRenderer) mc.getItemRenderer())
+          .setRenderItemInUse(false);
+    }
+    // Re‑press the key if the player is still physically holding RMB
+    if (Mouse.isButtonDown(1) && mc.currentScreen == null) {
+      KeyBindUtil.setKeyBindState(
+          mc.gameSettings.keyBindUseItem.getKeyCode(), true);
+    }
+    currentTarget = null;
+    lastSelfHurtTime = 0;
+  }
+
+  /** Simple target finding: mouse‑over first, then closest player. */
+  private EntityPlayer findTarget(
+      double maxDistanceSq, boolean ignoreTeammates) {
+    // Prefer the entity under the crosshair
+    if (mc.objectMouseOver != null
+        && mc.objectMouseOver.typeOfHit
+            == MovingObjectPosition.MovingObjectType.ENTITY
+        && mc.objectMouseOver.entityHit instanceof EntityPlayer) {
+      EntityPlayer player =
+          (EntityPlayer) mc.objectMouseOver.entityHit;
+      if (isValidPlayer(player, maxDistanceSq, ignoreTeammates)) {
+        return player;
+      }
+    }
+
+    // Fallback to the closest valid player
+    EntityPlayer closest = null;
+    double closestDistanceSq = Double.MAX_VALUE;
+    for (EntityPlayer player : mc.theWorld.playerEntities) {
+      if (!isValidPlayer(player, maxDistanceSq, ignoreTeammates)) {
+        continue;
+      }
+      double distSq =
+          RotationUtil.distanceSqFromEyeToClosestOnAABB(player);
+      if (distSq < closestDistanceSq) {
+        closestDistanceSq = distSq;
+        closest = player;
+      }
+    }
+    return closest;
+  }
+
+  private boolean isValidPlayer(
+      EntityPlayer player,
+      double maxDistanceSq,
+      boolean ignoreTeammates) {
+    if (player == null
+        || player.isDead
+        || player == mc.thePlayer
+        || player.deathTime != 0) {
+      return false;
+    }
+    if (ignoreTeammates && TeamUtil.isSameTeam(player)) {
+      return false;
+    }
+    if (TeamUtil.isFriend(player)) return false;
+    double distSq =
+        RotationUtil.distanceSqFromEyeToClosestOnAABB(player);
+    return distSq <= maxDistanceSq;
+  }
+
+  // ── Module info ───────────────────────────────────────────────────
 
   @Override
   public String[] getSuffix() {
-    return new String[] {
-      CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, this.mode.getModeString())
-    };
+    String currentMode = mode.getModeString();
+    if (isLagMode() && isLagging) return new String[] {currentMode, "Lag"};
+    if (isBlocking) return new String[] {currentMode, "Block"};
+    return new String[] {currentMode, "Idle"};
   }
 }

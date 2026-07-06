@@ -9,5 +9,6 @@ public enum BlinkModules {
   FAKE_LAG,
   HITFLICK,
   NO_FALL,
-  NO_SLOW
+  NO_SLOW,
+  DISABLER
 }

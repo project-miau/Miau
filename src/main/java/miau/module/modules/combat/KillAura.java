@@ -62,6 +62,7 @@ import net.minecraft.network.play.client.C02PacketUseEntity.Action;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
+import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.network.play.server.S06PacketUpdateHealth;
 import net.minecraft.network.play.server.S1CPacketEntityMetadata;
 import net.minecraft.potion.Potion;
@@ -105,7 +106,8 @@ public class KillAura extends Module {
   public final PercentProperty smoothing;
   public final IntProperty angleStep;
   public final ModeProperty moveFix;
-  public final BooleanProperty keepSprint;
+  public final ModeProperty keepSprint;
+  public final IntProperty keepSprintDelay;
   public final BooleanProperty rayCast;
   public final BooleanProperty throughWalls;
   public final BooleanProperty whileScaffold;
@@ -122,7 +124,6 @@ public class KillAura extends Module {
   public final BooleanProperty smartKill;
   public final BooleanProperty tacticalKD;
   public final FloatProperty kdOffset;
-  public int keepSprintBlinkTicks = 0;
   private int ticks = 255;
 
   public final BooleanProperty targetPlayers = new BooleanProperty("target-players", true);
@@ -183,49 +184,6 @@ public class KillAura extends Module {
         return false;
       } else {
         this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
-
-        if (this.keepSprint.getValue()) {
-          miau.module.modules.movement.KeepSprint ks =
-              (miau.module.modules.movement.KeepSprint)
-                  Miau.moduleManager.modules.get(miau.module.modules.movement.KeepSprint.class);
-          boolean ksWillPreserveSprint =
-              ks != null && ks.isEnabled() && ks.shouldKeepSprint() && mc.thePlayer.isSprinting();
-
-          if (ksWillPreserveSprint && !PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
-            PingSpoofComponent.beginSession(
-                "KillAuraKeepSprint", 40, false, false, false, false, false, true);
-          }
-
-          mc.thePlayer.swingItem();
-
-          ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
-          PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.ATTACK));
-
-          if (mc.playerController.getCurrentGameType() != GameType.SPECTATOR) {
-            if (mc.thePlayer.fallDistance > 0.0F
-                && !mc.thePlayer.onGround
-                && !mc.thePlayer.isOnLadder()
-                && !mc.thePlayer.isInWater()
-                && !mc.thePlayer.isPotionActive(Potion.blindness)
-                && mc.thePlayer.ridingEntity == null) {
-              mc.thePlayer.onCriticalHit(this.target.getEntity());
-            }
-          }
-
-          LastAttackData lastAttack = this.targetMap.get(this.target.getEntity().getEntityId());
-          if (lastAttack == null) {
-            this.targetMap.put(
-                this.target.getEntity().getEntityId(),
-                new LastAttackData(this.getDamage(this.target.getEntity())));
-          } else {
-            lastAttack.reset(true, this.getDamage(this.target.getEntity()));
-          }
-
-          this.keepSprintBlinkTicks = ksWillPreserveSprint ? 1 : 0;
-          this.hitRegistered = true;
-          return true;
-        }
-
         mc.thePlayer.swingItem();
 
         net.minecraft.util.MovingObjectPosition rayCastPos = null;
@@ -588,6 +546,8 @@ public class KillAura extends Module {
         new miau.module.modules.combat.killaura.autoblocks.Watchdog3AutoBlock(this));
     this.autoBlockModes.add(
         new miau.module.modules.combat.killaura.autoblocks.OpalWatchdogAutoBlock(this));
+    this.autoBlockModes.add(
+        new miau.module.modules.combat.killaura.autoblocks.UniversalAutoBlock(this));
 
     String[] autoBlockNames =
         this.autoBlockModes.stream()
@@ -616,7 +576,8 @@ public class KillAura extends Module {
               "WATCHDOG",
               "WATCHDOG2",
               "WATCHDOG3",
-              "TEST"
+              "TEST",
+              "UNIVERSAL"
             });
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
@@ -631,7 +592,10 @@ public class KillAura extends Module {
             "move-fix",
             0,
             new String[] {"OFF", "Normal", "Traditional", "Backwards_Sprint", "Silent"});
-    this.keepSprint = new BooleanProperty("keep-sprint", false);
+    this.keepSprint =
+        new ModeProperty(
+            "keep-sprint", 0, new String[] {"OFF", "NORMAL", "SPOOF"});
+    this.keepSprintDelay = new IntProperty("keep-sprint-delay", 150, 50, 500);
     this.rayCast = new BooleanProperty("ray-cast", false);
     this.throughWalls = new BooleanProperty("through-walls", true);
     this.whileScaffold = new BooleanProperty("while-scaffold", false);
@@ -713,15 +677,6 @@ public class KillAura extends Module {
       this.blinkReset = false;
       Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
       Miau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
-    }
-    if (event.getType() == EventType.POST) {
-      if (this.keepSprintBlinkTicks > 0) {
-        this.keepSprintBlinkTicks--;
-        if (this.keepSprintBlinkTicks <= 0 && PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
-          // Idle timeout: no attacks for a while, release session
-          PingSpoofComponent.finishSession("KillAuraKeepSprint", true);
-        }
-      }
     }
     if (this.isEnabled() && event.getType() == EventType.PRE) {
       this.ticksSinceVelocity++;
@@ -851,7 +806,28 @@ public class KillAura extends Module {
             this.kdHitCounter++;
           }
           if (attack) {
+            // === KeepSprint Bypass ===
+            if (this.keepSprint.getValue() > 0) {
+              // Send start sprint before attack to maintain sprint state
+              PacketUtil.sendPacket(
+                  new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
+              if (this.keepSprint.getValue() == 2 /* SPOOF */) {
+                // Enable PingSpoof for blink category: delays C02 attack packet
+                // While C0B (sprint) was already sent and arrives at server BEFORE
+                // the delayed C02, so attack happens while sprinting
+                PingSpoofComponent.spoof(
+                    this.keepSprintDelay.getValue(),
+                    false, false, false, false, true, false);
+                // Force enabled=true immediately so packets get intercepted this tick
+                PingSpoofComponent.enabled = true;
+              }
+            }
             attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
+            // After attack, ensure sprint stays active (NORMAL mode)
+            if (attacked && this.keepSprint.getValue() == 1 /* NORMAL */) {
+              PacketUtil.sendPacket(
+                  new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
+            }
           }
         }
         if (swap) {
@@ -1376,13 +1352,6 @@ public class KillAura extends Module {
     this.fakeBlockState = false;
 
     this.kdHitCounter = 0;
-
-    // Clean up keepSprint blink state – only if we own the session
-    if (PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
-      // Flush remaining queued packets so nothing is lost on disable
-      PingSpoofComponent.finishSession("KillAuraKeepSprint", true);
-    }
-    this.keepSprintBlinkTicks = 0;
   }
 
   @Override

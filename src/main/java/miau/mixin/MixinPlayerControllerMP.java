@@ -2,6 +2,8 @@ package miau.mixin;
 
 import miau.event.EventManager;
 import miau.event.impl.AttackEvent;
+import miau.event.impl.BlockBreakEvent;
+import miau.event.impl.BlockDamageEvent;
 import miau.event.impl.CancelUseEvent;
 import miau.event.impl.WindowClickEvent;
 import net.minecraft.block.Block;
@@ -127,5 +129,16 @@ public abstract class MixinPlayerControllerMP {
         (sound.getVolume() + 1.0F) / 2.0F,
         sound.getFrequency() * 0.8F,
         false);
+  }
+
+  @Inject(method = "clickBlock", at = @At("HEAD"))
+  private void onClickBlock(BlockPos loc, EnumFacing face, CallbackInfoReturnable<Boolean> cir) {
+    EventManager.call(
+        new BlockDamageEvent(net.minecraft.client.Minecraft.getMinecraft().thePlayer, loc));
+  }
+
+  @Inject(method = "onPlayerDestroyBlock", at = @At("HEAD"))
+  private void onDestroyBlock(BlockPos pos, EnumFacing side, CallbackInfoReturnable<Boolean> cir) {
+    EventManager.call(new BlockBreakEvent());
   }
 }

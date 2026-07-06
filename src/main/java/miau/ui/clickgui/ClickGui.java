@@ -189,18 +189,6 @@ public class ClickGui extends GuiScreen {
     ClickGUI guiModule = (ClickGUI) miau.Miau.moduleManager.modules.get(ClickGUI.class);
     if (guiModule != null) guiModule.checkModeSwitch();
 
-    boolean useBlur =
-        (guiModule != null && guiModule.blur.getValue())
-            || (hudModule != null && hudModule.shaders.getValue());
-
-    if (useBlur) {
-      float passes = 5.0f;
-      float radius = 25.0f;
-      miau.util.shader.BlurUtils.prepareBlur();
-      RoundedUtils.drawRound(0, 0, this.width, this.height, 0.0f, true, Color.black);
-      miau.util.shader.BlurUtils.blurEnd((int) passes, radius);
-    }
-
     int bgColorAlpha = (int) (130 * this.scaleAnimation.getValueFloat(0.0f, 1.0f, 1));
     drawRect(0, 0, this.width, this.height, new Color(0, 0, 0, bgColorAlpha).getRGB());
     miau.ui.clickgui.faiths.FaithsCharacterRenderer.renderCharacter(1.0f);
@@ -213,15 +201,10 @@ public class ClickGui extends GuiScreen {
     GL11.glScaled(scaleFactor, scaleFactor, 1.0);
     GL11.glTranslatef(-centerX, -centerY, 0);
 
-    if (hudModule != null && hudModule.shaders.getValue()) {
-      miau.util.shader.BlurUtils.prepareBloom();
-      for (CategoryComponent c : renderOrder) {
-        c.renderBloom(this.fontRendererObj);
-      }
-      if (configWindow != null) {
-        configWindow.drawWindow(scaledX, scaledY, 0);
-      }
-      miau.util.shader.BlurUtils.bloomEnd(6, 24.0f);
+    miau.module.Module postProc =
+        miau.Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
+    if (postProc != null && postProc.isEnabled()) {
+      // Background glow is handled in PostProcessing now
     }
 
     for (CategoryComponent c : renderOrder) {
@@ -260,24 +243,6 @@ public class ClickGui extends GuiScreen {
     float scaleFactor = 0.8f + (0.2f * ease);
     int scaledX = (int) (centerX + (mouseX - centerX) / scaleFactor);
     int scaledY = (int) (centerY + (mouseY - centerY) / scaleFactor);
-
-    // Priority 0: Check active mode dropdown clicks first (dropdown may extend outside category bounds)
-    for (CategoryComponent category : categories) {
-      if (!category.isOpened() || category.getModules().isEmpty()) continue;
-      for (Component module : category.getModules()) {
-        if (module instanceof ModuleComponent) {
-          SliderComponent dropdown = ((ModuleComponent) module).getActiveModeDropdown();
-          if (dropdown != null) {
-            // Check if click is on the dropdown area
-            if (dropdown.isMouseOverModeDropdown(scaledX, scaledY)) {
-              if (dropdown.onClick(scaledX, scaledY, mouseButton)) return;
-            }
-            // Even if not on dropdown, clicking elsewhere collapses it
-            dropdown.collapseModeDropdown();
-          }
-        }
-      }
-    }
 
     if (configWindow != null && configWindow.mouseClicked(scaledX, scaledY, mouseButton)) {
       return;
@@ -473,5 +438,29 @@ public class ClickGui extends GuiScreen {
 
   public static double getActiveRenderScale() {
     return 1.0D;
+  }
+
+  public void drawForEffects(boolean bloom) {
+    if (!bloom) {
+      RoundedUtils.drawRound(0, 0, this.width, this.height, 0.0f, true, new Color(0, 0, 0, 150));
+    } else {
+      RoundedUtils.drawRound(0, 0, this.width, this.height, 0.0f, true, new Color(81, 99, 149, 80));
+
+      float centerX = this.width / 2.0f;
+      float centerY = this.height / 2.0f;
+      GL11.glPushMatrix();
+      GL11.glTranslatef(centerX, centerY, 0);
+      GL11.glScaled(openingScale, openingScale, 1.0);
+      GL11.glTranslatef(-centerX, -centerY, 0);
+
+      List<CategoryComponent> renderOrder = getCategoriesInRenderOrder();
+      for (CategoryComponent c : renderOrder) {
+        c.renderBloom(this.mc.fontRendererObj);
+      }
+      if (configWindow != null) {
+        configWindow.drawWindow(lastMouseX, lastMouseY, 0);
+      }
+      GL11.glPopMatrix();
+    }
   }
 }

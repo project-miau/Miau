@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import miau.Miau;
-import miau.module.modules.render.HUD;
 import miau.module.modules.render.Scoreboard;
 import miau.util.shader.RoundedUtils;
 import net.minecraft.client.gui.GuiIngame;
@@ -41,26 +40,17 @@ public abstract class MixinGuiIngameScoreboard {
     // Recalculate bounds every frame (this updates defaultX/defaultY)
     scoreboardMod.updateBounds(scaledRes);
 
-    HUD hud = (HUD) Miau.moduleManager.getModule(HUD.class);
-    boolean useShaders = hud != null && hud.isEnabled() && hud.shaders.getValue();
+    miau.module.Module postProc =
+        Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
+    boolean useShaders = postProc != null && postProc.isEnabled();
 
-    if (!isRenderingBloom && useShaders) {
-      // Bloom pass
-      isRenderingBloom = true;
-      miau.util.shader.BlurUtils.prepareBloom();
-      renderOpalScoreboard(objective, scaledRes, scoreboardMod, true);
-      miau.util.shader.BlurUtils.bloomEnd(6, 24.0f);
+    if (useShaders) {
+      float cardX = scoreboardMod.defaultX;
+      float cardY = scoreboardMod.defaultY;
+      float cardWidth = (float) scoreboardMod.drag.scale.x;
+      float cardHeight = (float) scoreboardMod.drag.scale.y;
 
-      // Blur pass
-      miau.util.shader.BlurUtils.prepareBlur();
-      renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
-      miau.util.shader.BlurUtils.blurEnd(5, 25.0f);
-
-      // Final pass
-      renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
-      isRenderingBloom = false;
-      ci.cancel();
-      return;
+      RoundedUtils.drawRound(cardX, cardY, cardWidth, cardHeight, 4f, new Color(0, 0, 0, 150));
     }
 
     renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
@@ -98,12 +88,11 @@ public abstract class MixinGuiIngameScoreboard {
     boolean shadow = scoreboardMod.textShadow.getValue();
 
     // --- Draw card background ---
-    if (bloomPass) {
-      RoundedUtils.drawRound(
-          cardX, cardY, cardWidth, cardHeight, radius, new Color(0xFF090909, true));
-    } else {
-      RoundedUtils.drawRound(
-          cardX, cardY, cardWidth, cardHeight, radius, new Color(0x80, 0x09, 0x09, 0x09));
+    miau.module.Module postProc =
+        Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
+    boolean useShaders = postProc != null && postProc.isEnabled();
+    if (!useShaders) {
+      RoundedUtils.drawRound(cardX, cardY, cardWidth, cardHeight, 4.0f, new Color(0, 0, 0, 150));
     }
 
     // --- Title ---

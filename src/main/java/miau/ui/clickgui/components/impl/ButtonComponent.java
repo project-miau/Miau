@@ -104,6 +104,7 @@ public class ButtonComponent extends Component {
         && this.moduleComponent.isVisible(this)) {
       this.property.setValue(!this.property.getValue());
       this.moduleComponent.reloadSettings();
+      return true;
     }
     return false;
   }

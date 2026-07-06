@@ -19,7 +19,6 @@ import miau.util.render.ColorUtil;
 import miau.util.render.RenderUtil;
 import miau.util.render.ShapeUtil;
 import miau.util.render.Themes;
-import miau.util.shader.BlurUtils;
 import miau.util.shader.RoundedUtils;
 import miau.util.time.TimerUtil;
 import miau.util.vector.Vector2d;
@@ -191,6 +190,38 @@ public class TargetHUD extends Module {
   }
 
   @EventTarget
+  public void onShaderEvent(miau.event.impl.ShaderEvent event) {
+    if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
+      return;
+    }
+
+    int modeVal = this.mode.getValue();
+    if (modeVal == 0) { // Raven
+      if (this.target != null) {
+        String playerInfo = target.getDisplayName().getFormattedText();
+        double health = target.getHealth() / target.getMaxHealth();
+        if (target.isDead) health = 0;
+
+        String healthStr =
+            " "
+                + (target.getHealth() == (int) target.getHealth()
+                    ? String.valueOf((int) target.getHealth())
+                    : healthFormat.format(target.getHealth()));
+        double healthPct = target.getHealth() / target.getMaxHealth();
+        if (healthPct >= 0.5) playerInfo += " §a" + healthStr.trim();
+        else if (healthPct >= 0.2) playerInfo += " §e" + healthStr.trim();
+        else playerInfo += " §c" + healthStr.trim();
+
+        drawTargetHUD(playerInfo, health, event.isBloom() ? 0 : 1, false);
+      }
+    } else if (modeVal == 1) { // Miau
+      if (this.target != null) {
+        renderMiauStyle(this.target, event.isBloom() ? 0 : 1, false);
+      }
+    }
+  }
+
+  @EventTarget
   public void onRender2D(Render2DEvent event) {
     if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
       reset();
@@ -205,7 +236,7 @@ public class TargetHUD extends Module {
       EntityLivingBase previousTarget = this.target;
       this.target = this.resolveTarget();
       if (this.target != null) {
-        renderMiauStyle(previousTarget);
+        renderMiauStyle(previousTarget, 2, true);
       }
     } else if (modeVal >= 2) {
       KillAura killAura = (KillAura) Miau.moduleManager.modules.get(KillAura.class);
@@ -299,7 +330,7 @@ public class TargetHUD extends Module {
         playerInfo += " §c" + healthStr.trim();
       }
 
-      drawTargetHUD(playerInfo, health);
+      drawTargetHUD(playerInfo, health, 2, true);
     }
   }
 
@@ -345,7 +376,7 @@ public class TargetHUD extends Module {
   //  PORTED RAVENB TARGETHUD (Modern / Legacy)
   // ============================================================
 
-  private void drawTargetHUD(String string, double health) {
+  private void drawTargetHUD(String string, double health, int renderPass, boolean updateState) {
     if (showStatus.getValue()) {
       float playerTotalHealth = mc.thePlayer.getHealth() + mc.thePlayer.getAbsorptionAmount();
       float playerMaxHealth = mc.thePlayer.getMaxHealth();
@@ -360,7 +391,7 @@ public class TargetHUD extends Module {
     float boxWidth = targetStrWithPadding + padding * 2;
     float boxHeight = mc.fontRendererObj.FONT_HEIGHT + 12 + padding * 2;
 
-    if (!positionInitialized) {
+    if (!positionInitialized && updateState) {
       float centerX = scaledResolution.getScaledWidth() / 2f;
       float centerY = scaledResolution.getScaledHeight() / 2f;
 
@@ -411,12 +442,9 @@ public class TargetHUD extends Module {
           };
 
       // --- Background ---
-      switch (this.ravenMode.getValue()) {
-        case 0: // Modern - bloom + blur
-          {
-            float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
-            float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
-            BlurUtils.prepareBloom();
+      if (renderPass != 2) {
+        if (this.ravenMode.getValue() == 0) {
+          if (renderPass == 0) {
             RoundedUtils.drawRound(
                 n6,
                 n7,
@@ -424,9 +452,8 @@ public class TargetHUD extends Module {
                 Math.abs(n7 - (n9 + 13f * invSc)),
                 8.0f,
                 true,
-                new Color(0, 0, 0, maxAlphaBackground));
-            BlurUtils.bloomEnd(3, bloomRadius);
-            BlurUtils.prepareBlur();
+                new Color(81, 99, 149, 80));
+          } else {
             RoundedUtils.drawRound(
                 n6,
                 n7,
@@ -435,9 +462,23 @@ public class TargetHUD extends Module {
                 8.0f,
                 true,
                 new Color(mergeAlpha(Color.black.getRGB(), maxAlphaOutline)));
-            BlurUtils.blurEnd(2, blurRadius);
-            break;
           }
+        }
+        GlStateManager.popMatrix();
+        return;
+      }
+
+      switch (this.ravenMode.getValue()) {
+        case 0: // Modern - bloom + blur
+          RoundedUtils.drawRound(
+              n6,
+              n7,
+              Math.abs(n6 - n8),
+              Math.abs(n7 - (n9 + 13f * invSc)),
+              8.0f,
+              true,
+              new Color(0, 0, 0, maxAlphaBackground));
+          break;
         case 1: // Legacy - gradient outlined rect
           drawRoundedGradientOutlinedRectangle(
               n6,
@@ -480,14 +521,18 @@ public class TargetHUD extends Module {
           t = easeInOutCubic(t);
         }
 
-        if (diff > 0) {
-          lastHealthBar = lastHealthBar - diff * t;
-        } else {
-          smoothBack = true;
-          lastHealthBar = lastHealthBar + (healthBar - lastHealthBar) * t;
+        if (updateState) {
+          if (diff > 0) {
+            lastHealthBar = lastHealthBar - diff * t;
+          } else {
+            smoothBack = true;
+            lastHealthBar = lastHealthBar + (healthBar - lastHealthBar) * t;
+          }
         }
       } else {
-        lastHealthBar = healthBar;
+        if (updateState) {
+          lastHealthBar = healthBar;
+        }
       }
 
       if (healthColor.getValue()) {
@@ -679,24 +724,27 @@ public class TargetHUD extends Module {
   //  Miau-style rendering (unchanged)
   // ============================================================
 
-  private void renderMiauStyle(EntityLivingBase previousTarget) {
+  private void renderMiauStyle(
+      EntityLivingBase previousTarget, int renderPass, boolean updateState) {
     float health = (mc.thePlayer.getHealth() + mc.thePlayer.getAbsorptionAmount()) / 2.0F;
     float abs = this.target.getAbsorptionAmount() / 2.0F;
     float heal = this.target.getHealth() / 2.0F + abs;
 
-    if (this.target != previousTarget) {
-      this.headTexture = null;
-      this.animTimer.setTime();
-      this.oldHealth = heal;
-      this.newHealth = heal;
-    }
+    if (updateState) {
+      if (this.target != previousTarget) {
+        this.headTexture = null;
+        this.animTimer.setTime();
+        this.oldHealth = heal;
+        this.newHealth = heal;
+      }
 
-    if (!this.animations.getValue() || this.animTimer.hasTimeElapsed(150L)) {
-      this.oldHealth = this.newHealth;
-      this.newHealth = heal;
-      this.maxHealth = this.target.getMaxHealth() / 2.0F;
-      if (this.oldHealth != this.newHealth) {
-        this.animTimer.reset();
+      if (!this.animations.getValue() || this.animTimer.hasTimeElapsed(150L)) {
+        this.oldHealth = this.newHealth;
+        this.newHealth = heal;
+        this.maxHealth = this.target.getMaxHealth() / 2.0F;
+        if (this.oldHealth != this.newHealth) {
+          this.animTimer.reset();
+        }
       }
     }
 
@@ -762,8 +810,34 @@ public class TargetHUD extends Module {
         new Color(0.0F, 0.0F, 0.0F, (float) this.background.getValue() / 100.0F).getRGB();
     int outlineColor =
         this.outline.getValue() ? targetColor.getRGB() : new Color(0, 0, 0, 0).getRGB();
-    ShapeUtil.drawOutlineRect(
-        0.0F, 0.0F, barTotalWidth, 27.0F, 1.5F, backgroundColor, outlineColor);
+
+    miau.module.Module postProcessing =
+        Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
+    boolean shaders = postProcessing != null && postProcessing.isEnabled();
+
+    if (renderPass != 2) {
+      if (renderPass == 0) {
+        RoundedUtils.drawRound(
+            -1.0F, -1.0F, barTotalWidth + 2.0F, 29.0F, 4f, new Color(81, 99, 149, 80));
+      } else {
+        RoundedUtils.drawRound(0.0F, 0.0F, barTotalWidth, 27.0F, 4f, new Color(0, 0, 0, 150));
+      }
+      GlStateManager.popMatrix();
+      return;
+    }
+
+    if (shaders) {
+      RoundedUtils.drawRound(
+          0.0F,
+          0.0F,
+          barTotalWidth,
+          27.0F,
+          4f,
+          new Color(0, 0, 0, (int) (this.background.getValue() * 2.55f)));
+    } else {
+      ShapeUtil.drawOutlineRect(
+          0.0F, 0.0F, barTotalWidth, 27.0F, 1.5F, backgroundColor, outlineColor);
+    }
     ShapeUtil.drawRect(
         headIconOffset + 2.0F,
         22.0F,

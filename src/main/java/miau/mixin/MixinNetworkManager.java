@@ -52,6 +52,9 @@ public abstract class MixinNetworkManager {
       at = {@At("HEAD")},
       cancellable = true)
   private void sendPacket(Packet<?> packet, CallbackInfo callbackInfo) {
+    if (miau.util.network.PacketUtil.sendingNoEvent) {
+      return;
+    }
     if (!packet.getClass().getName().startsWith("net.minecraft.network.play.server")) {
       PacketEvent event = new PacketEvent(EventType.SEND, packet);
       EventManager.call(event);
@@ -87,6 +90,9 @@ public abstract class MixinNetworkManager {
       GenericFutureListener<? extends Future<? super Void>> genericFutureListener,
       GenericFutureListener<? extends Future<? super Void>>[] arr,
       CallbackInfo callbackInfo) {
+    if (miau.util.network.PacketUtil.sendingNoEvent) {
+      return;
+    }
     if (!packet.getClass().getName().startsWith("net.minecraft.network.play.server")) {
       PacketEvent event = new PacketEvent(EventType.SEND, packet);
       EventManager.call(event);

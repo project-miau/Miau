@@ -9,6 +9,18 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @SideOnly(Side.CLIENT)
 @Mixin({C03PacketPlayer.class})
 public interface IAccessorC03PacketPlayer {
+  @Accessor("x")
+  double getX();
+
+  @Accessor("y")
+  double getY();
+
+  @Accessor("z")
+  double getZ();
+
+  @Accessor("onGround")
+  boolean isOnGround();
+
   @Accessor("onGround")
   void setOnGround(boolean boolean1);
 }

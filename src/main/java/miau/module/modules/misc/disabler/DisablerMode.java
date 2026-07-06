@@ -1,7 +1,6 @@
 package miau.module.modules.misc.disabler;
 
-import miau.event.impl.PacketEvent;
-import miau.event.impl.TickEvent;
+import miau.event.impl.*;
 import miau.module.modules.misc.Disabler;
 import net.minecraft.client.Minecraft;
 
@@ -26,4 +25,16 @@ public abstract class DisablerMode {
   public void onTick(TickEvent event) {}
 
   public void onPacket(PacketEvent event) {}
+
+  public void onStrafe(StrafeEvent event) {}
+
+  public void onLivingUpdate(LivingUpdateEvent event) {}
+
+  public void onMoveInput(MoveInputEvent event) {}
+
+  public void onJump(JumpEvent event) {}
+
+  public void onRender2D(Render2DEvent event) {}
+
+  public void onLoadWorld(LoadWorldEvent event) {}
 }

@@ -82,6 +82,15 @@ public class ShaderUtils {
           + "    gl_FragColor = vec4(innerColor.rgb / innerColor.a, mix(innerColor.a, 1.0 - exp(-innerColor.a * exposure), step(0.0, direction.y)));\n"
           + "}";
 
+  private static final String CHAMS =
+      "#version 120\n"
+          + "uniform sampler2D textureIn;\n"
+          + "uniform vec4 color;\n"
+          + "void main() {\n"
+          + "    float alpha = texture2D(textureIn, gl_TexCoord[0].st).a;\n"
+          + "    gl_FragColor = vec4(color.rgb, color.a * mix(0.0, alpha, step(0.0, alpha)));\n"
+          + "}";
+
   private static final String KAWASE_UP_BLOOM =
       "#version 120\n"
           + "uniform sampler2D inTexture, textureToCheck;\n"
@@ -354,6 +363,10 @@ public class ShaderUtils {
           fragmentShaderID =
               createShader(new ByteArrayInputStream(GLOW_SHADER.getBytes()), GL_FRAGMENT_SHADER);
           break;
+        case "chams":
+          fragmentShaderID =
+              createShader(new ByteArrayInputStream(CHAMS.getBytes()), GL_FRAGMENT_SHADER);
+          break;
         case "kawaseUpBloom":
           fragmentShaderID =
               createShader(
@@ -499,6 +512,10 @@ public class ShaderUtils {
     if (loc == -1) return;
     if (args.length > 1) glUniform2i(loc, args[0], args[1]);
     else glUniform1i(loc, args[0]);
+  }
+
+  public int getUniform(String name) {
+    return getUniformLocation(name);
   }
 
   private int getUniformLocation(String name) {

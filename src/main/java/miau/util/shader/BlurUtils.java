@@ -28,4 +28,28 @@ public class BlurUtils {
     stencilFrameBufferBloom.unbindFramebuffer();
     KawaseBloom.renderBlur(stencilFrameBufferBloom.framebufferTexture, passes, radius);
   }
+
+  // Gaussian blur (stencil-based) - ported from Tenacity
+  public static void prepareGaussianBlur() {
+    stencilFrameBufferBlur = RenderUtil.createFrameBuffer(stencilFrameBufferBlur);
+    stencilFrameBufferBlur.framebufferClear();
+    stencilFrameBufferBlur.bindFramebuffer(false);
+  }
+
+  public static void gaussianBlurEnd(float radius, float compression) {
+    stencilFrameBufferBlur.unbindFramebuffer();
+    GaussianBlur.endBlur(radius, compression);
+  }
+
+  // BloomUtil (Gaussian bloom) - ported from Tenacity
+  public static void prepareGaussianBloom() {
+    stencilFrameBufferBloom = RenderUtil.createFrameBuffer(stencilFrameBufferBloom);
+    stencilFrameBufferBloom.framebufferClear();
+    stencilFrameBufferBloom.bindFramebuffer(false);
+  }
+
+  public static void gaussianBloomEnd(int radius, int offset) {
+    stencilFrameBufferBloom.unbindFramebuffer();
+    BloomUtil.renderBlur(stencilFrameBufferBloom.framebufferTexture, radius, offset);
+  }
 }
