@@ -3,13 +3,10 @@ package miau.module.modules.combat.killaura.autoblocks;
 import miau.Miau;
 import miau.enums.BlinkModules;
 import miau.module.modules.combat.KillAura;
-import net.minecraft.client.Minecraft;
 
-public class LegitAutoBlock extends AutoBlockMode {
-  private static final Minecraft mc = Minecraft.getMinecraft();
-
-  public LegitAutoBlock(KillAura parent) {
-    super("LEGIT", parent);
+public class BlinkAutoBlock extends AutoBlockMode {
+  public BlinkAutoBlock(KillAura parent) {
+    super("BLINK", parent);
   }
 
   @Override
@@ -27,6 +24,7 @@ public class LegitAutoBlock extends AutoBlockMode {
           case 1:
             if (parent.isPlayerBlocking()) {
               parent.stopBlock();
+              // attack = false;
               parent.cancelAttack = true;
             }
             if (parent.attackDelayMS <= 50L) {
@@ -37,15 +35,15 @@ public class LegitAutoBlock extends AutoBlockMode {
             parent.blockTick = 0;
         }
       }
-      Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+      Miau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
       parent.isBlocking = true;
-      parent.fakeBlockState = false;
+      parent.fakeBlockState = true;
+      parent.blinkReset = true;
     } else {
       Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
       parent.isBlocking = false;
       parent.fakeBlockState = false;
     }
-
     return swap;
   }
 }

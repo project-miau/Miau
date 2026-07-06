@@ -4,9 +4,9 @@ import miau.Miau;
 import miau.enums.BlinkModules;
 import miau.module.modules.combat.KillAura;
 
-public class VanillaAutoBlock extends AutoBlockMode {
-  public VanillaAutoBlock(KillAura parent) {
-    super("VANILLA", parent);
+public class InteractAutoBlock extends AutoBlockMode {
+  public InteractAutoBlock(KillAura parent) {
+    super("INTERACT", parent);
   }
 
   @Override
