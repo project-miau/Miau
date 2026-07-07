@@ -32,8 +32,7 @@ public class TargetHUD extends Module {
   public TargetHUDMode[] targetHUDModes;
 
   public final ModeProperty mode =
-      new ModeProperty(
-          "Mode", 0, new String[] {"Raven", "Miau", "Exhibition", "Idleo"});
+      new ModeProperty("Mode", 0, new String[] {"Raven", "Miau", "Exhibition", "Idleo"});
   public final ModeProperty ravenMode =
       new ModeProperty(
           "Raven Mode", 0, new String[] {"Modern", "Legacy"}, () -> this.mode.getValue() == 0);
@@ -68,10 +67,7 @@ public class TargetHUD extends Module {
     super("TargetHUD", false, true);
     targetHUDModes =
         new TargetHUDMode[] {
-          new RavenMode(this),
-          new MiauMode(this),
-          new ExhibitionMode(this),
-          new IdleoMode(this)
+          new RavenMode(this), new MiauMode(this), new ExhibitionMode(this), new IdleoMode(this)
         };
   }
 

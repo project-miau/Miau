@@ -88,7 +88,6 @@ public class IdleoMode extends TargetHUDMode {
     RoundedUtils.drawGradientHorizontal(
         x + 39, y + height - 12, healthWidth, realHealthHeight, 1.5f, c1, c2);
 
-
     GlStateManager.popMatrix();
   }
 }
