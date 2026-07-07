@@ -11,7 +11,7 @@ public class PropertyManager {
     ArrayList<Property<?>> props = properties.get(module.getClass());
     if (props == null) return null;
     for (Property<?> property : props) {
-      if (property.getName().replace("-", "").equalsIgnoreCase(string.replace("-", ""))) {
+      if (property.getName().replace("-", "").replace(" ", "").equalsIgnoreCase(string.replace("-", "").replace(" ", ""))) {
         return property;
       }
     }

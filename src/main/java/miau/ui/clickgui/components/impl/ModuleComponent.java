@@ -13,6 +13,7 @@ import miau.property.properties.FloatProperty;
 import miau.property.properties.IntProperty;
 import miau.property.properties.ModeProperty;
 import miau.property.properties.PercentProperty;
+import miau.property.properties.TextProperty;
 import miau.ui.clickgui.ClickGui;
 import miau.ui.clickgui.components.Component;
 import miau.util.animation.AnimationTimer;
@@ -74,7 +75,6 @@ public class ModuleComponent extends Component {
           if (!v.isVisible()) {
             continue;
           }
-          // Group consecutive target-* BooleanProperties together
           if (v instanceof BooleanProperty && v.getName().startsWith("target-")) {
             java.util.List<BooleanProperty> groupProps = new java.util.ArrayList<>();
             groupProps.add((BooleanProperty) v);
@@ -89,7 +89,6 @@ public class ModuleComponent extends Component {
                 break;
               }
             }
-            // Individual buttons for each target-* property instead of GroupComponent
             for (BooleanProperty prop : groupProps) {
               ButtonComponent c = new ButtonComponent(mod, prop, this, y);
               this.settings.add(c);
@@ -111,6 +110,10 @@ public class ModuleComponent extends Component {
           } else if (v instanceof ColorProperty) {
             ColorComponent cc = new ColorComponent((ColorProperty) v, this, y);
             this.settings.add(cc);
+            y += 12;
+          } else if (v instanceof TextProperty) {
+            StringComponent sc = new StringComponent((TextProperty) v, this, y);
+            this.settings.add(sc);
             y += 12;
           }
         }
@@ -319,7 +322,6 @@ public class ModuleComponent extends Component {
     }
   }
 
-  /** Float height used for all layout/scroll decisions. */
   @Override
   public float getHeightF() {
     if (smoothTimer != null) {

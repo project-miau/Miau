@@ -81,16 +81,16 @@ public class EntityCulling extends Module {
       RenderManager rm = mc.getRenderManager();
       double x =
           entity.lastTickPosX
-              + (entity.posX - entity.lastTickPosX) * mc.timer.renderPartialTicks
-              - rm.renderPosX;
+              + (entity.posX - entity.lastTickPosX) * ((miau.mixin.IAccessorMinecraft) mc).getTimer().renderPartialTicks
+              - ((miau.mixin.IAccessorRenderManager) rm).getRenderPosX();
       double y =
           entity.lastTickPosY
-              + (entity.posY - entity.lastTickPosY) * mc.timer.renderPartialTicks
-              - rm.renderPosY;
+              + (entity.posY - entity.lastTickPosY) * ((miau.mixin.IAccessorMinecraft) mc).getTimer().renderPartialTicks
+              - ((miau.mixin.IAccessorRenderManager) rm).getRenderPosY();
       double z =
           entity.lastTickPosZ
-              + (entity.posZ - entity.lastTickPosZ) * mc.timer.renderPartialTicks
-              - rm.renderPosZ;
+              + (entity.posZ - entity.lastTickPosZ) * ((miau.mixin.IAccessorMinecraft) mc).getTimer().renderPartialTicks
+              - ((miau.mixin.IAccessorRenderManager) rm).getRenderPosZ();
 
       try {
         net.minecraft.client.renderer.entity.Render<Entity> renderer =
@@ -244,9 +244,9 @@ public class EntityCulling extends Module {
               .getEntityBoundingBox()
               .expand(.2, .2, .2)
               .offset(
-                  -mc.getRenderManager().renderPosX,
-                  -mc.getRenderManager().renderPosY,
-                  -mc.getRenderManager().renderPosZ));
+                  -((miau.mixin.IAccessorRenderManager) mc.getRenderManager()).getRenderPosX(),
+                  -((miau.mixin.IAccessorRenderManager) mc.getRenderManager()).getRenderPosY(),
+                  -((miau.mixin.IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ()));
       GL15.glEndQuery(mode);
     }
 

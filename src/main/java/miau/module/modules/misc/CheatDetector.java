@@ -2,7 +2,9 @@ package miau.module.modules.misc;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -12,17 +14,11 @@ import miau.event.impl.PacketEvent;
 import miau.event.impl.UpdateEvent;
 import miau.module.Module;
 import miau.module.modules.misc.cheatdetector.Check;
-import miau.module.modules.misc.cheatdetector.impl.combat.AutoBlockCheck;
-import miau.module.modules.misc.cheatdetector.impl.combat.ConsumeCheck;
-import miau.module.modules.misc.cheatdetector.impl.combat.MovementFixCheck;
-import miau.module.modules.misc.cheatdetector.impl.combat.VelocityCheck;
-import miau.module.modules.misc.cheatdetector.impl.combat.aim.AimCheck;
-import miau.module.modules.misc.cheatdetector.impl.movement.OmniSprintCheck;
-import miau.module.modules.misc.cheatdetector.impl.movement.motion.MotionCheck;
-import miau.module.modules.misc.cheatdetector.impl.movement.noslow.NoSlowCheck;
-import miau.module.modules.misc.cheatdetector.impl.player.LegitScaffoldCheck;
-import miau.module.modules.misc.cheatdetector.impl.player.NoFallCheck;
-import miau.module.modules.misc.cheatdetector.impl.player.scaffold.ScaffoldCheck;
+import miau.module.modules.misc.cheatdetector.CheatDetectorData;
+import miau.module.modules.misc.cheatdetector.impl.AutoBlockCheck;
+import miau.module.modules.misc.cheatdetector.impl.KillauraCheck;
+import miau.module.modules.misc.cheatdetector.impl.LegitScaffoldCheck;
+import miau.module.modules.misc.cheatdetector.impl.NoSlowCheck;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
 import net.minecraft.client.Minecraft;
@@ -31,52 +27,26 @@ import net.minecraft.entity.player.EntityPlayer;
 public class CheatDetector extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  public final BooleanProperty checkAim = new BooleanProperty("aim", true);
   public final BooleanProperty checkAutoBlock = new BooleanProperty("auto-block", true);
-  public final BooleanProperty checkConsume = new BooleanProperty("consume", true);
-  public final BooleanProperty checkMovementFix = new BooleanProperty("movement-fix", true);
-  public final BooleanProperty checkMotion = new BooleanProperty("motion", true);
-  public final BooleanProperty checkNoFall = new BooleanProperty("no-fall", true);
   public final BooleanProperty checkNoSlow = new BooleanProperty("no-slow", true);
-  public final BooleanProperty checkOmniSprint = new BooleanProperty("omni-sprint", true);
-  public final BooleanProperty checkScaffold = new BooleanProperty("scaffold", true);
-  public final BooleanProperty checkVelocity = new BooleanProperty("velocity", true);
   public final BooleanProperty checkLegitScaffold = new BooleanProperty("legit-scaffold", true);
+  public final BooleanProperty checkKillaura = new BooleanProperty("killaura", true);
 
   public final BooleanProperty selfCheck = new BooleanProperty("check-self", false);
   public final FloatProperty alertCoolDown = new FloatProperty("alert-cooldown", 1000f, 0f, 2000f);
 
   private final Set<EntityPlayer> cheaters = new HashSet<>();
-  private final ArrayList<Check> checks = new ArrayList<>();
+  private final Map<UUID, CheatDetectorData> dataMap = new HashMap<>();
 
   public CheatDetector() {
     super("CheatDetector", false);
-    addChecks(
-        new AimCheck(),
-        new AutoBlockCheck(),
-        new ConsumeCheck(),
-        new MovementFixCheck(),
-        new MotionCheck(),
-        new NoFallCheck(),
-        new NoSlowCheck(),
-        new ScaffoldCheck(),
-        new VelocityCheck(),
-        new OmniSprintCheck(),
-        new LegitScaffoldCheck());
   }
 
   public boolean isCheckEnabled(String name) {
-    if ("Aim".equals(name)) return checkAim.getValue();
     if ("AutoBlock".equals(name)) return checkAutoBlock.getValue();
-    if ("Consume".equals(name)) return checkConsume.getValue();
-    if ("MovementFix".equals(name)) return checkMovementFix.getValue();
-    if ("Motion".equals(name)) return checkMotion.getValue();
-    if ("No fall".equals(name)) return checkNoFall.getValue();
     if ("No slow".equals(name)) return checkNoSlow.getValue();
-    if ("Omni sprint".equals(name)) return checkOmniSprint.getValue();
-    if ("Scaffold".equals(name)) return checkScaffold.getValue();
-    if ("Velocity".equals(name)) return checkVelocity.getValue();
     if ("Legit scaffold".equals(name)) return checkLegitScaffold.getValue();
+    if ("Killaura".equals(name)) return checkKillaura.getValue();
     return false;
   }
 
@@ -89,16 +59,13 @@ public class CheatDetector extends Module {
       if (player.getDistanceToEntity(mc.thePlayer) > 16 * mc.gameSettings.renderDistanceChunks)
         continue;
 
-      for (Check check : checks) {
-        if ((selfCheck.getValue() || player != mc.thePlayer)
-            && !player.isDead
-            && (Miau.friendManager == null || !Miau.friendManager.isFriend(player.getName()))) {
-          if (AntiBot.isBot(player)) continue;
+      if ((selfCheck.getValue() || player != mc.thePlayer)
+          && !player.isDead
+          && (Miau.friendManager == null || !Miau.friendManager.isFriend(player.getName()))) {
+        if (AntiBot.isBot(player)) continue;
 
-          if (isCheckEnabled(check.getName())) {
-            check.onUpdate(player);
-          }
-        }
+        CheatDetectorData data = dataMap.computeIfAbsent(player.getUniqueID(), k -> new CheatDetectorData());
+        data.onUpdate(player);
       }
     }
   }
@@ -112,16 +79,13 @@ public class CheatDetector extends Module {
       if (player.getDistanceToEntity(mc.thePlayer) > 16 * mc.gameSettings.renderDistanceChunks)
         continue;
 
-      for (Check check : checks) {
-        if ((selfCheck.getValue() || player != mc.thePlayer)
-            && !player.isDead
-            && (Miau.friendManager == null || !Miau.friendManager.isFriend(player.getName()))) {
-          if (AntiBot.isBot(player)) continue;
+      if ((selfCheck.getValue() || player != mc.thePlayer)
+          && !player.isDead
+          && (Miau.friendManager == null || !Miau.friendManager.isFriend(player.getName()))) {
+        if (AntiBot.isBot(player)) continue;
 
-          if (isCheckEnabled(check.getName())) {
-            check.onPacket(e, player);
-          }
-        }
+        CheatDetectorData data = dataMap.computeIfAbsent(player.getUniqueID(), k -> new CheatDetectorData());
+        data.onPacket(e, player);
       }
     }
   }
@@ -129,11 +93,10 @@ public class CheatDetector extends Module {
   @Override
   public void onDisabled() {
     cheaters.clear();
+    dataMap.clear();
   }
 
-  public void addChecks(Check... checks) {
-    this.checks.addAll(Arrays.asList(checks));
-  }
+
 
   public void mark(EntityPlayer ent) {
     cheaters.add(ent);
@@ -153,6 +116,6 @@ public class CheatDetector extends Module {
             .map(EntityPlayer::getUniqueID)
             .collect(Collectors.toSet());
 
-    checks.forEach(check -> check.cleanup(onlineUUIDs));
+    dataMap.keySet().removeIf(uuid -> !onlineUUIDs.contains(uuid));
   }
 }

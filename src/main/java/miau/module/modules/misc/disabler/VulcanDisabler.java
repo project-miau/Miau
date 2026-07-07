@@ -30,7 +30,7 @@ public class VulcanDisabler extends DisablerMode {
   @Override
   public void onTick(TickEvent event) {
     if (event.getType() != EventType.PRE) return;
-    if (mc.thePlayer == null || !mc.getNetHandler().doneLoadingTerrain) return;
+    if (mc.thePlayer == null) return;
 
     if (keepSprint.getValue()) {
       mc.getNetHandler()

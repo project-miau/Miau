@@ -20,7 +20,6 @@ public abstract class Check {
 
   public void onPacket(PacketEvent event, EntityPlayer player) {}
 
-  public void cleanup(Set<UUID> onlineUUIDs) {}
 
   public void flag(EntityPlayer player, String verbose) {
     if (flagTimer.hasTimeElapsed(

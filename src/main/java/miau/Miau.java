@@ -106,6 +106,7 @@ public class Miau {
     moduleManager.modules.put(AntiVoid.class, new AntiVoid());
     moduleManager.modules.put(AutoAnduril.class, new AutoAnduril());
     moduleManager.modules.put(AutoAuth.class, new AutoAuth());
+    moduleManager.modules.put(AutoPlay.class, new AutoPlay());
     moduleManager.modules.put(AutoBedDef.class, new AutoBedDef());
     moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
     moduleManager.modules.put(AutoBuy.class, new AutoBuy());
@@ -113,6 +114,7 @@ public class Miau {
     moduleManager.modules.put(AutoClicker.class, new AutoClicker());
     moduleManager.modules.put(AutoHead.class, new AutoHead());
     moduleManager.modules.put(AutoLadderClutch.class, new AutoLadderClutch());
+    moduleManager.modules.put(SpotifyMod.class, new SpotifyMod());
     moduleManager.modules.put(AutoReconnect.class, new AutoReconnect());
     moduleManager.modules.put(AutoSoup.class, new AutoSoup());
     moduleManager.modules.put(AutoSwap.class, new AutoSwap());
@@ -183,6 +185,9 @@ public class Miau {
     moduleManager.modules.put(
         miau.module.modules.minigames.PlayerList.class,
         new miau.module.modules.minigames.PlayerList());
+    moduleManager.modules.put(
+        miau.module.modules.minigames.SkywarsAlerts.class,
+        new miau.module.modules.minigames.SkywarsAlerts());
     moduleManager.modules.put(ProjectileAimBot.class, new ProjectileAimBot());
     moduleManager.modules.put(RPC.class, new RPC());
     moduleManager.modules.put(Reach.class, new Reach());

@@ -64,7 +64,7 @@ public class HUD extends Module {
       new ModeProperty("color-animation", 1, new String[] {"STATIC", "FADE", "RAINBOW"});
   public final ModeProperty modulesToShow =
       new ModeProperty("modules-to-show", 1, new String[] {"ALL", "EXCLUDE RENDER", "ONLY BOUND"});
-  public final ModeProperty fontFace = new ModeProperty("Font", 1, FontRepository.FONT_NAMES);
+  public final ModeProperty fontFace = new ModeProperty("Font", 0, FontRepository.FONT_NAMES);
   public final ModeProperty posX =
       new ModeProperty("position-x", 0, new String[] {"LEFT", "RIGHT"});
   public final ModeProperty posY =
