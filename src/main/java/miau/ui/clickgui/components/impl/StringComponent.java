@@ -26,15 +26,18 @@ public class StringComponent extends Component {
     String text = property.getValue();
     String display;
     if (focused) {
-        display = text + (System.currentTimeMillis() % 1000 < 500 ? "_" : "");
+      display = text + (System.currentTimeMillis() % 1000 < 500 ? "_" : "");
     } else {
-        display = text.isEmpty() ? property.getName() + "..." : property.getName() + ": " + text;
+      display = text.isEmpty() ? property.getName() + "..." : property.getName() + ": " + text;
     }
 
     Gui.drawRect(
         (int) (this.moduleComponent.categoryComponent.getX() + 4),
         (int) (this.moduleComponent.categoryComponent.getY() + this.o),
-        (int) (this.moduleComponent.categoryComponent.getX() + this.moduleComponent.categoryComponent.getWidth() - 4),
+        (int)
+            (this.moduleComponent.categoryComponent.getX()
+                + this.moduleComponent.categoryComponent.getWidth()
+                - 4),
         (int) (this.moduleComponent.categoryComponent.getY() + this.o + 12),
         new Color(0, 0, 0, 100).getRGB());
 

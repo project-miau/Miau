@@ -17,8 +17,7 @@ public class KeepYFeature implements ScaffoldComponent {
   private final Minecraft mc = Minecraft.getMinecraft();
 
   public final ModeProperty keepY =
-      new ModeProperty(
-          "keep-y", 0, new String[] {"NONE", "VANILLA", "TELLY", "Extra 1", "Extra 2"});
+      new ModeProperty("keep-y", 0, new String[] {"NONE", "VANILLA", "TELLY", "Extra"});
   public final BooleanProperty keepYonPress =
       new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
   public final BooleanProperty disableWhileJumpActive =
@@ -57,9 +56,7 @@ public class KeepYFeature implements ScaffoldComponent {
   }
 
   public boolean shouldKeepYNextBlock() {
-    if ((this.keepY.getValue() == 3 || this.keepY.getValue() == 4)
-        && scaffold.stage > 0
-        && !mc.thePlayer.onGround) {
+    if (this.keepY.getValue() == 3 && scaffold.stage > 0 && !mc.thePlayer.onGround) {
       int nextBlockY = MathHelper.floor_double(mc.thePlayer.posY + mc.thePlayer.motionY);
       if (nextBlockY <= scaffold.startY && mc.thePlayer.posY > (double) (scaffold.startY + 1)) {
         scaffold.shouldKeepY = true;

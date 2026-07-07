@@ -21,13 +21,13 @@ public class KillauraCheck extends Check {
   @Override
   public void onUpdate(EntityPlayer player) {
     if (player.ridingEntity != null) return;
-    
+
     long tick = mc.theWorld.getTotalWorldTime();
     ItemStack heldItem = player.getHeldItem();
     boolean isUsingItem = player.isUsingItem();
     boolean isConsumable = (heldItem != null && isConsumable(heldItem.getItem()));
     boolean isAttacking = (player.swingProgressInt > 0);
-    
+
     if (isUsingItem && isConsumable) {
       useItemTicks++;
     } else {
@@ -35,10 +35,10 @@ public class KillauraCheck extends Check {
         lastEatTick = tick;
       }
       useItemTicks = 0;
-    } 
-    
+    }
+
     long sinceLastEat = tick - lastEatTick;
-    
+
     if (isAttacking && useItemTicks > 6 && sinceLastEat < 33 && isConsumable) {
       violationLevel++;
       if (violationLevel >= 8) {
@@ -49,10 +49,12 @@ public class KillauraCheck extends Check {
       if (violationLevel > 0) {
         violationLevel--;
       }
-    } 
+    }
   }
-  
+
   private boolean isConsumable(Item item) {
-    return (item instanceof ItemFood || item instanceof ItemPotion || item instanceof ItemBucketMilk);
+    return (item instanceof ItemFood
+        || item instanceof ItemPotion
+        || item instanceof ItemBucketMilk);
   }
 }

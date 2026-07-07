@@ -18,7 +18,7 @@ public class AutoBlockCheck extends Check {
     } else {
       this.autoBlockTicks = 0;
     }
-    
+
     if (this.autoBlockTicks > 10) {
       flag(player, "");
       this.autoBlockTicks = 0;

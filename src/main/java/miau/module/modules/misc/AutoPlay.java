@@ -6,9 +6,9 @@ import miau.event.impl.PacketEvent;
 import miau.event.impl.TickEvent;
 import miau.event.types.EventType;
 import miau.module.Module;
+import miau.notification.NotificationType;
 import miau.property.properties.FloatProperty;
 import miau.property.properties.ModeProperty;
-import miau.notification.NotificationType;
 import miau.util.time.TimerUtil;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.S02PacketChat;
@@ -33,7 +33,7 @@ public class AutoPlay extends Module {
   @EventTarget
   public void onTick(TickEvent event) {
     if (!this.isEnabled()) return;
-    if (queuedMode != null && timer.hasTimeElapsed((long)(autoPlayDelay.getValue() * 1000))) {
+    if (queuedMode != null && timer.hasTimeElapsed((long) (autoPlayDelay.getValue() * 1000))) {
       net.minecraft.client.Minecraft.getMinecraft().thePlayer.sendChatMessage(queuedMode);
       queuedMode = null;
     }
@@ -55,7 +55,8 @@ public class AutoPlay extends Module {
           try {
             String command = m.split("action=RUN_COMMAND, value='")[1].split("'\\}")[0];
             sendToGame(command);
-          } catch (Exception ignored) {}
+          } catch (Exception ignored) {
+          }
         }
       }
     }

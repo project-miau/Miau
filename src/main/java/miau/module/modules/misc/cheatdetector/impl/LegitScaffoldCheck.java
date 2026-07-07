@@ -24,7 +24,7 @@ public class LegitScaffoldCheck extends Check {
     long tick = mc.theWorld.getTotalWorldTime();
     trackCrouch(tick, player.isSneaking());
     trackSwing(tick, player.swingProgressInt);
-    
+
     if (isScaffold(player)) {
       evaluate(player, tick);
     }
@@ -38,7 +38,7 @@ public class LegitScaffoldCheck extends Check {
       lastCrouchEnd = tick;
       crouchDurations.add(0, duration);
       if (crouchDurations.size() > 5) crouchDurations.remove(5);
-    } 
+    }
     wasSneaking = currSneak;
   }
 
@@ -49,26 +49,36 @@ public class LegitScaffoldCheck extends Check {
   }
 
   private boolean isScaffold(EntityPlayer player) {
-    return (player.rotationPitch >= 60.0F && player.onGround && player.getHeldItem() != null && player.getHeldItem().getItem() instanceof ItemBlock);
+    return (player.rotationPitch >= 60.0F
+        && player.onGround
+        && player.getHeldItem() != null
+        && player.getHeldItem().getItem() instanceof ItemBlock);
   }
 
   private void evaluate(EntityPlayer player, long tick) {
     if (lastCrouchStart == 0 || lastCrouchEnd == 0) {
       return;
-    } 
-    
+    }
+
     int crouchDuration = (int) (lastCrouchEnd - lastCrouchStart);
     boolean quickCrouch = (crouchDuration >= 1 && crouchDuration <= 2);
-    
-    boolean swingTiming = (lastSwingTick >= lastCrouchEnd && lastSwingTick <= lastCrouchEnd + 3L && tick - lastSwingTick <= 10L);
-    
-    boolean consistent = (crouchDurations.size() >= 3 && crouchDurations.get(0) <= 3 && crouchDurations.get(1) <= 3 && crouchDurations.get(2) <= 3);
-    
+
+    boolean swingTiming =
+        (lastSwingTick >= lastCrouchEnd
+            && lastSwingTick <= lastCrouchEnd + 3L
+            && tick - lastSwingTick <= 10L);
+
+    boolean consistent =
+        (crouchDurations.size() >= 3
+            && crouchDurations.get(0) <= 3
+            && crouchDurations.get(1) <= 3
+            && crouchDurations.get(2) <= 3);
+
     if (quickCrouch && swingTiming && consistent) {
       if (tick - lastFlagTick >= 60L) {
         flag(player, "");
         lastFlagTick = tick;
-      } 
-    } 
+      }
+    }
   }
 }

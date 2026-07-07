@@ -1,11 +1,9 @@
 package miau.module.modules.minigames;
 
 import java.awt.*;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import miau.Miau;
 import miau.enums.ChatColors;
@@ -41,6 +39,18 @@ import org.lwjgl.opengl.GL11;
 
 public class BedTracker extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
+  private static final long BED_SCAN_DELAY_MS = 3000L;
+  private final LinkedHashMap<String, Long> alertCooldowns;
+  private final LinkedHashSet<EntityEnderPearl> trackedPearls;
+  private final LinkedHashSet<String> whitelistedPlayers;
+  private final Color wBed;
+  private final Color rBed;
+  private final Color yBed;
+  private final Color gBed;
+  private BlockPos bedPos;
+  private long lastMarcoTime;
+  private boolean waiting;
+  private long bedScanAt;
   public final BooleanProperty alerts;
   public final IntProperty alertRange;
   public final BooleanProperty alertOnPearl;
@@ -58,68 +68,6 @@ public class BedTracker extends Module {
   public final IntProperty hudOffY;
   public final FloatProperty hudScale;
   public final BooleanProperty hudShadow;
-  private final ScheduledExecutorService executor;
-  private final LinkedHashMap<String, Long> alertCooldowns;
-  private final LinkedHashSet<EntityEnderPearl> trackedPearls;
-  private final LinkedHashSet<String> whitelistedPlayers;
-  private final Color wBed;
-  private final Color rBed;
-  private final Color yBed;
-  private final Color gBed;
-  private BlockPos bedPos;
-  private long lastMarcoTime;
-  private boolean waiting;
-
-  public BedTracker() {
-    super("BedTracker", false, true);
-    this.executor = Executors.newScheduledThreadPool(1);
-    this.alertCooldowns = new LinkedHashMap<>();
-    this.trackedPearls = new LinkedHashSet<>();
-    this.whitelistedPlayers = new LinkedHashSet<>();
-    this.wBed = new Color(ChatColors.WHITE.toAwtColor());
-    this.rBed = new Color(ChatColors.RED.toAwtColor());
-    this.yBed = new Color(ChatColors.YELLOW.toAwtColor());
-    this.gBed = new Color(ChatColors.GREEN.toAwtColor());
-    this.bedPos = null;
-    this.lastMarcoTime = -1L;
-    this.waiting = false;
-    this.alerts = new BooleanProperty("Alerts", true);
-    this.alertRange = new IntProperty("Alerts Range", 48, 8, 128, this.alerts::getValue);
-    this.alertOnPearl = new BooleanProperty("Alerts On Pearl", true);
-    this.alertSound =
-        new ModeProperty(
-            "Alerts Sound",
-            1,
-            new String[] {"None", "Meow", "Anvil"},
-            () -> this.alerts.getValue() || this.alertOnPearl.getValue());
-    this.alertFrequency =
-        new IntProperty(
-            "Alerts Frequency",
-            5,
-            1,
-            30,
-            () -> this.alerts.getValue() || this.alertOnPearl.getValue());
-    this.marco = new BooleanProperty("Macro", false);
-    this.marcoRange = new IntProperty("Macro Range", 24, 8, 128, this.marco::getValue);
-    this.marcoOnPreal = new BooleanProperty("Macro On Pearl", false);
-    this.marcoText =
-        new TextProperty(
-            "Macro Text", "/lobby", () -> this.marco.getValue() || this.marcoOnPreal.getValue());
-    this.marcoDelay =
-        new IntProperty(
-            "Macro Delay", 1, 1, 10, () -> this.marco.getValue() || this.marcoOnPreal.getValue());
-    this.hud = new BooleanProperty("Hud", true);
-    this.hudPosX =
-        new ModeProperty(
-            "Hud Position X", 0, new String[] {"Left", "Middle", "Right"}, this.hud::getValue);
-    this.hudPosY =
-        new ModeProperty(
-            "Hud Position Y", 0, new String[] {"Top", "Middle", "Bottom"}, this.hud::getValue);
-    this.hudOffX = new IntProperty("Hud Offset X", 2, 0, 255, this.hud::getValue);
-    this.hudOffY = new IntProperty("Hud Offset Y", 2, 0, 255, this.hud::getValue);
-    this.hudScale = new FloatProperty("Hud Scale", 1.0F, 0.5F, 1.5F, this.hud::getValue);
-    this.hudShadow = new BooleanProperty("Hud Shadow", true, this.hud::getValue);
-  }
 
   private void playAlertSound() {
     switch (this.alertSound.getValue()) {
@@ -146,12 +94,132 @@ public class BedTracker extends Module {
   }
 
   private boolean isBed(BlockPos blockPos) {
-    return blockPos != null && mc.theWorld.getBlockState(blockPos).getBlock() == Blocks.bed;
+    return blockPos != null
+        && mc.theWorld != null
+        && mc.theWorld.getBlockState(blockPos).getBlock() == Blocks.bed;
+  }
+
+  public BedTracker() {
+    super("BedTracker", false, true);
+    this.alertCooldowns = new LinkedHashMap<>();
+    this.trackedPearls = new LinkedHashSet<>();
+    this.whitelistedPlayers = new LinkedHashSet<>();
+    this.wBed = new Color(ChatColors.WHITE.toAwtColor());
+    this.rBed = new Color(ChatColors.RED.toAwtColor());
+    this.yBed = new Color(ChatColors.YELLOW.toAwtColor());
+    this.gBed = new Color(ChatColors.GREEN.toAwtColor());
+    this.bedPos = null;
+    this.lastMarcoTime = -1L;
+    this.waiting = false;
+    this.bedScanAt = -1L;
+    this.alerts = new BooleanProperty("alerts", true);
+    this.alertRange = new IntProperty("alerts-range", 48, 8, 128, this.alerts::getValue);
+    this.alertOnPearl = new BooleanProperty("alerts-on-pearl", true);
+    this.alertSound =
+        new ModeProperty(
+            "alerts-sound",
+            1,
+            new String[] {"NONE", "MEOW", "ANVIL"},
+            () -> this.alerts.getValue() || this.alertOnPearl.getValue());
+    this.alertFrequency =
+        new IntProperty(
+            "alerts-frequency",
+            5,
+            1,
+            30,
+            () -> this.alerts.getValue() || this.alertOnPearl.getValue());
+    this.marco = new BooleanProperty("macro", false);
+    this.marcoRange = new IntProperty("macro-range", 24, 8, 128, this.marco::getValue);
+    this.marcoOnPreal = new BooleanProperty("macro-on-pearl", false);
+    this.marcoText =
+        new TextProperty(
+            "macro-text", "/lobby", () -> this.marco.getValue() || this.marcoOnPreal.getValue());
+    this.marcoDelay =
+        new IntProperty(
+            "macro-delay", 1, 1, 10, () -> this.marco.getValue() || this.marcoOnPreal.getValue());
+    this.hud = new BooleanProperty("hud", true);
+    this.hudPosX =
+        new ModeProperty(
+            "hud-position-x", 0, new String[] {"LEFT", "MIDDLE", "RIGHT"}, this.hud::getValue);
+    this.hudPosY =
+        new ModeProperty(
+            "hud-position-y", 0, new String[] {"TOP", "MIDDLE", "BOTTOM"}, this.hud::getValue);
+    this.hudOffX = new IntProperty("hud-offset-x", 2, 0, 255, this.hud::getValue);
+    this.hudOffY = new IntProperty("hud-offset-y", 2, 0, 255, this.hud::getValue);
+    this.hudScale = new FloatProperty("hud-scale", 1.0F, 0.5F, 1.5F, this.hud::getValue);
+    this.hudShadow = new BooleanProperty("hud-shadow", true, this.hud::getValue);
+  }
+
+  private void resetTracking() {
+    this.alertCooldowns.clear();
+    this.trackedPearls.clear();
+    this.whitelistedPlayers.clear();
+    this.bedPos = null;
+    this.lastMarcoTime = -1L;
+  }
+
+  private void scheduleBedScan() {
+    this.bedScanAt = System.currentTimeMillis() + BED_SCAN_DELAY_MS;
+  }
+
+  private void runPendingBedScan() {
+    if (this.bedScanAt == -1L || System.currentTimeMillis() < this.bedScanAt) {
+      return;
+    }
+    this.bedScanAt = -1L;
+    if (mc.theWorld == null || mc.thePlayer == null) {
+      return;
+    }
+
+    int x = MathHelper.floor_double(mc.thePlayer.posX);
+    int y = MathHelper.floor_double(mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight());
+    int z = MathHelper.floor_double(mc.thePlayer.posZ);
+    for (int i = x - 25; i <= x + 25; i++) {
+      for (int j = y - 25; j <= y + 25; j++) {
+        for (int k = z - 25; k <= z + 25; k++) {
+          BlockPos blockPos = new BlockPos(i, j, k);
+          if (this.isBed(blockPos)) {
+            this.bedPos = blockPos;
+            ChatUtil.sendFormatted(
+                String.format(
+                    "%s%s: &fWhitelisted your bed at (%d, %d, %d) &a&l\u2714&r",
+                    Miau.clientName,
+                    this.getName(),
+                    this.bedPos.getX(),
+                    this.bedPos.getY(),
+                    this.bedPos.getZ()));
+            SoundUtil.playSound("note.pling");
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  private void pruneTrackedPearls() {
+    if (mc.theWorld == null) {
+      this.trackedPearls.clear();
+      return;
+    }
+
+    Iterator<EntityEnderPearl> iterator = this.trackedPearls.iterator();
+    while (iterator.hasNext()) {
+      EntityEnderPearl pearl = iterator.next();
+      if (pearl.isDead || !mc.theWorld.loadedEntityList.contains(pearl)) {
+        iterator.remove();
+      }
+    }
   }
 
   @EventTarget
   public void onTick(TickEvent event) {
-    if (this.isEnabled() && event.getType() == EventType.POST && this.isBed(this.bedPos)) {
+    if (this.isEnabled() && event.getType() == EventType.POST) {
+      this.runPendingBedScan();
+      this.pruneTrackedPearls();
+      if (!this.isBed(this.bedPos)) {
+        return;
+      }
+
       long millis = System.currentTimeMillis();
       boolean pearl = false;
       boolean marco = false;
@@ -316,6 +384,8 @@ public class BedTracker extends Module {
   @EventTarget
   public void onLoadWorld(LoadWorldEvent event) {
     this.waiting = false;
+    this.bedScanAt = -1L;
+    this.resetTracking();
   }
 
   @EventTarget
@@ -325,53 +395,22 @@ public class BedTracker extends Module {
         String msg = ((S02PacketChat) event.getPacket()).getChatComponent().getFormattedText();
         if (msg.contains("§e§lProtect your bed and destroy the enemy bed")
             || msg.contains("§e§lDestroy the enemy bed and then eliminate them")) {
-          this.alertCooldowns.clear();
-          this.trackedPearls.clear();
-          this.whitelistedPlayers.clear();
-          this.bedPos = null;
+          this.bedScanAt = -1L;
+          this.resetTracking();
           this.waiting = true;
         }
       }
       if (event.getPacket() instanceof S08PacketPlayerPosLook && this.waiting) {
         this.waiting = false;
-        this.executor.schedule(
-            () -> {
-              int x = MathHelper.floor_double(mc.thePlayer.posX);
-              int y =
-                  MathHelper.floor_double(mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight());
-              int z = MathHelper.floor_double(mc.thePlayer.posZ);
-              for (int i = x - 25; i <= x + 25; i++) {
-                for (int j = y - 25; j <= y + 25; j++) {
-                  for (int k = z - 25; k <= z + 25; k++) {
-                    BlockPos blockPos = new BlockPos(i, j, k);
-                    if (this.isBed(blockPos)) {
-                      this.bedPos = blockPos;
-                      ChatUtil.sendFormatted(
-                          String.format(
-                              "%s%s: &fWhitelisted your bed at (%d, %d, %d) &a&l✔&r",
-                              Miau.clientName,
-                              this.getName(),
-                              this.bedPos.getX(),
-                              this.bedPos.getY(),
-                              this.bedPos.getZ()));
-                      SoundUtil.playSound("note.pling");
-                      return;
-                    }
-                  }
-                }
-              }
-            },
-            3000L,
-            TimeUnit.MILLISECONDS);
+        this.scheduleBedScan();
       }
     }
   }
 
   @Override
   public void onDisabled() {
-    this.alertCooldowns.clear();
-    this.trackedPearls.clear();
-    this.whitelistedPlayers.clear();
-    this.bedPos = null;
+    this.waiting = false;
+    this.bedScanAt = -1L;
+    this.resetTracking();
   }
 }

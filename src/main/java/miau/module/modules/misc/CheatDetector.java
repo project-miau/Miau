@@ -1,7 +1,5 @@
 package miau.module.modules.misc;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -13,12 +11,7 @@ import miau.event.EventTarget;
 import miau.event.impl.PacketEvent;
 import miau.event.impl.UpdateEvent;
 import miau.module.Module;
-import miau.module.modules.misc.cheatdetector.Check;
 import miau.module.modules.misc.cheatdetector.CheatDetectorData;
-import miau.module.modules.misc.cheatdetector.impl.AutoBlockCheck;
-import miau.module.modules.misc.cheatdetector.impl.KillauraCheck;
-import miau.module.modules.misc.cheatdetector.impl.LegitScaffoldCheck;
-import miau.module.modules.misc.cheatdetector.impl.NoSlowCheck;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
 import net.minecraft.client.Minecraft;
@@ -64,7 +57,8 @@ public class CheatDetector extends Module {
           && (Miau.friendManager == null || !Miau.friendManager.isFriend(player.getName()))) {
         if (AntiBot.isBot(player)) continue;
 
-        CheatDetectorData data = dataMap.computeIfAbsent(player.getUniqueID(), k -> new CheatDetectorData());
+        CheatDetectorData data =
+            dataMap.computeIfAbsent(player.getUniqueID(), k -> new CheatDetectorData());
         data.onUpdate(player);
       }
     }
@@ -84,7 +78,8 @@ public class CheatDetector extends Module {
           && (Miau.friendManager == null || !Miau.friendManager.isFriend(player.getName()))) {
         if (AntiBot.isBot(player)) continue;
 
-        CheatDetectorData data = dataMap.computeIfAbsent(player.getUniqueID(), k -> new CheatDetectorData());
+        CheatDetectorData data =
+            dataMap.computeIfAbsent(player.getUniqueID(), k -> new CheatDetectorData());
         data.onPacket(e, player);
       }
     }
@@ -95,8 +90,6 @@ public class CheatDetector extends Module {
     cheaters.clear();
     dataMap.clear();
   }
-
-
 
   public void mark(EntityPlayer ent) {
     cheaters.add(ent);

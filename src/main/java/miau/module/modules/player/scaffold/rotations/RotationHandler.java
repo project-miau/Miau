@@ -17,8 +17,7 @@ public class RotationHandler {
   private final Map<Integer, IRotationLogic> rotationLogics = new HashMap<>();
 
   public final ModeProperty rotationMode =
-      new ModeProperty(
-          "rotations", 2, new String[] {"NONE", "DEFAULT", "BACKWARDS", "GODBIRGDE", "HYPIXEL"});
+      new ModeProperty("rotations", 2, new String[] {"NONE", "DEFAULT", "BACKWARDS", "GODBIRGDE"});
 
   public List<Property<?>> getProperties() {
     return Arrays.asList(rotationMode);
@@ -27,14 +26,9 @@ public class RotationHandler {
   public RotationHandler(Scaffold scaffold) {
     this.scaffold = scaffold;
 
-    DefaultRotation defaultRotation = new DefaultRotation();
-    rotationLogics.put(1, defaultRotation);
-    rotationLogics.put(3, defaultRotation);
-    rotationLogics.put(6, defaultRotation);
-
+    rotationLogics.put(1, new DefaultRotation());
     rotationLogics.put(2, new BackwardsRotation());
-    rotationLogics.put(4, new GodbridgeRotation());
-    rotationLogics.put(5, new HypixelRotation());
+    rotationLogics.put(3, new GodbridgeRotation());
   }
 
   public void handleInitialRotation(

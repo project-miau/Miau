@@ -1,7 +1,5 @@
 package miau.module.modules.misc.cheatdetector;
 
-import java.util.Set;
-import java.util.UUID;
 import miau.Miau;
 import miau.event.impl.PacketEvent;
 import miau.module.modules.misc.CheatDetector;
@@ -19,7 +17,6 @@ public abstract class Check {
   public void onUpdate(EntityPlayer player) {}
 
   public void onPacket(PacketEvent event, EntityPlayer player) {}
-
 
   public void flag(EntityPlayer player, String verbose) {
     if (flagTimer.hasTimeElapsed(
