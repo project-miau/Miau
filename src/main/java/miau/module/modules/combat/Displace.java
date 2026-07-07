@@ -666,8 +666,14 @@ public class Displace extends Module {
   @EventTarget(Priority.HIGH)
   public void onClientRotation(UpdateEvent e) {
     if (e.getType() != EventType.PRE) return;
-    if (this.isEnabled() && this.renderDisplaceYaw != null && this.wasDisplacingLastTick && !this.displaceThisTick) {
-      float gcdYaw = applyGCD(this.renderDisplaceYaw, RotationUtil.customRots ? RotationUtil.serverYaw : mc.thePlayer.rotationYaw);
+    if (this.isEnabled()
+        && this.renderDisplaceYaw != null
+        && this.wasDisplacingLastTick
+        && !this.displaceThisTick) {
+      float gcdYaw =
+          applyGCD(
+              this.renderDisplaceYaw,
+              RotationUtil.customRots ? RotationUtil.serverYaw : mc.thePlayer.rotationYaw);
       e.setRotation(gcdYaw, mc.thePlayer.rotationPitch, 100);
       MoveUtil.fixMovement(gcdYaw);
     }

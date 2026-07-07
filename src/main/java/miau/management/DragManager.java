@@ -10,7 +10,6 @@ import miau.management.drag.Snap;
 import miau.module.Module;
 import miau.property.Property;
 import miau.property.properties.DragProperty;
-import miau.util.render.RenderUtil;
 import miau.util.render.ShapeUtil;
 import miau.util.vector.Vector2d;
 import net.minecraft.client.Minecraft;
@@ -64,8 +63,7 @@ public class DragManager {
       }
     }
 
-    if (Miau.notificationManager != null) {
-    }
+    if (Miau.notificationManager != null) {}
 
     int mouseX = Mouse.getX() * width / mc.displayWidth;
     int mouseY = height - Mouse.getY() * height / mc.displayHeight - 1;
@@ -232,7 +230,7 @@ public class DragManager {
               Math.min(width - positionValue.scale.x - padding, positionValue.targetPosition.x),
               Math.min(height - positionValue.scale.y - padding, positionValue.targetPosition.y));
 
-    // Removed white border and text per user request
+      // Removed white border and text per user request
     }
   }
 }

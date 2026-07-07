@@ -70,25 +70,41 @@ public class PlayerList extends Module {
       if (prefix.length() >= 2) {
         char colorChar = prefix.charAt(1);
         switch (colorChar) {
-          case '7': teamName = "Gray"; break;
-          case '9': teamName = "Blue"; break;
-          case 'a': teamName = "Green"; break;
-          case 'b': teamName = "Aqua"; break;
-          case 'c': teamName = "Red"; break;
-          case 'd': teamName = "Pink"; break;
-          case 'e': teamName = "Yellow"; break;
-          case 'f': teamName = "White"; break;
+          case '7':
+            teamName = "Gray";
+            break;
+          case '9':
+            teamName = "Blue";
+            break;
+          case 'a':
+            teamName = "Green";
+            break;
+          case 'b':
+            teamName = "Aqua";
+            break;
+          case 'c':
+            teamName = "Red";
+            break;
+          case 'd':
+            teamName = "Pink";
+            break;
+          case 'e':
+            teamName = "Yellow";
+            break;
+          case 'f':
+            teamName = "White";
+            break;
         }
       }
     }
-    
+
     String name = player.getName();
     if (!teamName.equals("Gray") && !teamName.equals("None")) {
-        teamCache.put(name, teamName);
+      teamCache.put(name, teamName);
     } else if (teamCache.containsKey(name)) {
-        return teamCache.get(name);
+      return teamCache.get(name);
     }
-    
+
     return teamName;
   }
 
@@ -101,7 +117,7 @@ public class PlayerList extends Module {
     if (mc.thePlayer.ticksExisted < 5) {
       teamCache.clear();
     }
-    
+
     cachedPlayers.clear();
     for (EntityPlayer p : mc.theWorld.playerEntities) {
       if (p != null && !p.isDead) {
@@ -172,7 +188,8 @@ public class PlayerList extends Module {
       boolean showTeamCol) {
     float rowHeight = font16.getFontHeight() + 3;
 
-    CheatDetector cheatDetector = (CheatDetector) Miau.moduleManager.modules.get(CheatDetector.class);
+    CheatDetector cheatDetector =
+        (CheatDetector) Miau.moduleManager.modules.get(CheatDetector.class);
     if (cheatDetector != null && cheatDetector.isEnabled() && cheatDetector.isCheater(player)) {
       ShapeUtil.drawRect(x, y, x + 220, y + rowHeight, new Color(255, 0, 0, 60).getRGB());
     }
@@ -219,10 +236,12 @@ public class PlayerList extends Module {
     net.minecraft.item.ItemStack helmet = player.inventory.armorInventory[3];
     net.minecraft.item.ItemStack chestplate = player.inventory.armorInventory[2];
     if (helmet == null || chestplate == null) return true;
-    if (!(helmet.getItem() instanceof net.minecraft.item.ItemArmor) || !(chestplate.getItem() instanceof net.minecraft.item.ItemArmor)) return true;
+    if (!(helmet.getItem() instanceof net.minecraft.item.ItemArmor)
+        || !(chestplate.getItem() instanceof net.minecraft.item.ItemArmor)) return true;
 
     int helmetColor = ((net.minecraft.item.ItemArmor) helmet.getItem()).getColor(helmet);
-    int chestplateColor = ((net.minecraft.item.ItemArmor) chestplate.getItem()).getColor(chestplate);
+    int chestplateColor =
+        ((net.minecraft.item.ItemArmor) chestplate.getItem()).getColor(chestplate);
     if (!(chestplateColor > 0 && helmetColor > 0 && chestplateColor == helmetColor)) return true;
 
     return false;

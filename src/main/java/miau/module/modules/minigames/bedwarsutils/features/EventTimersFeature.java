@@ -9,9 +9,8 @@ import miau.module.modules.minigames.BedwarsUtils;
 import miau.module.modules.minigames.bedwarsutils.BedwarsComponent;
 import miau.property.Property;
 import miau.property.properties.BooleanProperty;
-import miau.property.properties.FloatProperty;
-import miau.property.properties.IntProperty;
 import miau.property.properties.DragProperty;
+import miau.property.properties.FloatProperty;
 import miau.util.font.Font;
 import miau.util.font.FontRepository;
 import net.minecraft.client.Minecraft;
@@ -27,7 +26,8 @@ public class EventTimersFeature implements BedwarsComponent {
   private final BedwarsUtils parent;
 
   public final BooleanProperty eventTimers = new BooleanProperty("Event Timers", false);
-  public final DragProperty eventDrag = new DragProperty("Event Timers", new miau.util.vector.Vector2d(10, 60), true);
+  public final DragProperty eventDrag =
+      new DragProperty("Event Timers", new miau.util.vector.Vector2d(10, 60), true);
   public final FloatProperty eventScale =
       new FloatProperty("Event Scale", 0.65f, 0.5f, 1.5f, this.eventTimers::getValue);
   public final BooleanProperty eventTime =
@@ -50,7 +50,8 @@ public class EventTimersFeature implements BedwarsComponent {
       new BooleanProperty("Game End Timer", true, this.eventTimers::getValue);
   public final BooleanProperty emeraldTime =
       new BooleanProperty("Emeralds Enabled", true, this.eventTimers::getValue);
-  public final DragProperty emeraldDrag = new DragProperty("Emerald Timers", new miau.util.vector.Vector2d(10, 110), true);
+  public final DragProperty emeraldDrag =
+      new DragProperty("Emerald Timers", new miau.util.vector.Vector2d(10, 110), true);
   public final BooleanProperty emeraldDynamicColor =
       new BooleanProperty("Emerald Dynamic color", true, this.eventTimers::getValue);
 
@@ -239,8 +240,16 @@ public class EventTimersFeature implements BedwarsComponent {
               Math.max((int) ((font.getFontHeight() * 2 + 4) * sc), (int) (16.0F * sc))
                   + (int) (4.0F * sc);
 
-          float w1 = font.getStringWidth(EnumChatFormatting.getTextWithoutFormattingCodes(entry.title)) * sc + 18.0F * sc;
-          float w2 = font.getStringWidth(EnumChatFormatting.getTextWithoutFormattingCodes(EnumChatFormatting.GRAY + formatTime(remainingSeconds))) * sc + 18.0F * sc;
+          float w1 =
+              font.getStringWidth(EnumChatFormatting.getTextWithoutFormattingCodes(entry.title))
+                      * sc
+                  + 18.0F * sc;
+          float w2 =
+              font.getStringWidth(
+                          EnumChatFormatting.getTextWithoutFormattingCodes(
+                              EnumChatFormatting.GRAY + formatTime(remainingSeconds)))
+                      * sc
+                  + 18.0F * sc;
           if (w1 > maxWidth) maxWidth = w1;
           if (w2 > maxWidth) maxWidth = w2;
 
@@ -291,15 +300,20 @@ public class EventTimersFeature implements BedwarsComponent {
 
         int textBlockHeight = (int) ((font.getFontHeight() * 2 + 2) * sc);
         int iconSize = (int) (16.0F * sc);
-        int iconY = y + Math.max(0, (textBlockHeight - iconSize) / 2);
+        float iconY = y + Math.max(0.0F, (textBlockHeight - iconSize) / 2.0F);
 
         renderItemIcon(mc, EMERALD_ICON, x, iconY, sc);
         font.drawWithShadow(mainText, x + 18.0F * sc, y, -1);
         font.drawWithShadow(secondText, x + 18.0F * sc, y + (font.getFontHeight() + 2) * sc, -1);
 
-        float w1 = font.getStringWidth(EnumChatFormatting.getTextWithoutFormattingCodes(mainText)) * sc + 18.0F * sc;
-        float w2 = font.getStringWidth(EnumChatFormatting.getTextWithoutFormattingCodes(secondText)) * sc + 18.0F * sc;
-        this.emeraldDrag.setScale(new miau.util.vector.Vector2d(Math.max(w1, w2), (font.getFontHeight() * 2 + 4) * sc));
+        float w1 =
+            font.getStringWidth(EnumChatFormatting.getTextWithoutFormattingCodes(mainText)) * sc
+                + 18.0F * sc;
+        float w2 =
+            font.getStringWidth(EnumChatFormatting.getTextWithoutFormattingCodes(secondText)) * sc
+                + 18.0F * sc;
+        this.emeraldDrag.setScale(
+            new miau.util.vector.Vector2d(Math.max(w1, w2), (font.getFontHeight() * 2 + 4) * sc));
       }
     }
   }

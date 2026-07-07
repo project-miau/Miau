@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Queue;
-import miau.property.properties.DragProperty;
 import miau.event.impl.PacketEvent;
 import miau.event.impl.Render2DEvent;
 import miau.event.types.EventType;
@@ -13,8 +12,8 @@ import miau.module.modules.minigames.BedwarsUtils;
 import miau.module.modules.minigames.bedwarsutils.BedwarsComponent;
 import miau.property.Property;
 import miau.property.properties.BooleanProperty;
+import miau.property.properties.DragProperty;
 import miau.property.properties.FloatProperty;
-import miau.property.properties.IntProperty;
 import miau.util.font.Font;
 import miau.util.font.FontRepository;
 import net.minecraft.client.Minecraft;
@@ -26,7 +25,8 @@ public class UpgradeHUDFeature implements BedwarsComponent {
   private final BedwarsUtils parent;
 
   public final BooleanProperty upgradeHud = new BooleanProperty("Upgrade HUD", false);
-  public final DragProperty drag = new DragProperty("Upgrade HUD", new miau.util.vector.Vector2d(10, 10), true);
+  public final DragProperty drag =
+      new DragProperty("Upgrade HUD", new miau.util.vector.Vector2d(10, 10), true);
   public final BooleanProperty shortNames =
       new BooleanProperty("Short names", false, this.upgradeHud::getValue);
   public final FloatProperty scale =
