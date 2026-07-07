@@ -17,7 +17,8 @@ public class RotationHandler {
   private final Map<Integer, IRotationLogic> rotationLogics = new HashMap<>();
 
   public final ModeProperty rotationMode =
-      new ModeProperty("rotations", 2, new String[] {"NONE", "DEFAULT", "BACKWARDS", "GODBIRGDE", "BETA"});
+      new ModeProperty(
+          "rotations", 2, new String[] {"NONE", "DEFAULT", "BACKWARDS", "GODBIRGDE", "BETA"});
 
   public List<Property<?>> getProperties() {
     return Arrays.asList(rotationMode);
@@ -109,7 +110,7 @@ public class RotationHandler {
         scaffold.betaFeature.lastBetaSentPitch = targetPitch;
         scaffold.betaFeature.betaPlaceTicks++;
       }
-      
+
       event.setRotation(targetYaw, targetPitch, 3);
       if (scaffold.options.moveFix.getValue() == 1) {
         event.setPervRotation(targetYaw, 3);

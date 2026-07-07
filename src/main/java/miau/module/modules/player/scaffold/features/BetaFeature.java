@@ -35,7 +35,8 @@ public class BetaFeature implements ScaffoldComponent {
 
   public boolean isBetaTellyMode() {
     return isBetaMode()
-        && (scaffold.keepYFeature.keepY.getValue() == 2 || scaffold.keepYFeature.keepY.getValue() == 3)
+        && (scaffold.keepYFeature.keepY.getValue() == 2
+            || scaffold.keepYFeature.keepY.getValue() == 3)
         && mc.gameSettings != null
         && mc.gameSettings.keyBindUseItem.isKeyDown();
   }
@@ -63,7 +64,6 @@ public class BetaFeature implements ScaffoldComponent {
 
     quietBetaMovement();
   }
-
 
   @Override
   public void onMoveInput() {
