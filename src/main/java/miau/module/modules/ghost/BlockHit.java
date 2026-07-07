@@ -21,22 +21,32 @@ import org.lwjgl.input.Mouse;
 public class BlockHit extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  private final ModeProperty mode;
+  public final FloatProperty range =
+      new FloatProperty("Range", 4.0F, 2.0F, 6.0F);
+  public final FloatProperty maxHurtTimeMs =
+      new FloatProperty("Max Hurt Time", 200F, 50F, 500F);
+  public final FloatProperty maxHoldMs =
+      new FloatProperty("Max Hold Time", 150F, 50F, 500F);
 
-  private final FloatProperty range;
-  private final FloatProperty maxHurtTimeMs;
-  private final FloatProperty maxHoldMs;
+  public final PercentProperty lagChance =
+      new PercentProperty("Lag Chance", 100);
+  public final FloatProperty lagMaxDuration =
+      new FloatProperty("Lag Max Duration", 200F, 50F, 500F);
+  public final BooleanProperty preventDelayAttacks =
+      new BooleanProperty("Prevent Delay Attacks", true);
+  public final BooleanProperty blockAgainImmediately =
+      new BooleanProperty("Block Again Immediately", true);
+  public final BooleanProperty forceBlockAnimation =
+      new BooleanProperty("Force Block Animation", true);
 
-  private final PercentProperty lagChance;
-  private final FloatProperty lagMaxDuration;
-  private final BooleanProperty preventDelayAttacks;
-  private final BooleanProperty blockAgainImmediately;
-  private final BooleanProperty forceBlockAnimation;
-
-  private final BooleanProperty requireLmb;
-  private final BooleanProperty requireRmb;
-  private final BooleanProperty onlyWhenDamaged;
-  private final BooleanProperty ignoreTeammates;
+  public final BooleanProperty requireLmb =
+      new BooleanProperty("Require Left Mouse", true);
+  public final BooleanProperty requireRmb =
+      new BooleanProperty("Require Right Mouse", false);
+  public final BooleanProperty onlyWhenDamaged =
+      new BooleanProperty("Damaged Only", false);
+  public final BooleanProperty ignoreTeammates =
+      new BooleanProperty("Ignore Teammates", true);
 
   private boolean isBlocking;
   private boolean manualBlock;
@@ -50,37 +60,6 @@ public class BlockHit extends Module {
 
   public BlockHit() {
     super("BlockHit", false, false);
-
-    this.registerProperty(
-        mode = new ModeProperty(
-            "Mode", 0, new String[]{"Normal", "Lag"}));
-
-    this.registerProperty(
-        range = new FloatProperty("Range", 4.0F, 2.0F, 6.0F));
-    this.registerProperty(
-        maxHurtTimeMs = new FloatProperty("Max Hurt Time", 200F, 50F, 500F));
-    this.registerProperty(
-        maxHoldMs = new FloatProperty("Max Hold Time", 150F, 50F, 500F));
-
-    this.registerProperty(
-        lagChance = new PercentProperty("Lag Chance", 100));
-    this.registerProperty(
-        lagMaxDuration = new FloatProperty("Lag Max Duration", 200F, 50F, 500F));
-    this.registerProperty(
-        preventDelayAttacks = new BooleanProperty("Prevent Delay Attacks", true));
-    this.registerProperty(
-        blockAgainImmediately = new BooleanProperty("Block Again Immediately", true));
-    this.registerProperty(
-        forceBlockAnimation = new BooleanProperty("Force Block Animation", true));
-
-    this.registerProperty(
-        requireLmb = new BooleanProperty("Require Left Mouse", true));
-    this.registerProperty(
-        requireRmb = new BooleanProperty("Require Right Mouse", false));
-    this.registerProperty(
-        onlyWhenDamaged = new BooleanProperty("Damaged Only", false));
-    this.registerProperty(
-        ignoreTeammates = new BooleanProperty("Ignore Teammates", true));
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────
@@ -99,12 +78,6 @@ public class BlockHit extends Module {
   private static int msToTicks(double ms) {
     if (ms <= 0.0) return 0;
     return (int) Math.ceil(ms / 50.0);
-  }
-
-  // ── Mode helpers ───────────────────────────────────────────────────
-
-  private boolean isLagMode() {
-    return mode.getValue() == 1;
   }
 
   // ── Event handlers ────────────────────────────────────────────────
@@ -153,7 +126,7 @@ public class BlockHit extends Module {
 
     // ── RMB only (no LMB) → manual blocking ──
     if (!lmbDown) {
-      if (isLagMode() && isLagging) releaseLag();
+      if (isLagging) releaseLag();
       if (!isBlocking) {
         startBlocking(currentTick);
         manualBlock = true;
@@ -171,7 +144,7 @@ public class BlockHit extends Module {
     boolean conditionsMet = hasTarget && checkConditions(lmbDown, rmbDown);
 
     // ── Handle active lag (Lag mode only) ──
-    if (isLagMode() && isLagging) {
+    if (isLagging) {
       int lagMaxTicks = msToTicks(lagMaxDuration.getValue());
       boolean lagExpired =
           lagMaxTicks > 0
@@ -194,7 +167,7 @@ public class BlockHit extends Module {
     }
 
     // ── Start blocking if needed ──
-    if (!isBlocking && !(isLagMode() && isLagging)) {
+    if (!isBlocking && !isLagging) {
       boolean shouldStart;
       if (onlyWhenDamaged.getValue()) {
         shouldStart = shouldPredictiveBlock();
@@ -218,7 +191,7 @@ public class BlockHit extends Module {
         shouldStop = true;
       }
       if (shouldStop) {
-        if (isLagMode() && shouldStartLag()) {
+        if (shouldStartLag()) {
           startLag(currentTick);
         }
         stopBlocking(true);
@@ -242,7 +215,7 @@ public class BlockHit extends Module {
   @EventTarget
   public void onPacket(PacketEvent event) {
     if (event.getType() != EventType.SEND) return;
-    if (!isLagMode() || !isLagging || !preventDelayAttacks.getValue()) return;
+    if (!isLagging || !preventDelayAttacks.getValue()) return;
     if (!(event.getPacket() instanceof C02PacketUseEntity)) return;
     if (((C02PacketUseEntity) event.getPacket()).getAction()
         != C02PacketUseEntity.Action.ATTACK) return;
@@ -278,7 +251,6 @@ public class BlockHit extends Module {
 
   private boolean shouldBlockVanillaUse() {
     return isEnabled()
-        && isLagMode()
         && isLagging
         && mc.thePlayer != null
         && mc.theWorld != null
@@ -320,7 +292,7 @@ public class BlockHit extends Module {
   }
 
   private void startLag(int currentTick) {
-    if (!isLagMode() || isLagging) return;
+    if (isLagging) return;
     int lagReferenceTick =
         blockStartTick >= 0 ? blockStartTick : currentTick;
     int lagMaxTicks = msToTicks(lagMaxDuration.getValue());
@@ -413,9 +385,8 @@ public class BlockHit extends Module {
 
   @Override
   public String[] getSuffix() {
-    String currentMode = mode.getModeString();
-    if (isLagMode() && isLagging) return new String[] {currentMode, "Lag"};
-    if (isBlocking) return new String[] {currentMode, "Block"};
-    return new String[] {currentMode, "Idle"};
+    if (isLagging) return new String[] {"Lag"};
+    if (isBlocking) return new String[] {"Block"};
+    return new String[] {"Idle"};
   }
 }

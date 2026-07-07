@@ -449,25 +449,10 @@ public class CategoryComponent {
   }
 
   public void renderBloom(FontRenderer renderer) {
-    if (this.opened || smoothTimer != null) {
-      float moduleAreaTop = this.renderY + this.titleHeight + 3;
-      float scissorBottom = cachedExtra - 2f;
-      float moduleAreaHeight = Math.max(0f, scissorBottom - moduleAreaTop);
-
-      GL11.glPushMatrix();
-      GL11.glEnable(GL11.GL_SCISSOR_TEST);
-      RenderUtil.scissor(0, moduleAreaTop, this.renderX + this.width + 4, moduleAreaHeight);
-
-      float scrollOffset = cachedRenderModuleY - this.renderY;
-      GL11.glPushMatrix();
-      GL11.glTranslatef(this.renderX - this.x, this.renderY - this.y + scrollOffset, 0f);
-      for (Component c2 : this.modules) {
+    if (this.isOpened()) {
+      for (Component c2 : this.getModules()) {
         c2.renderBloom();
       }
-      GL11.glPopMatrix();
-
-      GL11.glDisable(GL11.GL_SCISSOR_TEST);
-      GL11.glPopMatrix();
     }
   }
 

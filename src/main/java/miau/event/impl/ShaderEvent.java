@@ -3,13 +3,20 @@ package miau.event.impl;
 import miau.event.Event;
 
 public class ShaderEvent implements Event {
-  private final boolean bloom;
+    public static final int BLOOM_PASS = 0;
+    public static final int BLUR_PASS = 1;
 
-  public ShaderEvent(boolean bloom) {
-    this.bloom = bloom;
-  }
+    private final int pass;
 
-  public boolean isBloom() {
-    return bloom;
-  }
+    public ShaderEvent(int pass) {
+        this.pass = pass;
+    }
+
+    public boolean isBloom() {
+        return pass == BLOOM_PASS;
+    }
+
+    public int getPass() {
+        return pass;
+    }
 }

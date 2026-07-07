@@ -18,7 +18,6 @@ import net.minecraft.util.BlockPos;
 public class AutoTool extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  public final BooleanProperty spoofItem = new BooleanProperty("Spoof item", false);
   private int blockBreak;
   private BlockPos blockPos;
   public int previousSlot = -1;

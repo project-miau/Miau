@@ -1,7 +1,9 @@
 package miau.component;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import miau.event.EventTarget;
 import miau.event.impl.LoadWorldEvent;
@@ -24,6 +26,20 @@ public final class PingSpoofComponent {
   static TimerUtil enabledTimer = new TimerUtil();
   public static boolean enabled;
   static long amount;
+
+  private static final Map<String, String> sessionOwners = new HashMap<>();
+
+  public static void registerSessionOwner(String sessionId, String owner) {
+    sessionOwners.put(sessionId, owner);
+  }
+
+  public static String getSessionOwner(String sessionId) {
+    return sessionOwners.get(sessionId);
+  }
+
+  public static void clearSessionOwners() {
+    sessionOwners.clear();
+  }
 
   static PacketCategory regular =
       new PacketCategory(
@@ -203,6 +219,33 @@ public final class PingSpoofComponent {
 
   public static void blink() {
     spoof(9999999, true, false, false, false, true);
+  }
+
+  private static final java.util.Map<String, Boolean> activeSessions = new java.util.HashMap<>();
+
+  public static boolean isOwnedBy(String sessionId) {
+    return activeSessions.containsKey(sessionId) && activeSessions.get(sessionId);
+  }
+
+  public static void beginSession(
+      String sessionId,
+      int amount,
+      boolean regularPackets,
+      boolean velocityPackets,
+      boolean teleportPackets,
+      boolean playerPackets,
+      boolean blinkPackets,
+      boolean movementPackets) {
+    activeSessions.put(sessionId, true);
+    spoof(amount, regularPackets, velocityPackets, teleportPackets, playerPackets, blinkPackets, movementPackets);
+  }
+
+  public static void finishSession(String sessionId, boolean dispatchImmediately) {
+    activeSessions.put(sessionId, false);
+    if (dispatchImmediately) {
+      dispatch();
+    }
+    disable();
   }
 
   public static class TimedPacket {
