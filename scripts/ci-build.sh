@@ -22,7 +22,12 @@ print_failure_digest() {
   echo "Full log (incl. Mixin AP noise): artifact gradle-build-log / $LOG"
 }
 
-./gradlew build --no-daemon >"$LOG" 2>&1 || {
+{
+  echo "=== spotlessApply (before compile) ==="
+  ./gradlew spotlessApply --no-daemon
+  echo "=== build ==="
+  ./gradlew build --no-daemon
+} >"$LOG" 2>&1 || {
   code=$?
   print_failure_digest "$code"
   exit "$code"
