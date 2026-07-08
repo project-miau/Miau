@@ -4,15 +4,18 @@ import java.awt.Color;
 import java.util.Comparator;
 import miau.Miau;
 import miau.event.EventTarget;
+import miau.event.impl.MoveInputEvent;
 import miau.event.impl.Render3DEvent;
 import miau.event.impl.UpdateEvent;
 import miau.event.types.EventType;
+import miau.management.RotationState;
 import miau.module.Module;
 import miau.module.modules.misc.AntiBot;
 import miau.module.modules.render.HUD;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
 import miau.property.properties.ModeProperty;
+import miau.util.player.MoveUtil;
 import miau.util.player.RotationUtil;
 import miau.util.player.TeamUtil;
 import miau.util.render.RenderUtil;
@@ -63,6 +66,10 @@ public class ProjectileAimBot extends Module {
           5.0F,
           () -> predict.getValue() && gravityType.getValue() == 1);
   public final BooleanProperty mark = new BooleanProperty("mark", true);
+  public final BooleanProperty silentAim = new BooleanProperty("silent-aim", true);
+  public final ModeProperty moveFix =
+      new ModeProperty(
+          "move-fix", 1, new String[] {"NONE", "SILENT", "STRICT"}, () -> silentAim.getValue());
   public final ModeProperty showTarget =
       new ModeProperty("show-target", 0, new String[] {"NONE", "DEFAULT", "HUD"});
 
@@ -103,8 +110,29 @@ public class ProjectileAimBot extends Module {
             : getDirectRotations(target);
     if (rotations == null) return;
 
-    event.setRotation(rotations[0], rotations[1], 3);
-    Miau.rotationManager.setRotation(rotations[0], rotations[1], 3, true);
+    float yaw = rotations[0];
+    float pitch = rotations[1];
+    event.setRotation(yaw, pitch, 3);
+    if (silentAim.getValue()) {
+      if (moveFix.getValue() != 0) {
+        event.setPervRotation(yaw, 3);
+      }
+      Miau.rotationManager.setSilentRotation(yaw, pitch, 3);
+    } else {
+      event.setPervRotation(yaw, 3);
+      Miau.rotationManager.setRotation(yaw, pitch, 3, true);
+    }
+  }
+
+  @EventTarget
+  public void onMoveInput(MoveInputEvent event) {
+    if (!isEnabled() || !silentAim.getValue()) return;
+    if (moveFix.getValue() == 1
+        && RotationState.isActived()
+        && RotationState.getPriority() == 3.0F
+        && MoveUtil.isForwardPressed()) {
+      MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
+    }
   }
 
   @EventTarget
@@ -315,5 +343,6 @@ public class ProjectileAimBot extends Module {
   @Override
   public void onDisabled() {
     target = null;
+    RotationState.applyState(false, 0.0F, 0.0F, 0.0F, Integer.MIN_VALUE);
   }
 }
