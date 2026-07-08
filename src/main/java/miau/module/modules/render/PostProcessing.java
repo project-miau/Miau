@@ -10,8 +10,8 @@ import miau.property.properties.BooleanProperty;
 import miau.property.properties.IntProperty;
 import miau.ui.clickgui.ClickGui;
 import miau.util.render.RenderUtil;
-import miau.util.shader.KawaseBlur;
 import miau.util.shader.KawaseBloom;
+import miau.util.shader.KawaseBlur;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
@@ -41,7 +41,6 @@ public class PostProcessing extends Module {
       clickGui.drawForEffects(pass == ShaderEvent.BLOOM_PASS);
     }
 
-    // Fire ShaderEvent so modules can draw their rects
     RenderUtil.resetColor();
     EventManager.call(new ShaderEvent(pass));
     RenderUtil.resetColor();

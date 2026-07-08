@@ -14,6 +14,7 @@ import miau.mixin.IAccessorPlayerControllerMP;
 import miau.mixin.IAccessorRenderManager;
 import miau.module.Module;
 import miau.module.modules.player.BedNuker;
+import miau.module.modules.player.Scaffold;
 import miau.module.modules.render.HUD;
 import miau.property.properties.*;
 import miau.util.player.ItemUtil;
@@ -133,6 +134,12 @@ public class LagRange extends Module {
   private void tickOldMiau() {
     Miau.lagManager.setDelay(0);
     this.hasTarget = false;
+
+    Scaffold scaffold = (Scaffold) Miau.moduleManager.modules.get(Scaffold.class);
+    if (scaffold != null && scaffold.isEnabled()) {
+      this.tickIndex = -1;
+      return;
+    }
 
     BedNuker bedNuker = (BedNuker) Miau.moduleManager.modules.get(BedNuker.class);
     if ((bedNuker.isEnabled() && bedNuker.isReady())
@@ -270,6 +277,12 @@ public class LagRange extends Module {
   private void tickAggressive() {
     Miau.lagManager.resetDelay();
     this.hasTarget = false;
+
+    Scaffold scaffold = (Scaffold) Miau.moduleManager.modules.get(Scaffold.class);
+    if (scaffold != null && scaffold.isEnabled()) {
+      if (isLagging) flushLag();
+      return;
+    }
 
     BedNuker bedNuker = (BedNuker) Miau.moduleManager.modules.get(BedNuker.class);
     if ((bedNuker.isEnabled() && bedNuker.isReady())

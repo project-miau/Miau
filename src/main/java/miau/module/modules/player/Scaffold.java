@@ -10,7 +10,6 @@ import miau.event.impl.*;
 import miau.event.types.EventType;
 import miau.event.types.Priority;
 import miau.management.RotationState;
-import miau.mixin.IAccessorMinecraft;
 import miau.module.Module;
 import miau.module.modules.movement.LongJump;
 import miau.module.modules.render.PostProcessing;
@@ -28,10 +27,10 @@ import miau.util.world.BlockUtil;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockAir;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
@@ -83,35 +82,82 @@ public class Scaffold extends Module {
   private float lastBetaSentPitch = Float.NaN;
   private long lastBetaPitchQuotient = 0L;
   private int betaPlaceTicks = 999;
-  public final ModeProperty rotationMode =new ModeProperty("rotations",2,new String[] {"NONE","Normal","Backwards","Sideways","Godbridge","Smooth","Snap","Beta"});
-  public final FloatProperty tellystartrotationminspeed =new FloatProperty("telly-start-rotation-min-speed",90.0F,1.0F,180.0F,() -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-  public final FloatProperty tellystartrotationmaxspeed =new FloatProperty("telly-start-rotation-max-speed",95.0F,1.0F,180.0F,() -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-  public final FloatProperty tellynormalrotationminspeed =new FloatProperty("telly-normal-rotation-min-speed",30.0F,1.0F,180.0F,() -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-  public final FloatProperty tellynormalrotationmaxspeed =new FloatProperty("telly-normal-rotation-max-speed",35.0F,1.0F,180.0F,() -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-  public final ModeProperty moveFix =new ModeProperty("move-fix", 1, new String[] {"NONE", "SILENT"});
-  public final ModeProperty rayCast =new ModeProperty("ray-cast",2,new String[] {"Off","Normal","Strict"});
-  public final ModeProperty sprintMode =new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA"});
+  public final ModeProperty rotationMode =
+      new ModeProperty(
+          "rotations",
+          2,
+          new String[] {
+            "NONE", "Normal", "Backwards", "Sideways", "Godbridge", "Smooth", "Snap", "Beta"
+          });
+  public final FloatProperty tellystartrotationminspeed =
+      new FloatProperty(
+          "telly-start-rotation-min-speed",
+          90.0F,
+          1.0F,
+          180.0F,
+          () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+  public final FloatProperty tellystartrotationmaxspeed =
+      new FloatProperty(
+          "telly-start-rotation-max-speed",
+          95.0F,
+          1.0F,
+          180.0F,
+          () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+  public final FloatProperty tellynormalrotationminspeed =
+      new FloatProperty(
+          "telly-normal-rotation-min-speed",
+          30.0F,
+          1.0F,
+          180.0F,
+          () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+  public final FloatProperty tellynormalrotationmaxspeed =
+      new FloatProperty(
+          "telly-normal-rotation-max-speed",
+          35.0F,
+          1.0F,
+          180.0F,
+          () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+  public final ModeProperty moveFix =
+      new ModeProperty("move-fix", 1, new String[] {"NONE", "SILENT"});
+  public final ModeProperty sprintMode =
+      new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA"});
   public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
   public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
   public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
-  public final ModeProperty tower =new ModeProperty("tower", 0, new String[] {"NONE", "VANILLA", "EXTRA", "TELLY"});
-  public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
-  public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
-  public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
-  public final ModeProperty keepY =new ModeProperty("keep-y", 0, new String[] {"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY"});
-  public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
-  public final BooleanProperty tellyRightClick = new BooleanProperty("telly-on-right-click",false,() -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-  public final BooleanProperty disableWhileJumpActive = new BooleanProperty("no-keep-y-on-jump-potion", false, () -> this.keepY.getValue() != 0);
+  public final ModeProperty tower =
+      new ModeProperty("tower", 0, new String[] {"NONE", "VANILLA", "EXTRA", "TELLY"});
+  public final BooleanProperty hypixeltower =
+      new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
+  public final BooleanProperty safe =
+      new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
+  public final IntProperty safeStuckDelayTicksProperty =
+      new IntProperty(
+          "safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
+  public final ModeProperty keepY =
+      new ModeProperty(
+          "keep-y", 0, new String[] {"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY"});
+  public final BooleanProperty keepYonPress =
+      new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
+  public final BooleanProperty tellyRightClick =
+      new BooleanProperty(
+          "telly-on-right-click",
+          false,
+          () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+  public final BooleanProperty disableWhileJumpActive =
+      new BooleanProperty("no-keep-y-on-jump-potion", false, () -> this.keepY.getValue() != 0);
   public final BooleanProperty blockCounter = new BooleanProperty("block-counter", true);
-  public final FloatProperty rotationSpeed = new FloatProperty("rotation-speed", 5.0F, 10.0F, 0.0F, 10.0F);
   public final FloatProperty placeDelay = new FloatProperty("place-delay", 0.0F, 0.0F, 0.0F, 5.0F);
   public final BooleanProperty multiplace = new BooleanProperty("multi-place", true);
   public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", true);
   public final BooleanProperty sneak = new BooleanProperty("sneak", false);
-  public final FloatProperty startSneaking = new FloatProperty("start-sneaking", 0.0F, 0.0F, 0.0F, 5.0F, () -> this.sneak.getValue());
-  public final FloatProperty stopSneaking = new FloatProperty("stop-sneaking", 0.0F, 0.0F, 0.0F, 5.0F, () -> this.sneak.getValue());
-  public final IntProperty sneakEvery = new IntProperty("sneak-every", 1, 1, 10, () -> this.sneak.getValue());
-  public final FloatProperty sneakingSpeed = new FloatProperty("sneaking-speed", 0.2F, 0.2F, 1.0F, () -> this.sneak.getValue());
+  public final FloatProperty startSneaking =
+      new FloatProperty("start-sneaking", 0.0F, 0.0F, 0.0F, 5.0F, () -> this.sneak.getValue());
+  public final FloatProperty stopSneaking =
+      new FloatProperty("stop-sneaking", 0.0F, 0.0F, 0.0F, 5.0F, () -> this.sneak.getValue());
+  public final IntProperty sneakEvery =
+      new IntProperty("sneak-every", 1, 1, 10, () -> this.sneak.getValue());
+  public final FloatProperty sneakingSpeed =
+      new FloatProperty("sneaking-speed", 0.2F, 0.2F, 1.0F, () -> this.sneak.getValue());
   private int sneakingTicks = -1;
   private int placements = 0;
   private int pause = 0;
@@ -289,15 +335,7 @@ public class Scaffold extends Module {
     }
     ItemStack activeItem = Miau.slotComponent.getItemStack();
     if (activeItem != null && ItemUtil.isBlock(activeItem) && this.blockCount > 0) {
-      boolean strict = this.rayCast.getValue() == 2;
-      if (strict) {
-        int prevSlot = mc.thePlayer.inventory.currentItem;
-        mc.thePlayer.inventory.currentItem = Miau.slotComponent.getItemIndex();
-        ((IAccessorMinecraft) mc).callRightClickMouse();
-        mc.thePlayer.inventory.currentItem = prevSlot;
-        this.blockCount--;
-        this.placedThisTick = true;
-      } else if (mc.playerController.onPlayerRightClick(
+      if (mc.playerController.onPlayerRightClick(
           mc.thePlayer, mc.theWorld, activeItem, blockPos, enumFacing, vec3)) {
         if (mc.playerController.getCurrentGameType() != GameType.CREATIVE) {
           this.blockCount--;
@@ -308,7 +346,6 @@ public class Scaffold extends Module {
           this.betaPlaceTicks = 0;
         }
         this.placements--;
-        mc.thePlayer.swingItem();
       }
     }
   }
@@ -397,7 +434,8 @@ public class Scaffold extends Module {
     }
 
     int ahead = (int) (float) this.startSneaking.getValue();
-    int place = (int) RandomUtil.nextFloat(this.placeDelay.getValue(), this.placeDelay.getSecondValue());
+    int place =
+        (int) RandomUtil.nextFloat(this.placeDelay.getValue(), this.placeDelay.getSecondValue());
     int after = (int) (float) this.stopSneaking.getValue();
 
     if (this.pause > 0) {
@@ -417,8 +455,8 @@ public class Scaffold extends Module {
 
     if (this.ticksOnAir > 0
         || PlayerUtil.blockRelativeToPlayer(
-               mc.thePlayer.motionX * ahead, 1.0, mc.thePlayer.motionZ * ahead)
-               instanceof BlockAir) {
+                mc.thePlayer.motionX * ahead, 1.0, mc.thePlayer.motionZ * ahead)
+            instanceof BlockAir) {
       if (this.placements <= 0) {
         this.sneakingTicks = ahead + place + after;
         this.placements = this.sneakEvery.getValue();
@@ -535,7 +573,9 @@ public class Scaffold extends Module {
             && (!(Boolean) this.keepYonPress.getValue() || PlayerUtil.isUsingItem())
             && (!this.disableWhileJumpActive.getValue()
                 || !mc.thePlayer.isPotionActive(Potion.jump))
-            && (this.tellyRightClick.getValue() ? this.isRightClickHeld() : !mc.gameSettings.keyBindJump.isKeyDown())) {
+            && (this.tellyRightClick.getValue()
+                ? this.isRightClickHeld()
+                : !mc.gameSettings.keyBindJump.isKeyDown())) {
           this.stage = 1;
         }
         this.startY = this.shouldKeepY ? this.startY : MathHelper.floor_double(mc.thePlayer.posY);
@@ -655,22 +695,7 @@ public class Scaffold extends Module {
               break;
           }
         }
-        // Apply rotation speed limiting to smooth rotation changes
-        float rotationSpeedMin = this.rotationSpeed.getValue();
-        float rotationSpeedMax = this.rotationSpeed.getSecondValue();
-        if (rotationSpeedMin < 10.0F && this.rotationMode.getValue() != 0) {
-          float speed = RandomUtil.nextFloat(rotationSpeedMin, rotationSpeedMax);
-          float yawDiff = MathHelper.wrapAngleTo180_float(this.yaw - event.getYaw());
-          float pitchDiff = MathHelper.wrapAngleTo180_float(this.pitch - event.getPitch());
-          if (Math.abs(yawDiff) > speed) {
-            this.yaw = RotationUtil.quantizeAngle(
-                event.getYaw() + RotationUtil.clampAngle(yawDiff, speed));
-          }
-          if (Math.abs(pitchDiff) > speed) {
-            this.pitch = RotationUtil.quantizeAngle(
-                event.getPitch() + RotationUtil.clampAngle(pitchDiff, speed));
-          }
-        }
+
         BlockData blockData = this.getBlockData();
 
         Vec3 hitVec = null;
@@ -835,38 +860,22 @@ public class Scaffold extends Module {
 
           placeYaw = targetYaw;
           placePitch = targetPitch;
-          // Beta anti-detection: use co-prime pitch quotients to keep GCD within valid range
-          // (bypasses ScaffoldH/Rotations[3]: finalSensitivity > 200 && deltaPitch > 0.25)
-          // and clamp pitch when yaw delta is large near placement
-          // (bypasses ScaffoldE/Rotations[2]: deltaPitch > 8 && deltaYaw > 100)
           if (betaMode) {
             if (!Float.isNaN(this.lastBetaSentYaw)) {
               boolean clampE = this.betaPlaceTicks < 3;
-              float[] corrected =
-                  RotationUtil.antiDetectionRotation(
-                      targetYaw,
-                      targetPitch,
-                      this.lastBetaSentYaw,
-                      this.lastBetaSentPitch,
-                      this.lastBetaPitchQuotient,
-                      clampE);
+              float[] corrected = RotationUtil.antiDetectionRotation(targetYaw,targetPitch,this.lastBetaSentYaw,this.lastBetaSentPitch,this.lastBetaPitchQuotient,clampE);
               targetYaw = corrected[0];
               targetPitch = corrected[1];
               placeYaw = corrected[0];
               placePitch = corrected[1];
-              // Extract pitch quotient for next tick's co-prime enforcement
               float mcpSens =
                   (float)
-                      (mc.gameSettings.mouseSensitivity
-                              * (1.0 + Math.random() / 10000000.0)
-                              * 0.6F
+                      (mc.gameSettings.mouseSensitivity * (1.0 + Math.random() / 10000000.0) * 0.6F
                           + 0.2F);
               double m = mcpSens * mcpSens * mcpSens * 8.0F * 0.15D;
-              this.lastBetaPitchQuotient =
-                  Math.round((corrected[1] - this.lastBetaSentPitch) / m);
+              this.lastBetaPitchQuotient = Math.round((corrected[1] - this.lastBetaSentPitch) / m);
               if (this.lastBetaPitchQuotient == 0L) {
-                this.lastBetaPitchQuotient =
-                    corrected[1] > this.lastBetaSentPitch ? 1L : -1L;
+                this.lastBetaPitchQuotient = corrected[1] > this.lastBetaSentPitch ? 1L : -1L;
               }
             }
             this.lastBetaSentYaw = targetYaw;
@@ -890,9 +899,9 @@ public class Scaffold extends Module {
             && hitVec != null
             && snapCanPlace
             && (this.rotationTick <= 0 || snapAlreadyLooking)
-            && this.ticksOnAir >= RandomUtil.nextFloat(
-                this.placeDelay.getValue(),
-                this.placeDelay.getSecondValue())) {
+            && this.ticksOnAir
+                >= RandomUtil.nextFloat(
+                    this.placeDelay.getValue(), this.placeDelay.getSecondValue())) {
           this.place(blockData.blockPos(), blockData.facing(), hitVec);
           if (snapMode) {
             this.rememberSnapRotation();

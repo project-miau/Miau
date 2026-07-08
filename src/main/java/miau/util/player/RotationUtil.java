@@ -1,5 +1,10 @@
 package miau.util.player;
 
+import com.google.common.base.Predicates;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import miau.mixin.IAccessorEntity;
 import miau.util.animation.*;
 import miau.util.client.*;
@@ -11,15 +16,22 @@ import miau.util.time.*;
 import miau.util.world.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.util.*;
 
 public class RotationUtil {
   private static final Minecraft mc = Minecraft.getMinecraft();
   private static final float FAR_THRESHOLD = 180.0f;
+  private static final double BACKUP_FACE_INSET = 0.05;
+  private static final int BACKUP_TARGET_TOTAL = 30;
 
   public static float serverYaw;
   public static float serverPitch;
   public static boolean customRots;
+
+  public static float unwrapYaw(float yaw, float prevYaw) {
+    return prevYaw + ((((yaw - prevYaw + 180f) % 360f) + 360f) % 360f - 180f);
+  }
 
   public static float wrapAngleDiff(float angle, float target) {
     return target + MathHelper.wrapAngleTo180_float(angle - target);
@@ -46,6 +58,375 @@ public class RotationUtil {
 
   public static float quantizeAngle(float angle) {
     return (float) ((double) angle - (double) angle % (double) 0.0096f);
+  }
+
+  public static Vec3 closestPointOnAabb(AxisAlignedBB box, Vec3 point) {
+    double x = Math.max(box.minX, Math.min(box.maxX, point.xCoord));
+    double y = Math.max(box.minY, Math.min(box.maxY, point.yCoord));
+    double z = Math.max(box.minZ, Math.min(box.maxZ, point.zCoord));
+    return new Vec3(x, y, z);
+  }
+
+  public static double distanceSqFromEyeToClosestOnAABB(Entity entity) {
+    if (entity == null || mc.thePlayer == null) return Double.MAX_VALUE;
+    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    Vec3 closest = closestPointOnAabb(bb, eye);
+    double dx = eye.xCoord - closest.xCoord;
+    double dy = eye.yCoord - closest.yCoord;
+    double dz = eye.zCoord - closest.zCoord;
+    return dx * dx + dy * dy + dz * dz;
+  }
+
+  public static double distanceFromEyeToClosestOnAABB(Entity entity) {
+    double dSq = distanceSqFromEyeToClosestOnAABB(entity);
+    return dSq == Double.MAX_VALUE ? Double.MAX_VALUE : Math.sqrt(dSq);
+  }
+
+  public static Vec3 getAimPoint(
+      Entity entity, double horizontalMultipoint, double verticalMultipoint) {
+    if (entity == null || mc.thePlayer == null) return null;
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    double centerX = (bb.minX + bb.maxX) / 2.0;
+    double centerY;
+    if (entity instanceof EntityLivingBase) {
+      centerY = entity.posY + ((EntityLivingBase) entity).getEyeHeight();
+    } else {
+      centerY = (bb.minY + bb.maxY) / 2.0;
+    }
+    double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+    if (bb.isVecInside(eye)) {
+      return new Vec3(centerX, eye.yCoord, centerZ);
+    }
+    Vec3 cl = closestPointOnAabb(bb, eye);
+    double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
+    double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
+    double targetX = centerX + (cl.xCoord - centerX) * tH;
+    double targetY = centerY + (cl.yCoord - centerY) * tV;
+    double targetZ = centerZ + (cl.zCoord - centerZ) * tH;
+    return new Vec3(targetX, targetY, targetZ);
+  }
+
+  public static List<Vec3> buildBackupPoints(Entity entity, Vec3 eye) {
+    if (entity == null || mc.thePlayer == null) return new ArrayList<>();
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+
+    double sizeX = bb.maxX - bb.minX;
+    double sizeY = bb.maxY - bb.minY;
+    double sizeZ = bb.maxZ - bb.minZ;
+
+    boolean xPos = eye.xCoord > bb.maxX;
+    boolean xNeg = eye.xCoord < bb.minX;
+    boolean yPos = eye.yCoord > bb.maxY;
+    boolean yNeg = eye.yCoord < bb.minY;
+    boolean zPos = eye.zCoord > bb.maxZ;
+    boolean zNeg = eye.zCoord < bb.minZ;
+
+    int visibleFaceCount = (xPos || xNeg ? 1 : 0) + (yPos || yNeg ? 1 : 0) + (zPos || zNeg ? 1 : 0);
+    if (visibleFaceCount == 0) return new ArrayList<>();
+
+    int pointsPerFace = BACKUP_TARGET_TOTAL / visibleFaceCount;
+    List<Vec3> points = new ArrayList<>(BACKUP_TARGET_TOTAL + 6);
+
+    if (xPos || xNeg) {
+      double fixedX = xPos ? bb.maxX - BACKUP_FACE_INSET : bb.minX + BACKUP_FACE_INSET;
+      addFaceGrid(
+          points,
+          0,
+          fixedX,
+          bb.minY + BACKUP_FACE_INSET,
+          bb.maxY - BACKUP_FACE_INSET,
+          bb.minZ + BACKUP_FACE_INSET,
+          bb.maxZ - BACKUP_FACE_INSET,
+          pointsPerFace,
+          sizeY,
+          sizeZ);
+    }
+
+    if (yPos || yNeg) {
+      double fixedY = yPos ? bb.maxY - BACKUP_FACE_INSET : bb.minY + BACKUP_FACE_INSET;
+      addFaceGrid(
+          points,
+          1,
+          fixedY,
+          bb.minX + BACKUP_FACE_INSET,
+          bb.maxX - BACKUP_FACE_INSET,
+          bb.minZ + BACKUP_FACE_INSET,
+          bb.maxZ - BACKUP_FACE_INSET,
+          pointsPerFace,
+          sizeX,
+          sizeZ);
+    }
+
+    if (zPos || zNeg) {
+      double fixedZ = zPos ? bb.maxZ - BACKUP_FACE_INSET : bb.minZ + BACKUP_FACE_INSET;
+      addFaceGrid(
+          points,
+          2,
+          fixedZ,
+          bb.minX + BACKUP_FACE_INSET,
+          bb.maxX - BACKUP_FACE_INSET,
+          bb.minY + BACKUP_FACE_INSET,
+          bb.maxY - BACKUP_FACE_INSET,
+          pointsPerFace,
+          sizeX,
+          sizeY);
+    }
+
+    return points;
+  }
+
+  private static void addFaceGrid(
+      List<Vec3> out,
+      int fixedAxis,
+      double fixedVal,
+      double uMin,
+      double uMax,
+      double vMin,
+      double vMax,
+      int targetPoints,
+      double dimU,
+      double dimV) {
+    if (dimU < 1e-4 || dimV < 1e-4) {
+      double uMid = (uMin + uMax) / 2.0;
+      double vMid = (vMin + vMax) / 2.0;
+      switch (fixedAxis) {
+        case 0:
+          out.add(new Vec3(fixedVal, uMid, vMid));
+          break;
+        case 1:
+          out.add(new Vec3(uMid, fixedVal, vMid));
+          break;
+        case 2:
+          out.add(new Vec3(uMid, vMid, fixedVal));
+          break;
+      }
+      return;
+    }
+
+    double ratio = dimU / dimV;
+    int gridU = Math.max(2, (int) Math.round(Math.sqrt(targetPoints * ratio)));
+    int gridV = Math.max(2, (int) Math.round(Math.sqrt(targetPoints / ratio)));
+
+    for (int i = 0; i < gridU; i++) {
+      double u = uMin + (uMax - uMin) * i / (gridU - 1);
+      for (int j = 0; j < gridV; j++) {
+        double v = vMin + (vMax - vMin) * j / (gridV - 1);
+        switch (fixedAxis) {
+          case 0:
+            out.add(new Vec3(fixedVal, u, v));
+            break;
+          case 1:
+            out.add(new Vec3(u, fixedVal, v));
+            break;
+          case 2:
+            out.add(new Vec3(u, v, fixedVal));
+            break;
+        }
+      }
+    }
+  }
+
+  private static boolean mainRayHitsTargetAABB(Vec3 eye, Vec3 point, Entity target, double range) {
+    double dx = point.xCoord - eye.xCoord;
+    double dy = point.yCoord - eye.yCoord;
+    double dz = point.zCoord - eye.zCoord;
+    double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (len < 1e-6) return false;
+    double scale = range / len;
+    Vec3 end = new Vec3(eye.xCoord + dx * scale, eye.yCoord + dy * scale, eye.zCoord + dz * scale);
+    float borderSize = target.getCollisionBorderSize();
+    AxisAlignedBB aabb = target.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    return aabb.calculateIntercept(eye, end) != null;
+  }
+
+  private static boolean hasEntityBlockingPath(
+      Vec3 eye, Vec3 end, Entity target, double targetDistSq) {
+    if (mc.thePlayer == null || mc.theWorld == null) return false;
+    Vec3 delta = end.subtract(eye);
+    AxisAlignedBB searchBox =
+        mc.thePlayer
+            .getEntityBoundingBox()
+            .addCoord(delta.xCoord, delta.yCoord, delta.zCoord)
+            .expand(1.0, 1.0, 1.0);
+    List<Entity> entities =
+        mc.theWorld.getEntitiesInAABBexcluding(
+            mc.thePlayer,
+            searchBox,
+            Predicates.and(EntitySelectors.NOT_SPECTATING, Entity::canBeCollidedWith));
+    for (Entity entity : entities) {
+      if (entity == null || entity == target || entity.isDead) {
+        continue;
+      }
+      float border = entity.getCollisionBorderSize();
+      AxisAlignedBB bb = entity.getEntityBoundingBox().expand(border, border, border);
+      MovingObjectPosition hit = bb.calculateIntercept(eye, end);
+      if (bb.isVecInside(eye)) {
+        return true;
+      }
+      if (hit != null) {
+        double entityDistSq = eye.squareDistanceTo(hit.hitVec);
+        if (entityDistSq < targetDistSq - 1.0E-7) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  public static boolean isPathBlockedByEntity(Vec3 eye, Vec3 hitVec, Entity target) {
+    if (eye == null || hitVec == null || target == null) return false;
+    double targetDistSq = eye.squareDistanceTo(hitVec);
+    return hasEntityBlockingPath(eye, hitVec, target, targetDistSq);
+  }
+
+  public static boolean canAimAtPoint(
+      Vec3 eye,
+      Vec3 point,
+      Entity target,
+      double range,
+      boolean allowThroughBlocks,
+      boolean allowThroughEntities) {
+    if (target == null) return false;
+    double dx = point.xCoord - eye.xCoord;
+    double dy = point.yCoord - eye.yCoord;
+    double dz = point.zCoord - eye.zCoord;
+    double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (len < 1e-6) return false;
+    double scale = range / len;
+    Vec3 end = new Vec3(eye.xCoord + dx * scale, eye.yCoord + dy * scale, eye.zCoord + dz * scale);
+
+    float borderSize = target.getCollisionBorderSize();
+    AxisAlignedBB aabb = target.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    MovingObjectPosition entityHit = aabb.calculateIntercept(eye, end);
+    if (entityHit == null) return false;
+
+    double entityDistSq = eye.squareDistanceTo(entityHit.hitVec);
+    if (!allowThroughBlocks) {
+      MovingObjectPosition blockHit = mc.theWorld.rayTraceBlocks(eye, end, false, false, false);
+      if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+        double blockDistSq = eye.squareDistanceTo(blockHit.hitVec);
+        if (blockDistSq < entityDistSq) return false;
+      }
+    }
+    if (!allowThroughEntities && hasEntityBlockingPath(eye, end, target, entityDistSq)) {
+      return false;
+    }
+    return true;
+  }
+
+  public static boolean canAimAtPoint(Vec3 eye, Vec3 point, Entity target, double range) {
+    return canAimAtPoint(eye, point, target, range, false, true);
+  }
+
+  public static boolean hasValidAimPoint(
+      Entity entity,
+      double hMult,
+      double vMult,
+      double range,
+      boolean allowThroughBlocks,
+      boolean allowThroughEntities) {
+    if (entity == null || mc.thePlayer == null) return false;
+    Vec3 mainPoint = getAimPoint(entity, hMult, vMult);
+    if (mainPoint == null) return false;
+    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+    if (eye.squareDistanceTo(mainPoint) < 1e-6) return true;
+
+    if (!mainRayHitsTargetAABB(eye, mainPoint, entity, range)) {
+      return false;
+    }
+
+    if (canAimAtPoint(eye, mainPoint, entity, range, allowThroughBlocks, allowThroughEntities)) {
+      return true;
+    }
+
+    // Try backup points
+    List<Vec3> backups = buildBackupPoints(entity, eye);
+    Collections.sort(
+        backups,
+        Comparator.comparingDouble(
+            p -> {
+              double dx = p.xCoord - eye.xCoord;
+              double dy = p.yCoord - eye.yCoord;
+              double dz = p.zCoord - eye.zCoord;
+              return dx * dx + dy * dy + dz * dz;
+            }));
+    for (Vec3 p : backups) {
+      if (canAimAtPoint(eye, p, entity, range, allowThroughBlocks, allowThroughEntities)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static boolean hasValidAimPoint(Entity entity, double hMult, double vMult, double range) {
+    return hasValidAimPoint(entity, hMult, vMult, range, false, true);
+  }
+
+  public static float[] getRotationsWithBackup(
+      Entity entity,
+      double horizontalMultipoint,
+      double verticalMultipoint,
+      float baseYaw,
+      float basePitch,
+      double range,
+      boolean allowThroughBlocks,
+      boolean allowThroughEntities) {
+    if (entity == null || mc.thePlayer == null) return null;
+    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    if (bb.isVecInside(eye)) {
+      double centerX = (bb.minX + bb.maxX) / 2.0;
+      double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+      return getRotationsToPoint(centerX, eye.yCoord, centerZ, baseYaw, basePitch);
+    }
+    Vec3 mainPoint = getAimPoint(entity, horizontalMultipoint, verticalMultipoint);
+    if (mainPoint == null) return null;
+    if (eye.squareDistanceTo(mainPoint) < 1e-6) return null;
+
+    if (!mainRayHitsTargetAABB(eye, mainPoint, entity, range)) {
+      return getRotationsToPoint(
+          mainPoint.xCoord, mainPoint.yCoord, mainPoint.zCoord, baseYaw, basePitch);
+    }
+
+    if (canAimAtPoint(eye, mainPoint, entity, range, allowThroughBlocks, allowThroughEntities)) {
+      return getRotationsToPoint(
+          mainPoint.xCoord, mainPoint.yCoord, mainPoint.zCoord, baseYaw, basePitch);
+    }
+
+    List<Vec3> backups = buildBackupPoints(entity, eye);
+    Collections.sort(
+        backups,
+        Comparator.comparingDouble(
+            p -> {
+              double dx = p.xCoord - eye.xCoord;
+              double dy = p.yCoord - eye.yCoord;
+              double dz = p.zCoord - eye.zCoord;
+              return dx * dx + dy * dy + dz * dz;
+            }));
+
+    for (Vec3 p : backups) {
+      if (canAimAtPoint(eye, p, entity, range, allowThroughBlocks, allowThroughEntities)) {
+        return getRotationsToPoint(p.xCoord, p.yCoord, p.zCoord, baseYaw, basePitch);
+      }
+    }
+    return null;
+  }
+
+  public static float[] getRotationsWithBackup(
+      Entity entity,
+      double horizontalMultipoint,
+      double verticalMultipoint,
+      float baseYaw,
+      float basePitch,
+      double range) {
+    return getRotationsWithBackup(
+        entity, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range, false, true);
   }
 
   public static float[] getRotationsToBox(
@@ -95,93 +476,6 @@ public class RotationUtil {
     };
   }
 
-  public static Vec3 clampVecToBox(Vec3 vector, AxisAlignedBB boundingBox) {
-    double[] coords = new double[] {vector.xCoord, vector.yCoord, vector.zCoord};
-    double[] minCoords = new double[] {boundingBox.minX, boundingBox.minY, boundingBox.minZ};
-    double[] maxCoords = new double[] {boundingBox.maxX, boundingBox.maxY, boundingBox.maxZ};
-    for (int i = 0; i < 3; ++i) {
-      if (coords[i] > maxCoords[i]) {
-        coords[i] = maxCoords[i];
-        continue;
-      }
-      if (!(coords[i] < minCoords[i])) continue;
-      coords[i] = minCoords[i];
-    }
-    return new Vec3(coords[0], coords[1], coords[2]);
-  }
-
-  public static double distanceToEntity(Entity entity) {
-    float borderSize = entity.getCollisionBorderSize();
-    AxisAlignedBB boundingBox =
-        entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
-    return distanceToBox(boundingBox);
-  }
-
-  public static double distanceToBox(Entity entity, Vec3 point) {
-    float borderSize = entity.getCollisionBorderSize();
-    return clampVecToBox(
-        entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize), point);
-  }
-
-  public static double distanceToBox(AxisAlignedBB boundingBox) {
-    return clampVecToBox(boundingBox, mc.thePlayer.getPositionEyes(1.0f));
-  }
-
-  public static double clampVecToBox(AxisAlignedBB boundingBox, Vec3 point) {
-    if (boundingBox.isVecInside(point)) {
-      return 0.0;
-    }
-    Vec3 clampedPoint = clampVecToBox(point, boundingBox);
-    double deltaX = clampedPoint.xCoord - point.xCoord;
-    double deltaY = clampedPoint.yCoord - point.yCoord;
-    double deltaZ = clampedPoint.zCoord - point.zCoord;
-    return Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-  }
-
-  public static float angleToEntity(Entity entity) {
-    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
-    float borderSize = entity.getCollisionBorderSize();
-    AxisAlignedBB boundingBox =
-        entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
-    if (boundingBox.isVecInside(eyePos)) {
-      return 0.0f;
-    }
-    double deltaX = entity.posX - eyePos.xCoord;
-    double deltaZ = entity.posZ - eyePos.zCoord;
-    return Math.abs(
-            MathHelper.wrapAngleTo180_float(
-                (float) (Math.atan2(deltaZ, deltaX) * 180.0 / Math.PI)
-                    - 90.0f
-                    - mc.thePlayer.rotationYaw))
-        * 2.0f;
-  }
-
-  public static float getYawBetween(double x1, double z1, double x2, double z2) {
-    return MathHelper.wrapAngleTo180_float(
-        (float) (Math.atan2(z2 - z1, x2 - x1) * 180.0 / Math.PI)
-            - 90.0f
-            - mc.thePlayer.rotationYaw);
-  }
-
-  public static MovingObjectPosition rayTrace(
-      float yaw, float pitch, double distance, float partialTicks) {
-    Vec3 eyePos = mc.thePlayer.getPositionEyes(partialTicks);
-    Vec3 lookVec = ((IAccessorEntity) mc.thePlayer).callGetVectorForRotation(pitch, yaw);
-    Vec3 targetPos =
-        eyePos.addVector(
-            lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
-    return mc.theWorld.rayTraceBlocks(eyePos, targetPos);
-  }
-
-  public static MovingObjectPosition rayTrace(Entity entity) {
-    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
-    float borderSize = entity.getCollisionBorderSize();
-    Vec3 targetPos =
-        clampVecToBox(
-            eyePos, entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize));
-    return mc.theWorld.rayTraceBlocks(eyePos, targetPos);
-  }
-
   public static float[] getRotationsToPoint(
       double x, double y, double z, float baseYaw, float basePitch) {
     double deltaX = x - mc.thePlayer.posX;
@@ -205,8 +499,14 @@ public class RotationUtil {
     return new float[] {yaw, clampPitch(pitch)};
   }
 
-  public static float clampPitch(final float n) {
-    return MathHelper.clamp_float(n, -90.0f, 90.0f);
+  public static float[] getRotationsFromEye(Vec3 eye, double tx, double ty, double tz) {
+    double dx = tx - eye.xCoord;
+    double dy = ty - eye.yCoord;
+    double dz = tz - eye.zCoord;
+    double dist = Math.sqrt(dx * dx + dz * dz);
+    float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90;
+    float pitch = (float) -Math.toDegrees(Math.atan2(dy, dist));
+    return new float[] {yaw, pitch};
   }
 
   public static float[] getRotations(Entity entity) {
@@ -279,6 +579,10 @@ public class RotationUtil {
   public static boolean rayCastHit(float[] rotations, double range, Entity target) {
     MovingObjectPosition mop = RayCastUtil.rayCast(rotations[0], rotations[1], range, 0.0f, target);
     return mop != null && mop.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY;
+  }
+
+  public static float clampPitch(final float n) {
+    return MathHelper.clamp_float(n, -90.0f, 90.0f);
   }
 
   public static float[] applySensitivityPatch(
@@ -387,16 +691,6 @@ public class RotationUtil {
       }
     }
 
-    double estimatedYawDelta = (double) yawK * multiplier;
-    double estimatedPitchDelta = (double) pitchK * multiplier;
-    if (clampPitchForScaffoldE
-        && Math.abs(estimatedYawDelta) > 95.0
-        && Math.abs(estimatedPitchDelta) > 8.0) {
-      int sign = pitchK > 0L ? 1 : -1;
-      pitchK = (long) ((double) sign * Math.floor(7.5 / multiplier));
-      if (pitchK == 0L) pitchK = (long) sign;
-    }
-
     float pitch = basePitch + (float) ((double) pitchK * multiplier);
     pitch = MathHelper.clamp_float(pitch, -90.0F, 90.0F);
 
@@ -406,31 +700,6 @@ public class RotationUtil {
   private static long gcd(long a, long b) {
     if (b == 0L) return a;
     return gcd(b, a % b);
-  }
-
-  public static float[] getRotationsFromEye(Vec3 eye, double tx, double ty, double tz) {
-    double dx = tx - eye.xCoord;
-    double dy = ty - eye.yCoord;
-    double dz = tz - eye.zCoord;
-    double dist = Math.sqrt(dx * dx + dz * dz);
-    float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90;
-    float pitch = (float) -Math.toDegrees(Math.atan2(dy, dist));
-    return new float[] {yaw, pitch};
-  }
-
-  public static MovingObjectPosition rayCastBlock(double distance, float yaw, float pitch) {
-    Vec3 eyeVec = mc.thePlayer.getPositionEyes(1.0f);
-    float f = MathHelper.cos(-yaw * ((float) Math.PI / 180F) - (float) Math.PI);
-    float f1 = MathHelper.sin(-yaw * ((float) Math.PI / 180F) - (float) Math.PI);
-    float f2 = -MathHelper.cos(-pitch * ((float) Math.PI / 180F));
-    float f3 = MathHelper.sin(-pitch * ((float) Math.PI / 180F));
-    Vec3 lookVec = new Vec3(f1 * f2, f3, f * f2);
-    Vec3 sumVec =
-        eyeVec.addVector(
-            lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
-    MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(eyeVec, sumVec, false, false, false);
-    if (mop == null || mop.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) return null;
-    return mop;
   }
 
   public static float[] smooth(
@@ -518,22 +787,105 @@ public class RotationUtil {
     return targetRotation;
   }
 
-  public static Vec3 closestPointOnAabb(AxisAlignedBB box, Vec3 point) {
-    double x = Math.max(box.minX, Math.min(box.maxX, point.xCoord));
-    double y = Math.max(box.minY, Math.min(box.maxY, point.yCoord));
-    double z = Math.max(box.minZ, Math.min(box.maxZ, point.zCoord));
-    return new Vec3(x, y, z);
+  public static Vec3 clampVecToBox(Vec3 vector, AxisAlignedBB boundingBox) {
+    double[] coords = new double[] {vector.xCoord, vector.yCoord, vector.zCoord};
+    double[] minCoords = new double[] {boundingBox.minX, boundingBox.minY, boundingBox.minZ};
+    double[] maxCoords = new double[] {boundingBox.maxX, boundingBox.maxY, boundingBox.maxZ};
+    for (int i = 0; i < 3; ++i) {
+      if (coords[i] > maxCoords[i]) {
+        coords[i] = maxCoords[i];
+        continue;
+      }
+      if (!(coords[i] < minCoords[i])) continue;
+      coords[i] = minCoords[i];
+    }
+    return new Vec3(coords[0], coords[1], coords[2]);
   }
 
-  public static double distanceSqFromEyeToClosestOnAABB(Entity entity) {
-    if (entity == null || mc.thePlayer == null) return Double.MAX_VALUE;
-    Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+  public static double distanceToEntity(Entity entity) {
     float borderSize = entity.getCollisionBorderSize();
-    AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
-    Vec3 closest = closestPointOnAabb(bb, eye);
-    double dx = eye.xCoord - closest.xCoord;
-    double dy = eye.yCoord - closest.yCoord;
-    double dz = eye.zCoord - closest.zCoord;
-    return dx * dx + dy * dy + dz * dz;
+    AxisAlignedBB boundingBox =
+        entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    return distanceToBox(boundingBox);
+  }
+
+  public static double distanceToBox(Entity entity, Vec3 point) {
+    float borderSize = entity.getCollisionBorderSize();
+    return clampVecToBox(
+        entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize), point);
+  }
+
+  public static double distanceToBox(AxisAlignedBB boundingBox) {
+    return clampVecToBox(boundingBox, mc.thePlayer.getPositionEyes(1.0f));
+  }
+
+  public static double clampVecToBox(AxisAlignedBB boundingBox, Vec3 point) {
+    if (boundingBox.isVecInside(point)) {
+      return 0.0;
+    }
+    Vec3 clampedPoint = clampVecToBox(point, boundingBox);
+    double deltaX = clampedPoint.xCoord - point.xCoord;
+    double deltaY = clampedPoint.yCoord - point.yCoord;
+    double deltaZ = clampedPoint.zCoord - point.zCoord;
+    return Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+  }
+
+  public static float angleToEntity(Entity entity) {
+    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
+    float borderSize = entity.getCollisionBorderSize();
+    AxisAlignedBB boundingBox =
+        entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    if (boundingBox.isVecInside(eyePos)) {
+      return 0.0f;
+    }
+    double deltaX = entity.posX - eyePos.xCoord;
+    double deltaZ = entity.posZ - eyePos.zCoord;
+    return Math.abs(
+            MathHelper.wrapAngleTo180_float(
+                (float) (Math.atan2(deltaZ, deltaX) * 180.0 / Math.PI)
+                    - 90.0f
+                    - mc.thePlayer.rotationYaw))
+        * 2.0f;
+  }
+
+  public static float getYawBetween(double x1, double z1, double x2, double z2) {
+    return MathHelper.wrapAngleTo180_float(
+        (float) (Math.atan2(z2 - z1, x2 - x1) * 180.0 / Math.PI)
+            - 90.0f
+            - mc.thePlayer.rotationYaw);
+  }
+
+  public static MovingObjectPosition rayTrace(
+      float yaw, float pitch, double distance, float partialTicks) {
+    Vec3 eyePos = mc.thePlayer.getPositionEyes(partialTicks);
+    Vec3 lookVec = ((IAccessorEntity) mc.thePlayer).callGetVectorForRotation(pitch, yaw);
+    Vec3 targetPos =
+        eyePos.addVector(
+            lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
+    return mc.theWorld.rayTraceBlocks(eyePos, targetPos);
+  }
+
+  public static MovingObjectPosition rayTrace(Entity entity) {
+    Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0f);
+    float borderSize = entity.getCollisionBorderSize();
+    Vec3 targetPos =
+        clampVecToBox(
+            eyePos, entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize));
+    return mc.theWorld.rayTraceBlocks(eyePos, targetPos);
+  }
+
+  public static MovingObjectPosition rayCastBlock(double distance, float yaw, float pitch) {
+    Vec3 eyeVec = mc.thePlayer.getPositionEyes(1.0f);
+    float f = MathHelper.cos(-yaw * ((float) Math.PI / 180F) - (float) Math.PI);
+    float f1 = MathHelper.sin(-yaw * ((float) Math.PI / 180F) - (float) Math.PI);
+    float f2 = -MathHelper.cos(-pitch * ((float) Math.PI / 180F));
+    float f3 = MathHelper.sin(-pitch * ((float) Math.PI / 180F));
+    Vec3 lookVec = new Vec3(f1 * f2, f3, f * f2);
+    Vec3 sumVec =
+        eyeVec.addVector(
+            lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
+    MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(eyeVec, sumVec, false, false, false);
+    if (mop == null || mop.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) return null;
+    return mop;
   }
 }

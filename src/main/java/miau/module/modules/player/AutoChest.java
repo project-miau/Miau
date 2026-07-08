@@ -165,12 +165,7 @@ public class AutoChest extends Module {
   }
 
   private void click(ContainerChest container, Slot slot) {
-    mc.playerController.windowClick(
-        container.windowId,
-        slot.slotNumber,
-        0,
-        1,
-        mc.thePlayer);
+    mc.playerController.windowClick(container.windowId, slot.slotNumber, 0, 1, mc.thePlayer);
 
     if (renderClicked.getValue()) {
       CLICKED_SLOTS.add(slot.slotNumber);

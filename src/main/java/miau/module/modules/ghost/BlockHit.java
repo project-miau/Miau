@@ -21,15 +21,11 @@ import org.lwjgl.input.Mouse;
 public class BlockHit extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  public final FloatProperty range =
-      new FloatProperty("Range", 4.0F, 2.0F, 6.0F);
-  public final FloatProperty maxHurtTimeMs =
-      new FloatProperty("Max Hurt Time", 200F, 50F, 500F);
-  public final FloatProperty maxHoldMs =
-      new FloatProperty("Max Hold Time", 150F, 50F, 500F);
+  public final FloatProperty range = new FloatProperty("Range", 4.0F, 2.0F, 6.0F);
+  public final FloatProperty maxHurtTimeMs = new FloatProperty("Max Hurt Time", 200F, 50F, 500F);
+  public final FloatProperty maxHoldMs = new FloatProperty("Max Hold Time", 150F, 50F, 500F);
 
-  public final PercentProperty lagChance =
-      new PercentProperty("Lag Chance", 100);
+  public final PercentProperty lagChance = new PercentProperty("Lag Chance", 100);
   public final FloatProperty lagMaxDuration =
       new FloatProperty("Lag Max Duration", 200F, 50F, 500F);
   public final BooleanProperty preventDelayAttacks =
@@ -39,14 +35,10 @@ public class BlockHit extends Module {
   public final BooleanProperty forceBlockAnimation =
       new BooleanProperty("Force Block Animation", true);
 
-  public final BooleanProperty requireLmb =
-      new BooleanProperty("Require Left Mouse", true);
-  public final BooleanProperty requireRmb =
-      new BooleanProperty("Require Right Mouse", false);
-  public final BooleanProperty onlyWhenDamaged =
-      new BooleanProperty("Damaged Only", false);
-  public final BooleanProperty ignoreTeammates =
-      new BooleanProperty("Ignore Teammates", true);
+  public final BooleanProperty requireLmb = new BooleanProperty("Require Left Mouse", true);
+  public final BooleanProperty requireRmb = new BooleanProperty("Require Right Mouse", false);
+  public final BooleanProperty onlyWhenDamaged = new BooleanProperty("Damaged Only", false);
+  public final BooleanProperty ignoreTeammates = new BooleanProperty("Ignore Teammates", true);
 
   private boolean isBlocking;
   private boolean manualBlock;
@@ -61,8 +53,6 @@ public class BlockHit extends Module {
   public BlockHit() {
     super("BlockHit", false, false);
   }
-
-  // ── Lifecycle ─────────────────────────────────────────────────────
 
   @Override
   public void onEnabled() {
@@ -80,9 +70,6 @@ public class BlockHit extends Module {
     return (int) Math.ceil(ms / 50.0);
   }
 
-  // ── Event handlers ────────────────────────────────────────────────
-
-  /** Cancel vanilla right‑click while we are lagging. */
   @EventTarget
   public void onRightClick(RightClickMouseEvent event) {
     if (shouldBlockVanillaUse()) {
@@ -112,8 +99,7 @@ public class BlockHit extends Module {
     lastSelfHurtTime = selfHurtTime;
 
     // Find target
-    currentTarget =
-        findTarget(range.getValue() * range.getValue(), ignoreTeammates.getValue());
+    currentTarget = findTarget(range.getValue() * range.getValue(), ignoreTeammates.getValue());
     boolean killAuraAttacking = isKillAuraAttacking();
     boolean rmbDown = Mouse.isButtonDown(1);
     boolean lmbDown = Mouse.isButtonDown(0) || killAuraAttacking;
@@ -147,15 +133,11 @@ public class BlockHit extends Module {
     if (isLagging) {
       int lagMaxTicks = msToTicks(lagMaxDuration.getValue());
       boolean lagExpired =
-          lagMaxTicks > 0
-              && lagStartTick >= 0
-              && currentTick - lagStartTick >= lagMaxTicks;
+          lagMaxTicks > 0 && lagStartTick >= 0 && currentTick - lagStartTick >= lagMaxTicks;
 
       if (lagExpired || !conditionsMet) {
         releaseLag();
-        if (lagExpired
-            && blockAgainImmediately.getValue()
-            && conditionsMet) {
+        if (lagExpired && blockAgainImmediately.getValue() && conditionsMet) {
           startBlocking(currentTick);
         }
       }
@@ -183,9 +165,7 @@ public class BlockHit extends Module {
     if (isBlocking) {
       int maxHoldTicks = msToTicks(maxHoldMs.getValue());
       boolean timeExpired =
-          maxHoldTicks > 0
-              && blockStartTick >= 0
-              && currentTick - blockStartTick >= maxHoldTicks;
+          maxHoldTicks > 0 && blockStartTick >= 0 && currentTick - blockStartTick >= maxHoldTicks;
       boolean shouldStop = timeExpired;
       if (onlyWhenDamaged.getValue() && hurtAgain) {
         shouldStop = true;
@@ -207,8 +187,7 @@ public class BlockHit extends Module {
       return;
     }
     if (!forceBlockAnimation.getValue() || !ItemUtil.isHoldingSword()) return;
-    ((IMixinItemRenderer) mc.getItemRenderer())
-        .setRenderItemInUse(isBlocking || isLagging);
+    ((IMixinItemRenderer) mc.getItemRenderer()).setRenderItemInUse(isBlocking || isLagging);
   }
 
   /** Intercept attack packets during lag. */
@@ -217,8 +196,8 @@ public class BlockHit extends Module {
     if (event.getType() != EventType.SEND) return;
     if (!isLagging || !preventDelayAttacks.getValue()) return;
     if (!(event.getPacket() instanceof C02PacketUseEntity)) return;
-    if (((C02PacketUseEntity) event.getPacket()).getAction()
-        != C02PacketUseEntity.Action.ATTACK) return;
+    if (((C02PacketUseEntity) event.getPacket()).getAction() != C02PacketUseEntity.Action.ATTACK)
+      return;
 
     releaseLag();
     if (blockAgainImmediately.getValue() && ItemUtil.isHoldingSword()) {
@@ -259,8 +238,7 @@ public class BlockHit extends Module {
   }
 
   private boolean isKillAuraAttacking() {
-    KillAura killAura =
-        (KillAura) Miau.moduleManager.modules.get(KillAura.class);
+    KillAura killAura = (KillAura) Miau.moduleManager.modules.get(KillAura.class);
     return killAura != null
         && killAura.isEnabled()
         && !killAura.requirePress.getValue()
@@ -293,11 +271,9 @@ public class BlockHit extends Module {
 
   private void startLag(int currentTick) {
     if (isLagging) return;
-    int lagReferenceTick =
-        blockStartTick >= 0 ? blockStartTick : currentTick;
+    int lagReferenceTick = blockStartTick >= 0 ? blockStartTick : currentTick;
     int lagMaxTicks = msToTicks(lagMaxDuration.getValue());
-    if (lagMaxTicks > 0
-        && currentTick - lagReferenceTick >= lagMaxTicks) {
+    if (lagMaxTicks > 0 && currentTick - lagReferenceTick >= lagMaxTicks) {
       return;
     }
     Miau.lagManager.setDelay(msToTicks(lagMaxDuration.getValue()));
@@ -318,28 +294,23 @@ public class BlockHit extends Module {
     stopBlocking(releaseUseKey);
     manualBlock = false;
     if (forceBlockAnimation.getValue() && wasActive) {
-      ((IMixinItemRenderer) mc.getItemRenderer())
-          .setRenderItemInUse(false);
+      ((IMixinItemRenderer) mc.getItemRenderer()).setRenderItemInUse(false);
     }
     // Re‑press the key if the player is still physically holding RMB
     if (Mouse.isButtonDown(1) && mc.currentScreen == null) {
-      KeyBindUtil.setKeyBindState(
-          mc.gameSettings.keyBindUseItem.getKeyCode(), true);
+      KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), true);
     }
     currentTarget = null;
     lastSelfHurtTime = 0;
   }
 
   /** Simple target finding: mouse‑over first, then closest player. */
-  private EntityPlayer findTarget(
-      double maxDistanceSq, boolean ignoreTeammates) {
+  private EntityPlayer findTarget(double maxDistanceSq, boolean ignoreTeammates) {
     // Prefer the entity under the crosshair
     if (mc.objectMouseOver != null
-        && mc.objectMouseOver.typeOfHit
-            == MovingObjectPosition.MovingObjectType.ENTITY
+        && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY
         && mc.objectMouseOver.entityHit instanceof EntityPlayer) {
-      EntityPlayer player =
-          (EntityPlayer) mc.objectMouseOver.entityHit;
+      EntityPlayer player = (EntityPlayer) mc.objectMouseOver.entityHit;
       if (isValidPlayer(player, maxDistanceSq, ignoreTeammates)) {
         return player;
       }
@@ -352,8 +323,7 @@ public class BlockHit extends Module {
       if (!isValidPlayer(player, maxDistanceSq, ignoreTeammates)) {
         continue;
       }
-      double distSq =
-          RotationUtil.distanceSqFromEyeToClosestOnAABB(player);
+      double distSq = RotationUtil.distanceSqFromEyeToClosestOnAABB(player);
       if (distSq < closestDistanceSq) {
         closestDistanceSq = distSq;
         closest = player;
@@ -363,21 +333,15 @@ public class BlockHit extends Module {
   }
 
   private boolean isValidPlayer(
-      EntityPlayer player,
-      double maxDistanceSq,
-      boolean ignoreTeammates) {
-    if (player == null
-        || player.isDead
-        || player == mc.thePlayer
-        || player.deathTime != 0) {
+      EntityPlayer player, double maxDistanceSq, boolean ignoreTeammates) {
+    if (player == null || player.isDead || player == mc.thePlayer || player.deathTime != 0) {
       return false;
     }
     if (ignoreTeammates && TeamUtil.isSameTeam(player)) {
       return false;
     }
     if (TeamUtil.isFriend(player)) return false;
-    double distSq =
-        RotationUtil.distanceSqFromEyeToClosestOnAABB(player);
+    double distSq = RotationUtil.distanceSqFromEyeToClosestOnAABB(player);
     return distSq <= maxDistanceSq;
   }
 

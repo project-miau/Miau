@@ -4,7 +4,7 @@ import com.google.common.base.CaseFormat;
 import java.awt.*;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 import java.util.Locale;
 import miau.Miau;
@@ -131,8 +131,6 @@ public class KillAura extends Module {
   public final BooleanProperty targetGolems = new BooleanProperty("target-golems", false);
   public final BooleanProperty targetSilverfish = new BooleanProperty("target-silverfish", false);
   public final BooleanProperty targetTeams = new BooleanProperty("target-teams", true);
-  public final BooleanProperty antiSpawn = new BooleanProperty("anti-spawn", false);
-  public final IntProperty spawnRadius = new IntProperty("spawn-radius", 25, 5, 100);
 
   private long getAttackDelay() {
     float min = this.cps.getValue();
@@ -475,14 +473,6 @@ public class KillAura extends Module {
     if (TeamUtil.isFriend(player)) {
       return false;
     }
-    if (this.antiSpawn.getValue() && mc.theWorld != null && mc.theWorld.getSpawnPoint() != null) {
-      BlockPos spawn = mc.theWorld.getSpawnPoint();
-      double dist =
-          player.getDistance((double) spawn.getX(), (double) spawn.getY(), (double) spawn.getZ());
-      if (dist <= this.spawnRadius.getValue()) {
-        return false;
-      }
-    }
     return this.allowSameTeam(player) && (isInvisible || !AntiBot.isBot(player));
   }
 
@@ -690,7 +680,22 @@ public class KillAura extends Module {
         if (this.isBoxInSwingRange(this.target.getBox())) {
           if (this.rotations.getValue() != 0) {
             float[] targetRots =
-                RotationUtil.calculate(this.target.getEntity(), true, this.attackRange.getValue());
+                RotationUtil.getRotationsWithBackup(
+                    this.target.getEntity(),
+                    100.0,
+                    100.0,
+                    event.getYaw(),
+                    event.getPitch(),
+                    this.attackRange.getValue(),
+                    this.throughWalls.getValue(),
+                    true);
+
+            if (targetRots == null) {
+              targetRots =
+                  RotationUtil.calculate(
+                      this.target.getEntity(), true, this.attackRange.getValue());
+            }
+
             float[] lastRots = new float[] {event.getYaw(), event.getPitch()};
 
             double rotSpeed = (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
@@ -700,32 +705,38 @@ public class KillAura extends Module {
               case 1:
                 {
                   if (rotSpeed != 0) {
+                    int ravenSpeed = Math.min(30, (int) (rotSpeed / 6.0));
+                    float randomPct = (float) this.smoothing.getValue();
                     rotations =
-                        RotationUtil.smooth(
-                            lastRots,
-                            targetRots,
-                            rotSpeed,
-                            this.target.getEntity(),
-                            this.attackRange.getValue());
+                        RotationUtil.smoothRotation(
+                            lastRots[0],
+                            lastRots[1],
+                            targetRots[0],
+                            targetRots[1],
+                            ravenSpeed,
+                            randomPct);
                   } else {
                     rotations = lastRots;
                   }
                 }
                 break;
-              case 2: // SNAP
+              case 2: // SNAP - smooth when attacking, instant otherwise
                 if (rotSpeed != 0 && this.attackDelayMS <= 50L) {
+                  int ravenSpeed = Math.min(30, (int) (rotSpeed / 6.0));
+                  float randomPct = (float) this.smoothing.getValue();
                   rotations =
-                      RotationUtil.smooth(
-                          lastRots,
-                          targetRots,
-                          rotSpeed,
-                          this.target.getEntity(),
-                          this.attackRange.getValue());
+                      RotationUtil.smoothRotation(
+                          lastRots[0],
+                          lastRots[1],
+                          targetRots[0],
+                          targetRots[1],
+                          ravenSpeed,
+                          randomPct);
                 } else {
                   rotations = new float[] {mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch};
                 }
                 break;
-              case 3: // NCP
+              case 3: // NCP - instant with random noise
                 if (rotSpeed != 0) {
                   if (Math.random() > 0.1) {
                     rotations = targetRots;
@@ -738,7 +749,7 @@ public class KillAura extends Module {
                   }
                 }
                 break;
-              case 4: // LOCK_VIEW (OpenMyau port)
+              case 4:
                 {
                   float[] lockViewRots =
                       RotationUtil.getRotationsToBox(
@@ -749,7 +760,6 @@ public class KillAura extends Module {
                           (float) this.smoothing.getValue() / 100.0F);
                   if (lockViewRots != null) {
                     rotations = new float[] {lockViewRots[0], lockViewRots[1]};
-                    // Directly apply rotation to player's head/body like OpenMyau
                     mc.thePlayer.rotationYaw = rotations[0];
                     mc.thePlayer.rotationPitch = rotations[1];
                     mc.thePlayer.rotationYawHead = rotations[0];
@@ -763,7 +773,12 @@ public class KillAura extends Module {
 
             float[] quantized =
                 RotationUtil.flexRotation(rotations[0], rotations[1], lastRots[0], lastRots[1]);
+
+            // NORMAL MODE: Set rotation via event (changes server rotation)
             event.setRotation(quantized[0], quantized[1], 1);
+            if (this.rotations.getValue() != 4) {
+              event.setPervRotation(quantized[0], 1);
+            }
           }
 
           if (attack) {

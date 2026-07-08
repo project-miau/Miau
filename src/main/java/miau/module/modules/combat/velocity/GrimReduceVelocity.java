@@ -13,7 +13,6 @@ import miau.property.properties.PercentProperty;
 import miau.util.time.TimerUtil;
 import net.minecraft.network.play.server.S32PacketConfirmTransaction;
 
-
 public class GrimReduceVelocity extends VelocityMode {
 
   private final TimerUtil timer = new TimerUtil();

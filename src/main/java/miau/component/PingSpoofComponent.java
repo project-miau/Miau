@@ -44,8 +44,9 @@ public final class PingSpoofComponent {
   static PacketCategory regular =
       new PacketCategory(
           new Class[] {
-            C0FPacketConfirmTransaction.class, C00PacketKeepAlive.class,
-                S1CPacketEntityMetadata.class
+            C0FPacketConfirmTransaction.class,
+            C00PacketKeepAlive.class,
+            S1CPacketEntityMetadata.class
           },
           false);
   static PacketCategory velocity =
@@ -54,8 +55,9 @@ public final class PingSpoofComponent {
   static PacketCategory teleports =
       new PacketCategory(
           new Class[] {
-            S08PacketPlayerPosLook.class, S39PacketPlayerAbilities.class,
-                S09PacketHeldItemChange.class
+            S08PacketPlayerPosLook.class,
+            S39PacketPlayerAbilities.class,
+            S09PacketHeldItemChange.class
           },
           false);
   static PacketCategory players =
@@ -164,8 +166,7 @@ public final class PingSpoofComponent {
     if (event.getType() != EventType.POST) return;
 
     if (!(enabled =
-        !enabledTimer.hasTimeElapsed(100)
-            && !(mc.currentScreen instanceof GuiDownloadTerrain))) {
+        !enabledTimer.hasTimeElapsed(100) && !(mc.currentScreen instanceof GuiDownloadTerrain))) {
       dispatch();
     } else {
       enabled = false;
@@ -237,7 +238,14 @@ public final class PingSpoofComponent {
       boolean blinkPackets,
       boolean movementPackets) {
     activeSessions.put(sessionId, true);
-    spoof(amount, regularPackets, velocityPackets, teleportPackets, playerPackets, blinkPackets, movementPackets);
+    spoof(
+        amount,
+        regularPackets,
+        velocityPackets,
+        teleportPackets,
+        playerPackets,
+        blinkPackets,
+        movementPackets);
   }
 
   public static void finishSession(String sessionId, boolean dispatchImmediately) {

@@ -2,8 +2,10 @@ package miau.module.modules.render;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import miau.Miau;
 import miau.enums.BlinkModules;
 import miau.enums.ChatColors;
@@ -31,12 +33,6 @@ public class HUD extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
   private final java.util.Map<Module, InterfaceComponent> components = new java.util.HashMap<>();
-  private final java.util.List<InterfaceComponent> animatingComponents =
-      new java.util.ArrayList<>();
-  private final java.util.Comparator<InterfaceComponent> componentComparator =
-      (a, b) -> Integer.compare(this.getModuleWidth(b.module), this.getModuleWidth(a.module));
-  private final java.util.List<net.minecraft.potion.PotionEffect> sortedEffects =
-      new java.util.ArrayList<>();
 
   private long lastMS = System.currentTimeMillis();
   private List<Module> activeModules = new ArrayList<>();
@@ -81,7 +77,7 @@ public class HUD extends Module {
   public final BooleanProperty toggleSound = new BooleanProperty("toggle-sounds", true);
   public final BooleanProperty toggleAlerts = new BooleanProperty("toggle-alerts", false);
   public final BooleanProperty notifications = new BooleanProperty("notifications", true);
-  public final BooleanProperty shaders = new BooleanProperty("Shaders", false);
+
   public final IntProperty backgroundAlpha = new IntProperty("Background Alpha", 110, 0, 255);
   public final FloatProperty roundingRadius =
       new FloatProperty("Rounding Radius", 1.0F, 0.0F, 10.0F);
@@ -192,16 +188,15 @@ public class HUD extends Module {
       }
     }
     if (this.isEnabled() && event.getType() == EventType.POST) {
-      this.activeModules.clear();
-      for (Module module : Miau.moduleManager.modules.values()) {
-        if (module.isEnabled()
-            && (this.modulesToShow.getValue() == 0 || !module.isHidden())
-            && getComponent(module).shouldDisplay(this)) {
-          this.activeModules.add(module);
-        }
-      }
-      this.activeModules.sort(
-          (a, b) -> Integer.compare(this.getModuleWidth(b), this.getModuleWidth(a)));
+      this.activeModules =
+          Miau.moduleManager.modules.values().stream()
+              .filter(
+                  module ->
+                      module.isEnabled()
+                          && (this.modulesToShow.getValue() == 0 || !module.isHidden())
+                          && getComponent(module).shouldDisplay(this))
+              .sorted(Comparator.comparingInt(this::getModuleWidth).reversed())
+              .collect(Collectors.<Module>toList());
       try {
         Miau.clientName = ChatColors.getDynamicPrefix();
       } catch (Exception e) {
@@ -223,13 +218,40 @@ public class HUD extends Module {
     java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("h:mm a");
     String formattedTime = sdf.format(new java.util.Date());
 
-    String text = customName.charAt(0) + "Â§7" + customName.substring(1);
+    String text = customName.charAt(0) + "§7" + customName.substring(1);
 
-    if (this.showTime.getValue()) text += " [Â§f" + formattedTime + "Â§7]";
-    if (this.showFps.getValue()) text += " [Â§f" + Minecraft.getDebugFPS() + " FPSÂ§7]";
-    if (this.showPing.getValue()) text += " [Â§f" + ping + "msÂ§7]";
-    if (this.showBps.getValue()) text += " [Â§f" + bpsString + " BPSÂ§7]";
+    if (this.showTime.getValue()) text += " [§f" + formattedTime + "§7]";
+    if (this.showFps.getValue()) text += " [§f" + Minecraft.getDebugFPS() + " FPS§7]";
+    if (this.showPing.getValue()) text += " [§f" + ping + "ms§7]";
+    if (this.showBps.getValue()) text += " [§f" + bpsString + " BPS§7]";
     return text;
+  }
+
+  @EventTarget
+  public void onShaderEvent(miau.event.impl.ShaderEvent event) {
+    miau.module.Module postProc =
+        Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
+    if (this.isEnabled()
+        && !mc.gameSettings.showDebugInfo
+        && postProc != null
+        && postProc.isEnabled()) {
+      long l = System.currentTimeMillis();
+      float delta = 16f;
+      ScaledResolution sr = new ScaledResolution(mc);
+
+      java.util.List<InterfaceComponent> animatingComponents =
+          Miau.moduleManager.modules.values().stream()
+              .map(this::getComponent)
+              .filter(c -> c.animationTime > 0.001)
+              .sorted(
+                  Comparator.comparingInt((InterfaceComponent c) -> this.getModuleWidth(c.module))
+                      .reversed())
+              .collect(Collectors.toList());
+
+      int pass = event.isBloom() ? 0 : 1;
+      renderElements(l, delta, animatingComponents, sr, pass, false);
+      renderPotions(sr, pass);
+    }
   }
 
   @EventTarget
@@ -254,14 +276,14 @@ public class HUD extends Module {
       }
     }
 
-    this.animatingComponents.clear();
-    for (Module module : Miau.moduleManager.modules.values()) {
-      InterfaceComponent c = getComponent(module);
-      if (c.animationTime > 0.001) {
-        this.animatingComponents.add(c);
-      }
-    }
-    this.animatingComponents.sort(this.componentComparator);
+    java.util.List<InterfaceComponent> animatingComponents =
+        Miau.moduleManager.modules.values().stream()
+            .map(this::getComponent)
+            .filter(c -> c.animationTime > 0.001)
+            .sorted(
+                Comparator.comparingInt((InterfaceComponent c) -> this.getModuleWidth(c.module))
+                    .reversed())
+            .collect(Collectors.toList());
 
     boolean isMcFont = FontRepository.isMinecraftSelected();
     float heightExhibition = 9.0f + 3.0f;
@@ -337,12 +359,20 @@ public class HUD extends Module {
 
     if (this.isEnabled() && !mc.gameSettings.showDebugInfo) {
       long l = System.currentTimeMillis();
+      renderElements(l, delta, animatingComponents, sr, 2, true);
+      renderPotions(sr, 2);
+    }
+  }
 
-      this.sortedEffects.clear();
-      if (mc.thePlayer != null) {
-        this.sortedEffects.addAll(mc.thePlayer.getActivePotionEffects());
+  private void renderPotions(ScaledResolution sr, int renderPass) {
+    if (mc.thePlayer != null) {
+      java.util.Collection<net.minecraft.potion.PotionEffect> effects =
+          mc.thePlayer.getActivePotionEffects();
+      if (!effects.isEmpty()) {
         miau.util.font.Font font = getFont();
-        this.sortedEffects.sort(
+        float drawY = sr.getScaledHeight() - 3;
+        java.util.List<net.minecraft.potion.PotionEffect> sortedEffects = new ArrayList<>(effects);
+        sortedEffects.sort(
             (a, b) -> {
               String nameA = net.minecraft.client.resources.I18n.format(a.getEffectName());
               String nameB = net.minecraft.client.resources.I18n.format(b.getEffectName());
@@ -351,28 +381,74 @@ public class HUD extends Module {
               String textA =
                   (lowerCase.getValue() ? nameA.toLowerCase() : nameA)
                       + (a.getAmplifier() > 0 ? " " + (a.getAmplifier() + 1) : "")
-                      + " Â§7"
+                      + " §7"
                       + timeA;
               String textB =
                   (lowerCase.getValue() ? nameB.toLowerCase() : nameB)
                       + (b.getAmplifier() > 0 ? " " + (b.getAmplifier() + 1) : "")
-                      + " Â§7"
+                      + " §7"
                       + timeB;
               return Float.compare(-font.getStringWidth(textA), -font.getStringWidth(textB));
             });
+
+        for (net.minecraft.potion.PotionEffect effect : sortedEffects) {
+          net.minecraft.potion.Potion potion =
+              net.minecraft.potion.Potion.potionTypes[effect.getPotionID()];
+          if (potion == null) continue;
+
+          String name = net.minecraft.client.resources.I18n.format(potion.getName());
+          if (lowerCase.getValue()) name = name.toLowerCase();
+          if (effect.getAmplifier() > 0) name += " " + (effect.getAmplifier() + 1);
+
+          String time = net.minecraft.potion.Potion.getDurationString(effect);
+          String text = name + " §7" + time;
+          int textWidth = font.getStringWidth(text);
+          float drawX = sr.getScaledWidth() - 2;
+
+          drawY -= (font.height() + 1.5f);
+
+          float pX = drawX - textWidth - 14 - 2;
+          float pY = drawY;
+          float pW = textWidth + 14 + 4;
+          float pH = font.height() + 1.5f;
+
+          if (renderPass == 0) {
+            miau.util.shader.RoundedUtils.drawRound(
+                pX - 1f, pY - 1f, pW + 2f, pH + 2f, 4f, new Color(81, 99, 149, 80));
+          } else if (renderPass == 1) {
+            miau.util.shader.RoundedUtils.drawRound(pX, pY, pW, pH, 4f, new Color(0, 0, 0, 150));
+          } else {
+            if (this.backgroundAlpha.getValue() > 0) {
+              miau.util.shader.RoundedUtils.drawRound(
+                  pX, pY, pW, pH, 4f, new Color(0, 0, 0, this.backgroundAlpha.getValue()));
+            }
+            int effectColor = potion.getLiquidColor() | 0xFF000000;
+            font.drawWithShadow(text, drawX - textWidth - 1, drawY, effectColor);
+
+            if (potion.hasStatusIcon()) {
+              GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+              GlStateManager.enableBlend();
+              mc.getTextureManager()
+                  .bindTexture(
+                      new net.minecraft.util.ResourceLocation(
+                          "textures/gui/container/inventory.png"));
+              int iconIndex = potion.getStatusIconIndex();
+              net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(
+                  (int) (drawX - textWidth - 14),
+                  (int) drawY,
+                  (iconIndex % 8) * 18,
+                  198 + (iconIndex / 8) * 18,
+                  18,
+                  18,
+                  9,
+                  9,
+                  256,
+                  256);
+              GlStateManager.disableBlend();
+            }
+          }
+        }
       }
-
-      if (this.shaders.getValue()) {
-
-        miau.util.shader.BlurUtils.prepareBloom();
-        renderElements(l, delta, animatingComponents, sr);
-        miau.util.shader.BlurUtils.bloomEnd(6, 24.0f);
-
-        miau.util.shader.BlurUtils.prepareBlur();
-        renderElements(l, delta, animatingComponents, sr);
-        miau.util.shader.BlurUtils.blurEnd(5, 25.0f);
-      }
-      renderElements(l, delta, animatingComponents, sr);
     }
   }
 
@@ -380,7 +456,9 @@ public class HUD extends Module {
       long l,
       float delta,
       java.util.List<InterfaceComponent> animatingComponents,
-      ScaledResolution sr) {
+      ScaledResolution sr,
+      int renderPass,
+      boolean updateState) {
     boolean isMcFont = FontRepository.isMinecraftSelected();
     float heightExhibition = 9.0f + 3.0f;
     float heightNormal = 9.0f + 1.0f;
@@ -388,7 +466,29 @@ public class HUD extends Module {
       String watermark = getExhibitionWatermark();
       if (watermark != null) {
         try {
-          mc.fontRendererObj.drawStringWithShadow(watermark, 3.0F, 3.0F, this.getColor(l).getRGB());
+          float wX = 3.0f;
+          float wY = 3.0f;
+          float wW = mc.fontRendererObj.getStringWidth(watermark);
+          float wH = mc.fontRendererObj.FONT_HEIGHT;
+
+          if (renderPass == 0) {
+            miau.util.shader.RoundedUtils.drawRound(
+                wX - 2.0f, wY - 2.0f, wW + 4.0f, wH + 4.0f, 4f, new Color(81, 99, 149, 80));
+          } else if (renderPass == 1) {
+            miau.util.shader.RoundedUtils.drawRound(
+                wX - 1.0f, wY - 1.0f, wW + 2.0f, wH + 2.0f, 4f, new Color(0, 0, 0, 150));
+          } else {
+            if (this.backgroundAlpha.getValue() > 0) {
+              miau.util.shader.RoundedUtils.drawRound(
+                  wX - 1.0f,
+                  wY - 1.0f,
+                  wW + 2.0f,
+                  wH + 2.0f,
+                  4f,
+                  new Color(0, 0, 0, this.backgroundAlpha.getValue()));
+            }
+            mc.fontRendererObj.drawStringWithShadow(watermark, wX, wY, this.getColor(l).getRGB());
+          }
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -403,9 +503,9 @@ public class HUD extends Module {
         float yCoord = sr.getScaledHeight() - 10;
         float fontHeight = getFont().getFontHeight();
         int colour = this.getColor(l).getRGB();
-        getFont().drawWithShadow("X: Â§7" + posX2, 3.0F, yCoord - fontHeight * 2, colour);
-        getFont().drawWithShadow("Y: Â§7" + posY2, 3.0F, yCoord - fontHeight, colour);
-        getFont().drawWithShadow("Z: Â§7" + posZ2, 3.0F, yCoord, colour);
+        getFont().drawWithShadow("X: §7" + posX2, 3.0F, yCoord - fontHeight * 2, colour);
+        getFont().drawWithShadow("Y: §7" + posY2, 3.0F, yCoord - fontHeight, colour);
+        getFont().drawWithShadow("Z: §7" + posZ2, 3.0F, yCoord, colour);
       }
 
       float height = heightExhibition;
@@ -444,47 +544,67 @@ public class HUD extends Module {
         if (component.position.x == 5000)
           component.position.x = this.posX.getValue() == 1 ? targetX + 50 : targetX - 50;
 
-        component.position.x =
-            miau.util.math.MathUtil.lerp((float) component.position.x, targetX, 0.015f * delta);
+        if (updateState) {
+          component.position.x =
+              miau.util.math.MathUtil.lerp((float) component.position.x, targetX, 0.015f * delta);
+        }
         float drawX = (float) component.position.x;
 
         int alpha = (int) (255 * animProgress);
         long finalY = (long) component.position.y;
         int color = (alpha << 24) | (this.getColor(l, finalY).getRGB() & 0x00FFFFFF);
-        int alphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
-        int bgColor = (alphaVal << 24);
+        int bgAlphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
 
-        RenderUtil.enableRenderState();
-        if (this.backgroundAlpha.getValue() > 0)
-          RenderUtil.drawRect(
+        if (renderPass == 0) {
+          miau.util.shader.RoundedUtils.drawRound(
+              drawX - 3.0F,
+              drawY - 3.0F,
+              totalWidth + 6.0F,
+              height + 4.0F,
+              4f,
+              new Color(81, 99, 149, 80));
+        } else if (renderPass == 1) {
+          miau.util.shader.RoundedUtils.drawRound(
               drawX - 2.0F,
               drawY - 2.0F,
-              drawX + totalWidth + 2.0F,
-              drawY + height - 2.0F,
-              bgColor);
-
-        if (this.showBar.getValue()) {
-          if (this.posX.getValue() == 0)
-            RenderUtil.drawRect(
-                drawX - 3.0F, drawY - 2.0F, drawX - 2.0F, drawY + height - 2.0F, color);
-          else
-            RenderUtil.drawRect(
-                drawX + totalWidth + 2.0F,
+              totalWidth + 4.0F,
+              height + 2.0F,
+              4f,
+              new Color(0, 0, 0, 150));
+        } else {
+          if (this.backgroundAlpha.getValue() > 0) {
+            miau.util.shader.RoundedUtils.drawRound(
+                drawX - 2.0F,
                 drawY - 2.0F,
-                drawX + totalWidth + 3.0F,
-                drawY + height - 2.0F,
-                color);
-        }
-        RenderUtil.disableRenderState();
+                totalWidth + 4.0F,
+                height + 2.0F,
+                4f,
+                new Color(0, 0, 0, bgAlphaVal));
+          }
+          if (this.showBar.getValue()) {
+            RenderUtil.enableRenderState();
+            if (this.posX.getValue() == 0)
+              RenderUtil.drawRect(
+                  drawX - 3.0F, drawY - 2.0F, drawX - 2.0F, drawY + height - 2.0F, color);
+            else
+              RenderUtil.drawRect(
+                  drawX + totalWidth + 2.0F,
+                  drawY - 2.0F,
+                  drawX + totalWidth + 3.0F,
+                  drawY + height - 2.0F,
+                  color);
+            RenderUtil.disableRenderState();
+          }
 
-        getFont().drawWithShadow(moduleName, drawX, drawY, color);
+          getFont().drawWithShadow(moduleName, drawX, drawY, color);
 
-        if (this.suffixes.getValue() && moduleSuffix.length > 0) {
-          float suffixX = drawX + getFont().getStringWidth(moduleName) + 2.0F;
-          int suffixColor = ((int) (170 * animProgress) << 24) | 0x00AAAAAA;
-          for (String str : moduleSuffix) {
-            getFont().drawWithShadow(str, suffixX, drawY, suffixColor);
-            suffixX += getFont().getStringWidth(str) + 2.0F;
+          if (this.suffixes.getValue() && moduleSuffix.length > 0) {
+            float suffixX = drawX + getFont().getStringWidth(moduleName) + 2.0F;
+            int suffixColor = ((int) (170 * animProgress) << 24) | 0x00AAAAAA;
+            for (String str : moduleSuffix) {
+              getFont().drawWithShadow(str, suffixX, drawY, suffixColor);
+              suffixX += getFont().getStringWidth(str) + 2.0F;
+            }
           }
         }
       }
@@ -529,84 +649,103 @@ public class HUD extends Module {
         if (component.position.x == 5000)
           component.position.x = this.posX.getValue() == 1 ? targetX + 50 : targetX - 50;
 
-        component.position.x =
-            miau.util.math.MathUtil.lerp((float) component.position.x, targetX, 0.015f * delta);
+        if (updateState) {
+          component.position.x =
+              miau.util.math.MathUtil.lerp((float) component.position.x, targetX, 0.015f * delta);
+        }
         float drawX = (float) component.position.x;
 
         int alpha = (int) (255 * animProgress);
 
         long finalY = (long) component.position.y;
         int color = (alpha << 24) | (this.getColor(l, finalY).getRGB() & 0x00FFFFFF);
-        int alphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
-        int bgColor = (alphaVal << 24);
+        int bgAlphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
 
-        RenderUtil.enableRenderState();
-        if (this.backgroundAlpha.getValue() > 0) {
-          RenderUtil.drawRect(
+        if (renderPass == 0) {
+          miau.util.shader.RoundedUtils.drawRound(
+              drawX - 2.0F,
+              drawY - 2.0F,
+              totalWidth + 4.0F,
+              height + 4.0F,
+              4f,
+              new Color(81, 99, 149, 80));
+        } else if (renderPass == 1) {
+          miau.util.shader.RoundedUtils.drawRound(
               drawX - 1.0F,
-              drawY
-                  - (this.posY.getValue() == 0
-                      ? (finalY == 0L ? 1.0F : 0.0F)
-                      : (this.shadow.getValue() ? 1.0F : 0.0F)),
-              drawX + totalWidth + 1.0F,
-              drawY
-                  + height
-                  + (this.posY.getValue() == 0
-                      ? (this.shadow.getValue() ? 1.0F : 0.0F)
-                      : (finalY == 0L ? 1.0F : 0.0F)),
-              bgColor);
-        }
-        if (this.showBar.getValue()) {
-          if (this.shadow.getValue()) {
-            RenderUtil.drawRect(
-                drawX + (this.posX.getValue() == 0 ? -3.0F : totalWidth + 1.0F),
-                drawY - (this.posY.getValue() == 0 ? (finalY == 0L ? 1.0F : 0.0F) : 1.0F),
-                drawX + (this.posX.getValue() == 0 ? -2.0F : totalWidth + 2.0F),
-                drawY + height + (this.posY.getValue() == 0 ? 1.0F : (finalY == 0L ? 1.0F : 0.0F)),
-                color);
-          } else {
-            RenderUtil.drawRect(
-                drawX + (this.posX.getValue() == 0 ? -2.0F : totalWidth + 1.0F),
-                drawY - (this.posY.getValue() == 0 ? (finalY == 0L ? 1.0F : 0.0F) : 0.0F),
-                drawX + (this.posX.getValue() == 0 ? -1.0F : totalWidth + 2.0F),
-                drawY + height + (this.posY.getValue() == 0 ? 0.0F : (finalY == 0L ? 1.0F : 0.0F)),
-                color);
+              drawY - 1.0F,
+              totalWidth + 2.0F,
+              height + 2.0F,
+              4f,
+              new Color(0, 0, 0, 150));
+        } else {
+          if (this.backgroundAlpha.getValue() > 0) {
+            miau.util.shader.RoundedUtils.drawRound(
+                drawX - 1.0F,
+                drawY - 1.0F,
+                totalWidth + 2.0F,
+                height + 2.0F,
+                4f,
+                new Color(0, 0, 0, bgAlphaVal));
           }
-        }
-        RenderUtil.disableRenderState();
-        GlStateManager.disableDepth();
 
-        if (this.shadow.getValue()) getFont().drawWithShadow(moduleName, drawX, drawY, color);
-        else
-          getFont()
-              .draw(
-                  moduleName,
-                  drawX,
-                  drawY + (this.posY.getValue() == 1 ? 1.0F : 0.0F),
-                  color,
-                  false);
+          if (this.showBar.getValue()) {
+            RenderUtil.enableRenderState();
+            if (this.shadow.getValue()) {
+              RenderUtil.drawRect(
+                  drawX + (this.posX.getValue() == 0 ? -3.0F : totalWidth + 1.0F),
+                  drawY - (this.posY.getValue() == 0 ? (finalY == 0L ? 1.0F : 0.0F) : 1.0F),
+                  drawX + (this.posX.getValue() == 0 ? -2.0F : totalWidth + 2.0F),
+                  drawY
+                      + height
+                      + (this.posY.getValue() == 0 ? 1.0F : (finalY == 0L ? 1.0F : 0.0F)),
+                  color);
+            } else {
+              RenderUtil.drawRect(
+                  drawX + (this.posX.getValue() == 0 ? -2.0F : totalWidth + 1.0F),
+                  drawY - (this.posY.getValue() == 0 ? (finalY == 0L ? 1.0F : 0.0F) : 0.0F),
+                  drawX + (this.posX.getValue() == 0 ? -1.0F : totalWidth + 2.0F),
+                  drawY
+                      + height
+                      + (this.posY.getValue() == 0 ? 0.0F : (finalY == 0L ? 1.0F : 0.0F)),
+                  color);
+            }
+            RenderUtil.disableRenderState();
+          }
 
-        if (this.suffixes.getValue() && moduleSuffix.length > 0) {
-          float width = (float) getFont().getStringWidth(moduleName) + 3.0F;
-          int suffixColor = ((int) (160 * animProgress) << 24) | 0x00AAAAAA;
-          for (String string : moduleSuffix) {
-            if (this.shadow.getValue())
-              getFont().drawWithShadow(string, drawX + width, drawY, suffixColor);
-            else
-              getFont()
-                  .draw(
-                      string,
-                      drawX + width,
-                      drawY + (this.posY.getValue() == 1 ? 1.0F : 0.0F),
-                      suffixColor,
-                      false);
-            width +=
-                (float) getFont().getStringWidth(string) + (this.shadow.getValue() ? 3.0F : 2.0F);
+          GlStateManager.disableDepth();
+
+          if (this.shadow.getValue()) getFont().drawWithShadow(moduleName, drawX, drawY, color);
+          else
+            getFont()
+                .draw(
+                    moduleName,
+                    drawX,
+                    drawY + (this.posY.getValue() == 1 ? 1.0F : 0.0F),
+                    color,
+                    false);
+
+          if (this.suffixes.getValue() && moduleSuffix.length > 0) {
+            float width = (float) getFont().getStringWidth(moduleName) + 3.0F;
+            int suffixColor = ((int) (160 * animProgress) << 24) | 0x00AAAAAA;
+            for (String string : moduleSuffix) {
+              if (this.shadow.getValue())
+                getFont().drawWithShadow(string, drawX + width, drawY, suffixColor);
+              else
+                getFont()
+                    .draw(
+                        string,
+                        drawX + width,
+                        drawY + (this.posY.getValue() == 1 ? 1.0F : 0.0F),
+                        suffixColor,
+                        false);
+              width +=
+                  (float) getFont().getStringWidth(string) + (this.shadow.getValue() ? 3.0F : 2.0F);
+            }
           }
         }
       }
 
-      if (this.blinkTimer.getValue()) {
+      if (this.blinkTimer.getValue() && renderPass == 2) {
         BlinkModules blinkingModule = Miau.blinkManager.getBlinkingModule();
         if (blinkingModule != BlinkModules.NONE && blinkingModule != BlinkModules.AUTO_BLOCK) {
           long movementPacketSize = Miau.blinkManager.countMovement();
@@ -628,55 +767,6 @@ public class HUD extends Module {
       }
       GlStateManager.enableDepth();
       GlStateManager.popMatrix();
-    }
-
-    if (mc.thePlayer != null) {
-      if (!this.sortedEffects.isEmpty()) {
-        miau.util.font.Font font = getFont();
-        float drawY = sr.getScaledHeight() - 3;
-
-        for (net.minecraft.potion.PotionEffect effect : this.sortedEffects) {
-          net.minecraft.potion.Potion potion =
-              net.minecraft.potion.Potion.potionTypes[effect.getPotionID()];
-          if (potion == null) continue;
-
-          String name = net.minecraft.client.resources.I18n.format(potion.getName());
-          if (lowerCase.getValue()) name = name.toLowerCase();
-          if (effect.getAmplifier() > 0) name += " " + (effect.getAmplifier() + 1);
-
-          String time = net.minecraft.potion.Potion.getDurationString(effect);
-          String text = name + " Â§7" + time;
-          int textWidth = font.getStringWidth(text);
-          float drawX = sr.getScaledWidth() - 2;
-
-          drawY -= (font.height() + 1.5f);
-
-          int effectColor = potion.getLiquidColor() | 0xFF000000;
-          font.drawWithShadow(text, drawX - textWidth - 1, drawY, effectColor);
-
-          if (potion.hasStatusIcon()) {
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-            GlStateManager.enableBlend();
-            mc.getTextureManager()
-                .bindTexture(
-                    new net.minecraft.util.ResourceLocation(
-                        "textures/gui/container/inventory.png"));
-            int iconIndex = potion.getStatusIconIndex();
-            net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(
-                (int) (drawX - textWidth - 14),
-                (int) drawY,
-                (iconIndex % 8) * 18,
-                198 + (iconIndex / 8) * 18,
-                18,
-                18,
-                9,
-                9,
-                256,
-                256);
-            GlStateManager.disableBlend();
-          }
-        }
-      }
     }
   }
 

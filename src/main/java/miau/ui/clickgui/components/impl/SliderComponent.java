@@ -535,9 +535,11 @@ public class SliderComponent extends Component {
           this.draggingMax = true;
         } else {
           boolean bothAtMax =
-              Math.abs(getValue() - getMax()) < 0.01 && Math.abs(getSecondValue() - getMax()) < 0.01;
+              Math.abs(getValue() - getMax()) < 0.01
+                  && Math.abs(getSecondValue() - getMax()) < 0.01;
           boolean bothAtMin =
-              Math.abs(getValue() - getMin()) < 0.01 && Math.abs(getSecondValue() - getMin()) < 0.01;
+              Math.abs(getValue() - getMin()) < 0.01
+                  && Math.abs(getSecondValue() - getMin()) < 0.01;
           if (bothAtMin) {
             this.draggingMax = true;
           } else {

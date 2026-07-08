@@ -14,7 +14,6 @@ import miau.property.properties.ColorProperty;
 import miau.property.properties.DragProperty;
 import miau.property.properties.ModeProperty;
 import miau.util.font.FontRepository;
-import miau.util.shader.BlurUtils;
 import miau.util.shader.RoundedUtils;
 import miau.util.vector.Vector2d;
 import net.minecraft.client.Minecraft;
@@ -88,15 +87,6 @@ public class Statistics extends Module {
 
     this.dragging.scale.x = width;
     this.dragging.scale.y = height;
-
-    HUD hud = (HUD) Miau.moduleManager.modules.get(HUD.class);
-    boolean shaders = hud != null && hud.shaders.getValue();
-
-    if (shaders) {
-      BlurUtils.prepareBlur();
-      RoundedUtils.drawRound(x, y, width, height, 6, Color.BLACK);
-      BlurUtils.blurEnd(2, 3);
-    }
 
     Color c1 = applyOpacity(getAccentColor(), 0.8f);
     RoundedUtils.drawRoundOutline(x, y, width, height, 6, 1.0f, new Color(0, 0, 0, 100), c1);

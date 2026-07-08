@@ -1,10 +1,8 @@
 package miau.module.modules.movement;
 
-import miau.Miau;
 import miau.component.PingSpoofComponent;
 import miau.event.EventTarget;
 import miau.event.impl.TickEvent;
-import miau.event.impl.UpdateEvent;
 import miau.event.types.EventType;
 import miau.module.Module;
 import miau.property.properties.BooleanProperty;
@@ -18,8 +16,7 @@ import net.minecraft.network.play.client.C0BPacketEntityAction;
 public class KeepSprint extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  public final ModeProperty mode =
-      new ModeProperty("mode", 0, new String[] {"NORMAL", "SPOOF"});
+  public final ModeProperty mode = new ModeProperty("mode", 0, new String[] {"NORMAL", "SPOOF"});
   public final IntProperty delay = new IntProperty("delay", 150, 50, 500);
   public final PercentProperty slowdown = new PercentProperty("slowdown", 0);
   public final BooleanProperty groundOnly = new BooleanProperty("ground-only", false);
@@ -47,8 +44,7 @@ public class KeepSprint extends Module {
     if (this.mode.getValue() == 1 /* SPOOF */) {
       // Enable PingSpoof for regular category to confuse anticheat timing
       // This makes sprint state transitions harder to detect
-      PingSpoofComponent.spoof(
-          this.delay.getValue(), true, false, false, false, false, false);
+      PingSpoofComponent.spoof(this.delay.getValue(), true, false, false, false, false, false);
       PingSpoofComponent.enabled = true;
     }
   }

@@ -37,10 +37,7 @@ public class VulcanDisabler extends DisablerMode {
   @Override
   public void onTick(TickEvent event) {
     if (event.getType() != EventType.PRE) return;
-    if (mc.thePlayer == null
-        || mc.theWorld == null
-        || !((miau.mixin.IAccessorNetHandlerPlayClient) mc.getNetHandler()).isDoneLoadingTerrain())
-      return;
+    if (mc.thePlayer == null) return;
 
     if (disableOnBreak.getValue()
         && ((miau.mixin.IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock()) {

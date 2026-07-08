@@ -9,18 +9,28 @@ import miau.event.types.EventType;
 import miau.event.types.Priority;
 import miau.module.Module;
 import miau.property.properties.BooleanProperty;
-import miau.util.world.BlockUtil;
+import miau.util.player.SlotUtil;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
-import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockPos;
 
+/**
+ * Core logic ported from OpenRise AutoTool. Switches to the best tool when mining a block using
+ * SlotUtil.findTool(BlockPos) (relies on vanilla getStrVsBlock — no double-counting of efficiency
+ * enchantment).
+ *
+ * <p>Extra Miau features preserved: - spoofItem: visually shows the original item in first-person
+ * while auto-tool is active - previousSlot tracking for spoofItem support in MixinItemRenderer
+ */
 public class AutoTool extends Module {
+
   private static final Minecraft mc = Minecraft.getMinecraft();
 
   private int blockBreak;
   private BlockPos blockPos;
   public int previousSlot = -1;
+
+  public final BooleanProperty spoofItem = new BooleanProperty("spoof-item", false);
 
   public AutoTool() {
     super("AutoTool", false);
@@ -28,17 +38,19 @@ public class AutoTool extends Module {
 
   @EventTarget(Priority.HIGHEST)
   public void onBlockDamage(BlockDamageEvent event) {
-    if (mc.thePlayer == null || event.getPlayer() != mc.thePlayer) return;
-    if (mc.thePlayer.getDistanceSq(
-            event.getBlockPos().getX(), event.getBlockPos().getY(), event.getBlockPos().getZ())
-        > 25.0D) {
+    if (event.getPlayer() != mc.thePlayer
+        || mc.thePlayer.getDistanceSq(
+                event.getBlockPos().getX(), event.getBlockPos().getY(), event.getBlockPos().getZ())
+            > 5 * 5) {
       return;
     }
-    Block block = BlockUtil.getBlock(event.getBlockPos());
+
+    Block block = mc.theWorld.getBlockState(event.getBlockPos()).getBlock();
     if (block instanceof net.minecraft.block.BlockEnderChest
         || block instanceof net.minecraft.block.BlockChest) {
       return;
     }
+
     blockBreak = 15;
     blockPos = event.getBlockPos();
     this.update();
@@ -51,7 +63,7 @@ public class AutoTool extends Module {
   }
 
   @EventTarget(Priority.HIGHEST)
-  public void onUpdate(UpdateEvent event) {
+  public void onPreUpdate(UpdateEvent event) {
     if (event.getType() == EventType.PRE) {
       this.update();
     }
@@ -64,13 +76,7 @@ public class AutoTool extends Module {
 
     blockBreak--;
 
-    Block block = BlockUtil.getBlock(blockPos);
-    if (block instanceof net.minecraft.block.BlockEnderChest
-        || block instanceof net.minecraft.block.BlockChest) {
-      return;
-    }
-
-    int index = getTool(block);
+    int index = SlotUtil.findTool(blockPos);
     if (index != -1) {
       if (previousSlot == -1 && index != Miau.slotComponent.getItemIndex()) {
         previousSlot = Miau.slotComponent.getItemIndex();
@@ -89,35 +95,7 @@ public class AutoTool extends Module {
   @Override
   public void onDisabled() {
     blockBreak = 0;
+    blockPos = null;
     resetSlot();
-  }
-
-  public static int getTool(Block block) {
-    double bestScore = 1.0D;
-    int bestSlot = -1;
-    for (int i = 0; i < net.minecraft.entity.player.InventoryPlayer.getHotbarSize(); ++i) {
-      ItemStack stack = mc.thePlayer.inventory.getStackInSlot(i);
-      if (stack != null) {
-        double score = getBlockBreakingScore(stack, block);
-        if (score > bestScore) {
-          bestScore = score;
-          bestSlot = i;
-        }
-      }
-    }
-    return bestSlot;
-  }
-
-  public static double getBlockBreakingScore(ItemStack stack, Block block) {
-    float speed = stack.getStrVsBlock(block);
-    if (speed > 1.0F) {
-      int efficiency =
-          net.minecraft.enchantment.EnchantmentHelper.getEnchantmentLevel(
-              net.minecraft.enchantment.Enchantment.efficiency.effectId, stack);
-      if (efficiency > 0) {
-        speed += efficiency * efficiency + 1;
-      }
-    }
-    return speed;
   }
 }

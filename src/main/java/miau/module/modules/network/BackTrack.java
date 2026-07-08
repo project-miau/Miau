@@ -18,6 +18,7 @@ import miau.event.impl.Render3DEvent;
 import miau.event.impl.TickEvent;
 import miau.event.types.EventType;
 import miau.module.Module;
+import miau.module.modules.player.Scaffold;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.ColorProperty;
 import miau.property.properties.FloatProperty;
@@ -231,6 +232,13 @@ public class BackTrack extends Module {
   @EventTarget
   public void onTick(TickEvent event) {
     if (!this.isEnabled()) return;
+
+    Scaffold scaffold = (Scaffold) Miau.moduleManager.modules.get(Scaffold.class);
+    if (scaffold != null && scaffold.isEnabled()) {
+      clear();
+      return;
+    }
+
     if (mode.getValue() == 3) {
       handleLegacyTick();
       if (legacyPos.getValue() == 0) {
