@@ -20,6 +20,7 @@ import miau.module.modules.player.scaffold.rotations.RotationHandler;
 import miau.module.modules.render.PostProcessing;
 import miau.property.Property;
 import miau.property.properties.*;
+import miau.util.client.KeyBindUtil;
 import miau.util.font.FontRepository;
 import miau.util.math.RandomUtil;
 import miau.util.player.*;
@@ -94,7 +95,8 @@ public class Scaffold extends Module {
     public final BooleanProperty movementCorrection =
         new BooleanProperty("movement-correction", true);
     public final ModeProperty sprintMode =
-        new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA"});
+        new ModeProperty(
+            "sprint", 0, new String[] {"NONE", "VANILLA", "OFF_GROUND", "ON_GROUND"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
@@ -207,7 +209,19 @@ public class Scaffold extends Module {
     if (isTowering()) return false;
     int k = keepYFeature.keepY.getValue();
     boolean stageActive = k == 1 || k == 2 || k == 4;
-    return (!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0;
+    if ((!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0) return true;
+    int sprint = options.sprintMode.getValue();
+    if (sprint == 2 && mc.thePlayer.onGround) return true;
+    if (sprint == 3 && !mc.thePlayer.onGround) return true;
+    return false;
+  }
+
+  private void applySprintMode() {
+    if (shouldStopSprint()) return;
+    int sprint = options.sprintMode.getValue();
+    if (sprint >= 1 && sprint <= 3) {
+      KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+    }
   }
 
   private EnumFacing getBestFacing(BlockPos blockPos1, BlockPos blockPos3) {
@@ -684,6 +698,7 @@ public class Scaffold extends Module {
       mc.thePlayer.movementInput.moveStrafe *= speed;
     }
     if (shouldStopSprint()) mc.thePlayer.setSprinting(false);
+    else applySprintMode();
     towerFeature.updateSafeStuck();
   }
 
