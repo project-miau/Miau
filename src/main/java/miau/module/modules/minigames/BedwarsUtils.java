@@ -11,6 +11,9 @@ import miau.module.modules.minigames.bedwarsutils.features.EventTimersFeature;
 import miau.module.modules.minigames.bedwarsutils.features.UpgradeHUDFeature;
 import miau.property.Property;
 
+/**
+ * @author meowtils
+ */
 public class BedwarsUtils extends Module {
   private final List<BedwarsComponent> components = new ArrayList<>();
 

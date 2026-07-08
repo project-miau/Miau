@@ -26,6 +26,9 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
 import net.minecraft.util.EnumChatFormatting;
 
+/**
+ * @author meowtils
+ */
 public class SkywarsAlerts extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 

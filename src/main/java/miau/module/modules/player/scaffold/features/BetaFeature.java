@@ -32,8 +32,9 @@ public class BetaFeature implements ScaffoldComponent {
   public boolean isBetaTellyMode() {
     return isBetaMode()
         && (scaffold.keepYFeature.keepY.getValue() == 3
-            || scaffold.keepYFeature.keepY.getValue() == 4)
-        && (!scaffold.keepYFeature.tellyRightClick.getValue() || isRightClickHeld());
+            || scaffold.keepYFeature.keepY.getValue() == 4
+            || scaffold.keepYFeature.keepY.getValue() == 5)
+        && (!scaffold.keepYFeature.keepYonPress.getValue() || isRightClickHeld());
   }
 
   private boolean isRightClickHeld() {

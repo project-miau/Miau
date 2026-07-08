@@ -1,9 +1,14 @@
 package miau.module.modules.ghost.bridgeassist.mode;
 
+import java.util.Arrays;
+import java.util.List;
 import miau.event.impl.MoveInputEvent;
 import miau.event.impl.TickEvent;
 import miau.event.types.EventType;
 import miau.module.modules.ghost.BridgeAssist;
+import miau.property.Property;
+import miau.property.properties.BooleanProperty;
+import miau.property.properties.FloatProperty;
 import miau.util.player.MoveUtil;
 import miau.util.player.PlayerUtil;
 import net.minecraft.client.Minecraft;
@@ -15,8 +20,37 @@ public class NormalMode {
   private final BridgeAssist parent;
   private int sneakDelay = 0;
 
+  public final FloatProperty delayMs;
+  public final BooleanProperty directionCheck;
+  public final BooleanProperty jumpCheck;
+  public final BooleanProperty pitchCheck;
+  public final BooleanProperty blocksOnly;
+  public final BooleanProperty normalSneakOnly;
+
   public NormalMode(BridgeAssist parent) {
     this.parent = parent;
+    this.delayMs =
+        new FloatProperty(
+            "delay", 2.0F, 3.0F, 0.0F, 10.0F, () -> parent.mode.getModeString().equals("Normal"));
+    this.directionCheck =
+        new BooleanProperty(
+            "direction-check", true, () -> parent.mode.getModeString().equals("Normal"));
+    this.jumpCheck =
+        new BooleanProperty("jump-check", true, () -> parent.mode.getModeString().equals("Normal"));
+    this.pitchCheck =
+        new BooleanProperty(
+            "pitch-check", true, () -> parent.mode.getModeString().equals("Normal"));
+    this.blocksOnly =
+        new BooleanProperty(
+            "blocks-only", true, () -> parent.mode.getModeString().equals("Normal"));
+    this.normalSneakOnly =
+        new BooleanProperty(
+            "sneaking-only", false, () -> parent.mode.getModeString().equals("Normal"));
+  }
+
+  public List<Property<?>> getProperties() {
+    return Arrays.asList(
+        delayMs, directionCheck, jumpCheck, pitchCheck, blocksOnly, normalSneakOnly);
   }
 
   public void onDisabled() {
@@ -29,17 +63,17 @@ public class NormalMode {
   }
 
   private boolean shouldSneak() {
-    if (parent.directionCheck.getValue() && mc.gameSettings.keyBindForward.isKeyDown()) {
+    if (this.directionCheck.getValue() && mc.gameSettings.keyBindForward.isKeyDown()) {
       return false;
-    } else if (parent.jumpCheck.getValue() && mc.gameSettings.keyBindJump.isKeyDown()) {
+    } else if (this.jumpCheck.getValue() && mc.gameSettings.keyBindJump.isKeyDown()) {
       return false;
-    } else if (parent.pitchCheck.getValue() && mc.thePlayer.rotationPitch < 69.0F) {
+    } else if (this.pitchCheck.getValue() && mc.thePlayer.rotationPitch < 69.0F) {
       return false;
-    } else if (parent.normalSneakOnly.getValue()
+    } else if (this.normalSneakOnly.getValue()
         && !Keyboard.isKeyDown(mc.gameSettings.keyBindSneak.getKeyCode())) {
       return false;
     } else {
-      return (!parent.blocksOnly.getValue() || parent.isHoldingBlock()) && mc.thePlayer.onGround;
+      return (!this.blocksOnly.getValue() || parent.isHoldingBlock()) && mc.thePlayer.onGround;
     }
   }
 
@@ -51,14 +85,13 @@ public class NormalMode {
       if (this.sneakDelay == 0 && this.canMoveSafely()) {
         this.sneakDelay =
             RandomUtils.nextInt(
-                parent.delayMs.getValue().intValue(),
-                parent.delayMs.getSecondValue().intValue() + 1);
+                this.delayMs.getValue().intValue(), this.delayMs.getSecondValue().intValue() + 1);
       }
     }
   }
 
   public void onMoveInput(MoveInputEvent event) {
-    if (parent.normalSneakOnly.getValue()
+    if (this.normalSneakOnly.getValue()
         && Keyboard.isKeyDown(mc.gameSettings.keyBindSneak.getKeyCode())
         && shouldSneak()) {
       mc.thePlayer.movementInput.sneak = false;

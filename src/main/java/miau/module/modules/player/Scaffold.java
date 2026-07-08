@@ -69,28 +69,40 @@ public class Scaffold extends Module {
             40.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final FloatProperty tellystartrotationmaxspeed =
         new FloatProperty(
             "telly-start-rotation-max-speed",
             95.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final FloatProperty tellynormalrotationminspeed =
         new FloatProperty(
             "telly-normal-rotation-min-speed",
             30.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final FloatProperty tellynormalrotationmaxspeed =
         new FloatProperty(
             "telly-normal-rotation-max-speed",
             35.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final ModeProperty moveFix =
         new ModeProperty("move-fix", 1, new String[] {"NONE", "SILENT"});
     public final ModeProperty sprintMode =
@@ -147,13 +159,13 @@ public class Scaffold extends Module {
 
   public Scaffold() {
     super("Scaffold", false);
-    components.add(keepYFeature);
-    components.add(towerFeature);
     components.add(sneakFeature);
-    components.add(safeWalkFeature);
-    components.add(betaFeature);
+    components.add(keepYFeature);
     components.add(multiPlaceFeature);
+    components.add(safeWalkFeature);
     components.add(godbridgeFeature);
+    components.add(towerFeature);
+    components.add(betaFeature);
   }
 
   public int getSlot() {
@@ -181,7 +193,9 @@ public class Scaffold extends Module {
   public boolean isTowering() {
     if (mc.thePlayer.onGround && MoveUtil.isForwardPressed() && !PlayerUtil.isAirAbove()) {
       boolean keepYActive =
-          keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4;
+          keepYFeature.keepY.getValue() == 3
+              || keepYFeature.keepY.getValue() == 4
+              || keepYFeature.keepY.getValue() == 5;
       boolean towerActive = towerFeature.tower.getValue() == 3;
       return keepYActive && this.stage > 0
           || towerActive && mc.gameSettings.keyBindJump.isKeyDown();
@@ -204,7 +218,7 @@ public class Scaffold extends Module {
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) return true;
     if (isTowering()) return false;
     int k = keepYFeature.keepY.getValue();
-    boolean stageActive = k == 1 || k == 2 || k == 4;
+    boolean stageActive = k == 1 || k == 2 || k == 4 || k == 5;
     return (!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0;
   }
 
@@ -588,16 +602,20 @@ public class Scaffold extends Module {
         place(belowPlayer, this.targetFacing, hitVec);
       }
       this.targetFacing = null;
-    } else if ((keepYFeature.keepY.getValue() == 2 || keepYFeature.keepY.getValue() == 4)
+    } else if ((keepYFeature.keepY.getValue() == 2
+            || keepYFeature.keepY.getValue() == 4
+            || keepYFeature.keepY.getValue() == 5)
         && this.stage > 0
         && !mc.thePlayer.onGround) {
       int nextBlockY = MathHelper.floor_double(mc.thePlayer.posY + mc.thePlayer.motionY);
       if (nextBlockY <= this.startY && mc.thePlayer.posY > (double) (this.startY + 1)) {
         this.shouldKeepY = true;
-        blockData = getBlockData();
-        if (blockData != null && this.rotationTick <= 0 && !this.placedThisTick) {
-          MovingObjectPosition mop = getPlacementMop(blockData, this.yaw, this.pitch);
-          if (mop != null) place(blockData.blockPos, blockData.facing, mop.hitVec);
+        if (keepYFeature.keepY.getValue() != 5) {
+          blockData = getBlockData();
+          if (blockData != null && this.rotationTick <= 0 && !this.placedThisTick) {
+            MovingObjectPosition mop = getPlacementMop(blockData, this.yaw, this.pitch);
+            if (mop != null) place(blockData.blockPos, blockData.facing, mop.hitVec);
+          }
         }
       }
     }
@@ -614,7 +632,9 @@ public class Scaffold extends Module {
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) {
       this.towerTick = 0;
       this.towerDelay = 0;
-      if (!(keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4)) return;
+      if (!(keepYFeature.keepY.getValue() == 3
+          || keepYFeature.keepY.getValue() == 4
+          || keepYFeature.keepY.getValue() == 5)) return;
     }
     towerFeature.onStrafe(event);
   }

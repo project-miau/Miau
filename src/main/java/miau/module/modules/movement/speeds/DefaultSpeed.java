@@ -1,18 +1,30 @@
 package miau.module.modules.movement.speeds;
 
+import java.util.Arrays;
+import java.util.List;
+import miau.event.impl.LivingUpdateEvent;
 import miau.event.impl.StrafeEvent;
 import miau.module.modules.movement.Speed;
+import miau.property.Property;
 import miau.property.properties.FloatProperty;
 import miau.property.properties.PercentProperty;
 import miau.util.player.MoveUtil;
 
 public class DefaultSpeed extends SpeedMode {
-  public final FloatProperty multiplier = new FloatProperty("multiplier", 1.0F, 0.0F, 10.0F);
-  public final FloatProperty friction = new FloatProperty("friction", 1.0F, 0.0F, 10.0F);
-  public final PercentProperty strafe = new PercentProperty("strafe", 0);
+  public final FloatProperty multiplier =
+      new FloatProperty("multiplier", 1.0F, 0.0F, 10.0F, () -> parent.mode.getValue() == 0);
+  public final FloatProperty friction =
+      new FloatProperty("friction", 1.0F, 0.0F, 10.0F, () -> parent.mode.getValue() == 0);
+  public final PercentProperty strafe =
+      new PercentProperty("strafe", 0, () -> parent.mode.getValue() == 0);
 
   public DefaultSpeed(String name, Speed parent) {
     super(name, parent);
+  }
+
+  @Override
+  public List<Property<?>> getProperties() {
+    return Arrays.asList(multiplier, friction, strafe);
   }
 
   @Override
@@ -38,6 +50,13 @@ public class DefaultSpeed extends SpeedMode {
           MoveUtil.setSpeed(speed);
         }
       }
+    }
+  }
+
+  @Override
+  public void onLivingUpdate(LivingUpdateEvent event) {
+    if (parent.canBoost()) {
+      mc.thePlayer.movementInput.jump = false;
     }
   }
 }
