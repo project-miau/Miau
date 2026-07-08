@@ -53,6 +53,10 @@ public abstract class MixinEntityLivingBase extends MixinEntity {
       float movementYaw = RotationState.isActived() ? RotationState.getSmoothedYaw() : originalYaw;
       StrafeEvent event = new StrafeEvent(float2, float3, float4, movementYaw);
       EventManager.call(event);
+      if (event.isCancelled()) {
+        this.rotationYaw = movementYaw;
+        return;
+      }
       float2 = event.getStrafe();
       float3 = event.getForward();
       float4 = event.getFriction();

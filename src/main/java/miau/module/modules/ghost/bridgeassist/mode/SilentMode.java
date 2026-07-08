@@ -60,8 +60,7 @@ public class SilentMode {
     this.active = false;
   }
 
-  public void onMoveInput(MoveInputEvent event) {
-  }
+  public void onMoveInput(MoveInputEvent event) {}
 
   public void onUpdate(UpdateEvent e) {
     if (e.getType() != EventType.PRE) return;

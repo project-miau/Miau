@@ -132,7 +132,7 @@ public class RotationHandler {
       }
 
       event.setRotation(targetYaw, targetPitch, 3);
-      if (scaffold.options.moveFix.getValue() == 1) {
+      if (scaffold.options.movementCorrection.getValue()) {
         event.setPervRotation(targetYaw, 3);
       }
     }

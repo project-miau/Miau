@@ -20,6 +20,7 @@ import miau.module.modules.player.scaffold.rotations.RotationHandler;
 import miau.module.modules.render.PostProcessing;
 import miau.property.Property;
 import miau.property.properties.*;
+import miau.util.client.KeyBindUtil;
 import miau.util.font.FontRepository;
 import miau.util.math.RandomUtil;
 import miau.util.player.*;
@@ -57,9 +58,9 @@ public class Scaffold extends Module {
   public final BetaFeature betaFeature = new BetaFeature(this);
   public final MultiPlaceFeature multiPlaceFeature = new MultiPlaceFeature(this);
   public final GodbridgeFeature godbridgeFeature = new GodbridgeFeature(this);
+  public final BlockSafeFeature blockSafeFeature = new BlockSafeFeature(this);
   private final List<ScaffoldComponent> components = new ArrayList<>();
 
-  // ─── Options (after components because lambdas reference them) ────
   public final ScaffoldOptions options = new ScaffoldOptions();
 
   public class ScaffoldOptions {
@@ -105,8 +106,10 @@ public class Scaffold extends Module {
                     || keepYFeature.keepY.getValue() == 5);
     public final ModeProperty moveFix =
         new ModeProperty("move-fix", 1, new String[] {"NONE", "SILENT"});
+    public final BooleanProperty movementCorrection =
+        new BooleanProperty("movement-correction", true);
     public final ModeProperty sprintMode =
-        new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA"});
+        new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA", "OFF_GROUND", "ON_GROUND"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
@@ -120,6 +123,7 @@ public class Scaffold extends Module {
       list.add(tellynormalrotationminspeed);
       list.add(tellynormalrotationmaxspeed);
       list.add(moveFix);
+      list.add(movementCorrection);
       list.add(sprintMode);
       list.add(groundMotion);
       list.add(airMotion);
@@ -166,6 +170,7 @@ public class Scaffold extends Module {
     components.add(godbridgeFeature);
     components.add(towerFeature);
     components.add(betaFeature);
+    components.add(blockSafeFeature);
   }
 
   public int getSlot() {
@@ -219,7 +224,19 @@ public class Scaffold extends Module {
     if (isTowering()) return false;
     int k = keepYFeature.keepY.getValue();
     boolean stageActive = k == 1 || k == 2 || k == 4 || k == 5;
-    return (!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0;
+    if ((!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0) return true;
+    int sprint = options.sprintMode.getValue();
+    if (sprint == 2 && mc.thePlayer.onGround) return true;
+    if (sprint == 3 && !mc.thePlayer.onGround) return true;
+    return false;
+  }
+
+  private void applySprintMode() {
+    if (shouldStopSprint()) return;
+    int sprint = options.sprintMode.getValue();
+    if (sprint >= 1 && sprint <= 3) {
+      KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+    }
   }
 
   private EnumFacing getBestFacing(BlockPos blockPos1, BlockPos blockPos3) {
@@ -355,6 +372,7 @@ public class Scaffold extends Module {
 
     this.placedThisTick = false;
     betaFeature.onUpdate(event);
+    blockSafeFeature.onUpdate(event);
 
     if (this.safeStuckDelayTicks > 0) {
       this.safeStuckDelayTicks--;
@@ -540,10 +558,24 @@ public class Scaffold extends Module {
       }
     }
 
+    // Beta non-telly: apply godbridge rotation for automatic godbridging
+    if (betaMode && !betaFeature.isBetaTellyMode() && this.canRotate) {
+      if (MoveUtil.isForwardPressed()) {
+        float forward = mc.thePlayer.movementInput.moveForward;
+        float strafe = mc.thePlayer.movementInput.moveStrafe;
+        float gYaw = getGodbridgeYaw(forward, strafe, mc.thePlayer.rotationYaw);
+        this.yaw = RotationUtil.quantizeAngle(gYaw);
+        this.pitch = RotationUtil.quantizeAngle(75.0F);
+      }
+    }
+
     rotationHandler.handleUpdateRotation(event, yawDiffTo180, diagonalYaw, snapMode, towerRotating);
 
     if (betaMode && blockData != null && hitVec != null) {
       MovingObjectPosition verifiedMop = getPlacementMop(blockData, this.placeYaw, this.placePitch);
+      if (verifiedMop == null) {
+        verifiedMop = getPlacementMop(blockData, this.yaw, this.pitch);
+      }
       hitVec = verifiedMop != null ? verifiedMop.hitVec : null;
     }
 
@@ -651,7 +683,7 @@ public class Scaffold extends Module {
     }
     betaFeature.onMoveInput(event);
     godbridgeFeature.onMoveInput(event);
-    if (options.moveFix.getValue() == 1
+    if (options.movementCorrection.getValue()
         && RotationState.isActived()
         && RotationState.getPriority() == 3.0F
         && MoveUtil.isForwardPressed()) {
@@ -688,6 +720,7 @@ public class Scaffold extends Module {
       mc.thePlayer.movementInput.moveStrafe *= speed;
     }
     if (shouldStopSprint()) mc.thePlayer.setSprinting(false);
+    else applySprintMode();
     towerFeature.updateSafeStuck();
   }
 
@@ -904,8 +937,8 @@ public class Scaffold extends Module {
   @Override
   public List<Property<?>> getAdditionalProperties() {
     List<Property<?>> props = new ArrayList<>();
-    props.addAll(options.getProperties());
     props.addAll(rotationHandler.getProperties());
+    props.addAll(options.getProperties());
     for (ScaffoldComponent comp : components) {
       props.addAll(comp.getProperties());
     }
@@ -920,5 +953,29 @@ public class Scaffold extends Module {
       this.blockPos = blockPos;
       this.facing = facing;
     }
+  }
+
+  private float getGodbridgeYaw(float forward, float strafe, float playerYaw) {
+    if (forward == 0 && strafe == 0) {
+      float axisMovement = (float) Math.floor(playerYaw / 90.0f) * 90.0f;
+      return RotationUtil.quantizeAngle(axisMovement + 45.0f);
+    }
+    float direction = getMovementDirection(forward, strafe, playerYaw) + 180.0f;
+    float movingYaw = Math.round(direction / 45.0f) * 45.0f;
+    boolean isMovingStraight = (movingYaw % 90.0f) == 0.0f;
+    if (!isMovingStraight) return movingYaw;
+
+    float finalYaw = movingYaw + 45.0f;
+    return RotationUtil.quantizeAngle(finalYaw);
+  }
+
+  private float getMovementDirection(float forward, float strafe, float yaw) {
+    if (forward == 0 && strafe == 0) return yaw;
+    boolean reversed = forward < 0.0f;
+    float strafingYaw = 90.0f * (forward > 0.0f ? 0.5f : reversed ? -0.5f : 1.0f);
+    if (reversed) yaw += 180.0f;
+    if (strafe > 0.0f) yaw -= strafingYaw;
+    else if (strafe < 0.0f) yaw += strafingYaw;
+    return yaw;
   }
 }
