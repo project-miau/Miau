@@ -223,7 +223,7 @@ public class Scaffold extends Module {
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) return true;
     if (isTowering()) return false;
     int k = keepYFeature.keepY.getValue();
-    boolean stageActive = k == 1 || k == 2 || k == 4 || k == 5;
+    boolean stageActive = k == 1 || k == 2 || k == 3 || k == 5;
     if ((!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0) return true;
     int sprint = options.sprintMode.getValue();
     if (sprint == 2 && mc.thePlayer.onGround) return true;
@@ -635,7 +635,7 @@ public class Scaffold extends Module {
       }
       this.targetFacing = null;
     } else if ((keepYFeature.keepY.getValue() == 2
-            || keepYFeature.keepY.getValue() == 4
+            || keepYFeature.keepY.getValue() == 3
             || keepYFeature.keepY.getValue() == 5)
         && this.stage > 0
         && !mc.thePlayer.onGround) {

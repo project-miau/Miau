@@ -19,7 +19,7 @@ public class KeepYFeature implements ScaffoldComponent {
       new ModeProperty(
           "keep-y",
           0,
-          new String[] {"NONE", "VANILLA", "Extra 1 Block", "TELLY", "Extra 2 Blocks", "Test"});
+          new String[] {"NONE", "VANILLA", "Extra 1 Block", "Extra 2 Blocks", "TELLY", "Test"});
   public final BooleanProperty keepYonPress =
       new BooleanProperty(
           "keep-y-on-press",
