@@ -7,7 +7,10 @@ LOG="${CI_BUILD_LOG:-build.log}"
   echo "::error::Gradle build failed (exit $code). Summary:"
   grep -E '^FAILURE:|^> Task .*FAILED|What went wrong:|Execution failed for task|BUILD FAILED|format violations:|Run .gradlew' "$LOG" | tail -40 || true
   echo ""
-  echo "Last 80 lines of full log (see job artifact for complete $LOG):"
+  echo "Last 80 lines (full log: artifact gradle-build-log / $LOG):"
   tail -80 "$LOG"
   exit "$code"
 }
+
+echo "Build OK. Task summary:"
+grep -E '^> Task |BUILD SUCCESSFUL' "$LOG" | tail -25
