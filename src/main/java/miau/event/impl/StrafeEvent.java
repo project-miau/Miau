@@ -7,6 +7,7 @@ public class StrafeEvent implements Event {
   private float forward;
   private float friction;
   private float yaw;
+  private boolean cancelled;
 
   public StrafeEvent(float strafe, float forward, float friction) {
     this.strafe = strafe;
@@ -20,6 +21,14 @@ public class StrafeEvent implements Event {
     this.forward = forward;
     this.friction = friction;
     this.yaw = yaw;
+  }
+
+  public boolean isCancelled() {
+    return this.cancelled;
+  }
+
+  public void cancelEvent() {
+    this.cancelled = true;
   }
 
   public float getYaw() {

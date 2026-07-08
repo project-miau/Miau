@@ -57,9 +57,9 @@ public class Scaffold extends Module {
   public final BetaFeature betaFeature = new BetaFeature(this);
   public final MultiPlaceFeature multiPlaceFeature = new MultiPlaceFeature(this);
   public final GodbridgeFeature godbridgeFeature = new GodbridgeFeature(this);
+  public final BlockSafeFeature blockSafeFeature = new BlockSafeFeature(this);
   private final List<ScaffoldComponent> components = new ArrayList<>();
 
-  // ─── Options (after components because lambdas reference them) ────
   public final ScaffoldOptions options = new ScaffoldOptions();
 
   public class ScaffoldOptions {
@@ -91,8 +91,7 @@ public class Scaffold extends Module {
             1.0F,
             180.0F,
             () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
-    public final ModeProperty moveFix =
-        new ModeProperty("move-fix", 1, new String[] {"NONE", "SILENT"});
+    public final BooleanProperty movementCorrection = new BooleanProperty("movement-correction", true);
     public final ModeProperty sprintMode =
         new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -107,7 +106,7 @@ public class Scaffold extends Module {
       list.add(tellystartrotationmaxspeed);
       list.add(tellynormalrotationminspeed);
       list.add(tellynormalrotationmaxspeed);
-      list.add(moveFix);
+      list.add(movementCorrection);
       list.add(sprintMode);
       list.add(groundMotion);
       list.add(airMotion);
@@ -147,6 +146,7 @@ public class Scaffold extends Module {
 
   public Scaffold() {
     super("Scaffold", false);
+    
     components.add(keepYFeature);
     components.add(towerFeature);
     components.add(sneakFeature);
@@ -154,6 +154,7 @@ public class Scaffold extends Module {
     components.add(betaFeature);
     components.add(multiPlaceFeature);
     components.add(godbridgeFeature);
+    components.add(blockSafeFeature);
   }
 
   public int getSlot() {
@@ -341,6 +342,7 @@ public class Scaffold extends Module {
 
     this.placedThisTick = false;
     betaFeature.onUpdate(event);
+    blockSafeFeature.onUpdate(event);
 
     if (this.safeStuckDelayTicks > 0) {
       this.safeStuckDelayTicks--;
@@ -617,6 +619,15 @@ public class Scaffold extends Module {
       if (!(keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4)) return;
     }
     towerFeature.onStrafe(event);
+    // LiquidBounce-style movement correction: direct motionX/motionZ instead of movementInput snap
+    if (options.movementCorrection.getValue()
+        && RotationState.isActived()
+        && RotationState.getPriority() == 3.0F
+        && MoveUtil.isForwardPressed()) {
+      float targetYaw = RotationState.getSmoothedYaw();
+      MoveUtil.applyStrafeToPlayer(event, targetYaw, false);
+      event.cancelEvent();
+    }
   }
 
   @EventTarget
@@ -631,12 +642,6 @@ public class Scaffold extends Module {
     }
     betaFeature.onMoveInput(event);
     godbridgeFeature.onMoveInput(event);
-    if (options.moveFix.getValue() == 1
-        && RotationState.isActived()
-        && RotationState.getPriority() == 3.0F
-        && MoveUtil.isForwardPressed()) {
-      MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
-    }
     if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed()) {
       mc.thePlayer.movementInput.jump = true;
     }
@@ -884,8 +889,8 @@ public class Scaffold extends Module {
   @Override
   public List<Property<?>> getAdditionalProperties() {
     List<Property<?>> props = new ArrayList<>();
-    props.addAll(options.getProperties());
     props.addAll(rotationHandler.getProperties());
+    props.addAll(options.getProperties());
     for (ScaffoldComponent comp : components) {
       props.addAll(comp.getProperties());
     }
