@@ -56,6 +56,7 @@ public class Scaffold extends Module {
   public final SafeWalkFeature safeWalkFeature = new SafeWalkFeature(this);
   public final BetaFeature betaFeature = new BetaFeature(this);
   public final MultiPlaceFeature multiPlaceFeature = new MultiPlaceFeature(this);
+  public final GodbridgeFeature godbridgeFeature = new GodbridgeFeature(this);
   private final List<ScaffoldComponent> components = new ArrayList<>();
 
   // ─── Options (after components because lambdas reference them) ────
@@ -152,10 +153,15 @@ public class Scaffold extends Module {
     components.add(safeWalkFeature);
     components.add(betaFeature);
     components.add(multiPlaceFeature);
+    components.add(godbridgeFeature);
   }
 
   public int getSlot() {
     return this.lastSlot;
+  }
+
+  public int getBlockCount() {
+    return this.blockCount;
   }
 
   public float getSpeed() {
@@ -226,7 +232,7 @@ public class Scaffold extends Module {
     return enumFacing;
   }
 
-  private BlockData getBlockData() {
+  public BlockData getBlockData() {
     int sy = MathHelper.floor_double(mc.thePlayer.posY);
     BlockPos targetPos =
         new BlockPos(
@@ -243,9 +249,9 @@ public class Scaffold extends Module {
           if (!BlockUtil.isReplaceable(pos)
               && !BlockUtil.isInteractable(pos)
               && !(mc.thePlayer.getDistance(
-                          (double) pos.getX() + 0.5,
-                          (double) pos.getY() + 0.5,
-                          (double) pos.getZ() + 0.5)
+                      (double) pos.getX() + 0.5,
+                      (double) pos.getY() + 0.5,
+                      (double) pos.getZ() + 0.5)
                   > (double) mc.playerController.getBlockReachDistance())
               && (this.stage == 0 || this.shouldKeepY || pos.getY() < this.startY)) {
             for (EnumFacing facing : EnumFacing.VALUES) {
@@ -311,7 +317,7 @@ public class Scaffold extends Module {
     this.lastSnapPlacePitch = this.pitch;
   }
 
-  private void place(BlockPos blockPos, EnumFacing enumFacing, Vec3 vec3) {
+  public void place(BlockPos blockPos, EnumFacing enumFacing, Vec3 vec3) {
     if (!betaFeature.canBetaPlaceNow()) return;
     ItemStack activeItem = Miau.slotComponent.getItemStack();
     if (activeItem != null && ItemUtil.isBlock(activeItem) && this.blockCount > 0) {
@@ -324,6 +330,7 @@ public class Scaffold extends Module {
           betaFeature.betaPlaceTicks = 0;
         }
         sneakFeature.placements--;
+        for (ScaffoldComponent comp : components) comp.onBlockPlaced();
       }
     }
   }
@@ -623,6 +630,7 @@ public class Scaffold extends Module {
       return;
     }
     betaFeature.onMoveInput(event);
+    godbridgeFeature.onMoveInput(event);
     if (options.moveFix.getValue() == 1
         && RotationState.isActived()
         && RotationState.getPriority() == 3.0F

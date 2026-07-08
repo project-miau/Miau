@@ -22,4 +22,6 @@ public interface ScaffoldComponent {
   default void onEnable() {}
 
   default void onDisable() {}
+
+  default void onBlockPlaced() {}
 }
