@@ -499,9 +499,16 @@ public class Scaffold extends Module {
         }
       }
       if (bestYaw != -180.0F || bestPitch != 0.0F) {
-        this.yaw = bestYaw;
-        this.pitch = bestPitch;
-        this.canRotate = true;
+        if (betaMode && betaFeature.initTicks <= 8) {
+          // Beta init phase: don't snap pitch/yaw from block placement;
+          // let the godbridge section smoothly transition from the
+          // player's current looking direction over several ticks.
+          this.canRotate = true;
+        } else {
+          this.yaw = bestYaw;
+          this.pitch = bestPitch;
+          this.canRotate = true;
+        }
       } else if (betaMode) {
         this.canRotate = false;
       }
@@ -555,14 +562,23 @@ public class Scaffold extends Module {
       }
     }
 
-    // Beta non-telly: apply godbridge rotation for automatic godbridging
     if (betaMode && !betaFeature.isBetaTellyMode() && this.canRotate) {
       if (MoveUtil.isForwardPressed()) {
         float forward = mc.thePlayer.movementInput.moveForward;
         float strafe = mc.thePlayer.movementInput.moveStrafe;
         float gYaw = getGodbridgeYaw(forward, strafe, mc.thePlayer.rotationYaw);
+        float targetPitch = RotationUtil.quantizeAngle(75.0F);
         this.yaw = RotationUtil.quantizeAngle(gYaw);
-        this.pitch = RotationUtil.quantizeAngle(75.0F);
+        float pitchDiff = targetPitch - this.pitch;
+        float maxStep = (float) betaFeature.initTicks * 6.0F + 3.0F;
+        if (Math.abs(pitchDiff) > Math.min(1.5F, maxStep)) {
+          this.pitch =
+              RotationUtil.quantizeAngle(
+                  this.pitch
+                      + RotationUtil.clampAngle(pitchDiff, Math.min(maxStep, Math.abs(pitchDiff))));
+        } else {
+          this.pitch = targetPitch;
+        }
       }
     }
 
