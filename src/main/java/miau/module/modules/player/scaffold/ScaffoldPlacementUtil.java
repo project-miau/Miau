@@ -98,6 +98,11 @@ public final class ScaffoldPlacementUtil {
     if (Float.isNaN(bestYaw)) {
       return resolveAimInset(data, baseYaw, basePitch, reach);
     }
+    float[] gcd = RotationUtil.flexRotation(bestYaw, bestPitch, baseYaw, basePitch);
+    MovingObjectPosition verify = RotationUtil.rayCastBlock(reach, gcd[0], gcd[1]);
+    if (matchesPlacement(verify, data)) {
+      return new PlacementAim(gcd[0], gcd[1], verify.hitVec);
+    }
     return new PlacementAim(bestYaw, bestPitch, bestHit);
   }
 
@@ -133,6 +138,11 @@ public final class ScaffoldPlacementUtil {
       }
     }
     if (Float.isNaN(bestYaw)) return null;
+    float[] gcd = RotationUtil.flexRotation(bestYaw, bestPitch, baseYaw, basePitch);
+    MovingObjectPosition verify = RotationUtil.rayCastBlock(reach, gcd[0], gcd[1]);
+    if (matchesPlacement(verify, data)) {
+      return new PlacementAim(gcd[0], gcd[1], verify.hitVec);
+    }
     return new PlacementAim(bestYaw, bestPitch, bestHit);
   }
 

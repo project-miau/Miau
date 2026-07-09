@@ -510,6 +510,8 @@ public class Scaffold extends Module {
                 blockData, event.getYaw(), event.getPitch(), placeOffsets);
       }
       if (styled != null) {
+        this.yaw = styled.yaw;
+        this.pitch = styled.pitch;
         this.placePitch = styled.pitch;
         hitVec = styled.hitVec;
       } else {
@@ -646,11 +648,18 @@ public class Scaffold extends Module {
     }
     betaFeature.onMoveInput(event);
     godbridgeFeature.onMoveInput(event);
-    if (options.movementCorrection.getValue()
+    int rotMode = rotationHandler.rotationMode.getValue();
+    boolean styleBridge = rotMode == 2 || rotMode == 3;
+    boolean moveFixSilent = options.moveFix.getValue() == 1;
+    if ((options.movementCorrection.getValue() || moveFixSilent)
         && RotationState.isActived()
         && RotationState.getPriority() == 3.0F
         && MoveUtil.isForwardPressed()) {
-      MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
+      float strafeYaw =
+          styleBridge && !Float.isNaN(this.bridgeYaw)
+              ? this.bridgeYaw
+              : RotationState.getSmoothedYaw();
+      MoveUtil.fixStrafe(strafeYaw);
     }
     if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed()) {
       mc.thePlayer.movementInput.jump = true;

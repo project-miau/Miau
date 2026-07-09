@@ -94,15 +94,14 @@ public class RotationHandler {
         scaffold.towering = true;
       }
 
-      if (mode == 2 || mode == 3) {
-        if (!Float.isNaN(scaffold.bridgeYaw)) {
-          targetYaw = scaffold.bridgeYaw;
-        }
-        if (!Float.isNaN(scaffold.placePitch)) {
-          targetPitch = scaffold.placePitch;
-        }
-      }
+      scaffold.placeYaw = targetYaw;
+      scaffold.placePitch = targetPitch;
 
+      float[] gcd =
+          RotationUtil.flexRotation(
+              targetYaw, targetPitch, event.getYaw(), event.getPitch());
+      targetYaw = gcd[0];
+      targetPitch = gcd[1];
       scaffold.placeYaw = targetYaw;
       scaffold.placePitch = targetPitch;
 
@@ -141,8 +140,13 @@ public class RotationHandler {
       }
 
       event.setRotation(targetYaw, targetPitch, 3);
-      if (scaffold.options.movementCorrection.getValue()) {
-        event.setPervRotation(targetYaw, 3);
+      boolean moveFixSilent = scaffold.options.moveFix.getValue() == 1;
+      if (scaffold.options.movementCorrection.getValue() || moveFixSilent) {
+        float moveYaw = targetYaw;
+        if ((mode == 2 || mode == 3) && !Float.isNaN(scaffold.bridgeYaw)) {
+          moveYaw = scaffold.bridgeYaw;
+        }
+        event.setPervRotation(moveYaw, 3);
       }
     }
   }
