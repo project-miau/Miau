@@ -42,8 +42,7 @@ import net.minecraft.world.WorldSettings.GameType;
 
 public class Scaffold extends Module {
   public static final Minecraft mc = Minecraft.getMinecraft();
-  private static final int ROTATION_SNAP = 6;
-  private static final int ROTATION_BETA = 7;
+  private static final int ROTATION_BETA = 4;
   public static final double[] placeOffsets =
       new double[] {
         0.03125, 0.09375, 0.15625, 0.21875, 0.28125, 0.34375, 0.40625, 0.46875, 0.53125, 0.59375,
@@ -146,9 +145,7 @@ public class Scaffold extends Module {
   public int stage = 0;
   public boolean shouldKeepY = false;
   public boolean placedThisTick = false;
-  public boolean snapRotating = false;
-  public float lastSnapPlaceYaw = Float.NaN;
-  public float lastSnapPlacePitch = Float.NaN;
+
   public boolean towering = false;
   public EnumFacing targetFacing = null;
   public int startY = 0;
@@ -314,36 +311,6 @@ public class Scaffold extends Module {
     return ScaffoldPlacementUtil.verifyPlacement(blockData, yaw, pitch);
   }
 
-  private boolean isDuplicateSnapRotation(float yaw, float pitch) {
-    return !Float.isNaN(this.lastSnapPlaceYaw)
-        && Math.abs(MathHelper.wrapAngleTo180_float(yaw - this.lastSnapPlaceYaw)) < 0.35F;
-  }
-
-  private float[] getSnapRotation(BlockData blockData, float yaw, float pitch) {
-    float baseYaw = RotationUtil.quantizeAngle(yaw);
-    float basePitch = RotationUtil.quantizeAngle(MathHelper.clamp_float(pitch, -90.0F, 90.0F));
-    if (!isDuplicateSnapRotation(baseYaw, basePitch)) return new float[] {baseYaw, basePitch};
-
-    for (int i = 0; i < 24; i++) {
-      float yawStep = 0.35F + 0.075F * (float) (i / 2);
-      float pitchStep = 0.025F + 0.01F * (float) (i / 3);
-      float testYaw = RotationUtil.quantizeAngle(baseYaw + (i % 2 == 0 ? yawStep : -yawStep));
-      float testPitch =
-          RotationUtil.quantizeAngle(
-              MathHelper.clamp_float(
-                  basePitch + (i % 4 < 2 ? pitchStep : -pitchStep), -90.0F, 90.0F));
-      if (!isDuplicateSnapRotation(testYaw, testPitch)
-          && getPlacementMop(blockData, testYaw, testPitch) != null)
-        return new float[] {testYaw, testPitch};
-    }
-    return null;
-  }
-
-  private void rememberSnapRotation() {
-    this.lastSnapPlaceYaw = this.yaw;
-    this.lastSnapPlacePitch = this.pitch;
-  }
-
   public void place(BlockPos blockPos, EnumFacing enumFacing, Vec3 vec3) {
     if (!betaFeature.canBetaPlaceNow()) return;
     ItemStack activeItem = Miau.slotComponent.getItemStack();
@@ -431,9 +398,7 @@ public class Scaffold extends Module {
                 event.getYaw());
 
     int rotMode = rotationHandler.rotationMode.getValue();
-    boolean snapMode = rotMode == ROTATION_SNAP;
     boolean betaMode = rotMode == ROTATION_BETA;
-    this.snapRotating = false;
 
     if (!this.canRotate) {
       rotationHandler.handleInitialRotation(event, currentYaw, yawDiffTo180, diagonalYaw);
@@ -457,39 +422,6 @@ public class Scaffold extends Module {
     }
 
     boolean towerRotating = this.towering || isTowering();
-    boolean snapCanPlace = true;
-    if (snapMode && !towerRotating && blockData != null) {
-      MovingObjectPosition currentMop =
-          getPlacementMop(blockData, event.getYaw(), event.getPitch());
-      if (currentMop != null) {
-        float[] snapRotation = getSnapRotation(blockData, event.getYaw(), event.getPitch());
-        if (snapRotation == null) {
-          snapCanPlace = false;
-          hitVec = null;
-        } else {
-          this.yaw = snapRotation[0];
-          this.pitch = snapRotation[1];
-          this.canRotate = true;
-          MovingObjectPosition snapMop = getPlacementMop(blockData, this.yaw, this.pitch);
-          hitVec = snapMop != null ? snapMop.hitVec : currentMop.hitVec;
-          this.snapRotating = true;
-          if (this.rotationTick > 1) this.rotationTick = 1;
-        }
-      } else if (hitVec != null && this.canRotate) {
-        float[] snapRotation = getSnapRotation(blockData, this.yaw, this.pitch);
-        if (snapRotation == null) {
-          snapCanPlace = false;
-          hitVec = null;
-        } else {
-          this.yaw = snapRotation[0];
-          this.pitch = snapRotation[1];
-          MovingObjectPosition snapMop = getPlacementMop(blockData, this.yaw, this.pitch);
-          if (snapMop != null) hitVec = snapMop.hitVec;
-          this.snapRotating = true;
-          if (this.rotationTick > 1) this.rotationTick = 1;
-        }
-      }
-    }
 
     if (this.canRotate
         && MoveUtil.isForwardPressed()
@@ -543,13 +475,12 @@ public class Scaffold extends Module {
     boolean willPlaceThisTick =
         blockData != null
             && hitVec != null
-            && snapCanPlace
             && this.rotationTick <= 0
             && this.sneakFeature.ticksOnAir
                 >= RandomUtil.nextFloat(
                     options.placeDelay.getValue(), options.placeDelay.getSecondValue());
     rotationHandler.handleUpdateRotation(
-        event, yawDiffTo180, diagonalYaw, snapMode, towerRotating, willPlaceThisTick);
+        event, yawDiffTo180, diagonalYaw, towerRotating, willPlaceThisTick);
 
     if (betaMode && blockData != null && hitVec != null) {
       MovingObjectPosition verifiedMop =
@@ -563,9 +494,7 @@ public class Scaffold extends Module {
 
     if (willPlaceThisTick) {
       place(blockData.blockPos, blockData.facing, hitVec);
-      if (snapMode) rememberSnapRotation();
-
-      if (multiPlaceFeature.multiplace.getValue() && !snapMode) {
+      if (multiPlaceFeature.multiplace.getValue()) {
         for (int i = 0; i < 3; i++) {
           blockData = getBlockData();
           if (blockData == null) break;
@@ -649,7 +578,7 @@ public class Scaffold extends Module {
     }
     betaFeature.onMoveInput(event);
     godbridgeFeature.onMoveInput(event);
-    boolean applyMoveFix = options.moveFix.getValue() == 1 || options.movementCorrection.getValue();
+    boolean applyMoveFix = options.movementCorrection.getValue();
     if (applyMoveFix
         && RotationState.isActived()
         && RotationState.getPriority() == 3.0F
@@ -692,7 +621,7 @@ public class Scaffold extends Module {
     }
     if (shouldStopSprint()) mc.thePlayer.setSprinting(false);
     else applySprintMode();
-    towerFeature.updateSafeStuck();
+    // Safe stuck removed
   }
 
   @EventTarget
@@ -859,12 +788,9 @@ public class Scaffold extends Module {
     this.sneakFeature.pause = 0;
     this.sneakFeature.slow = 0;
     this.sneakFeature.ticksOnAir = 0;
-    this.snapRotating = false;
     this.betaFeature.betaAirTicks = 0;
     this.betaFeature.betaGroundTicks = 0;
     this.betaFeature.betaPlaceCooldown = 0;
-    this.lastSnapPlaceYaw = Float.NaN;
-    this.lastSnapPlacePitch = Float.NaN;
     this.lastPlacedAbsPacketYawDelta = Float.NaN;
     this.duplicatePlaceRotNudgeSign = 1;
     this.betaFeature.lastBetaSentYaw = Float.NaN;

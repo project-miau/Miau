@@ -1,4 +1,4 @@
-package miau.module.modules.misc.cheatdetector.impl;
+package miau.module.modules.misc.cheatdetector.impl.combat;
 
 import java.util.ArrayList;
 import java.util.HashMap;

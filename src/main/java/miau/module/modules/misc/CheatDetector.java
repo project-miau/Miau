@@ -14,6 +14,7 @@ import miau.module.Module;
 import miau.module.modules.misc.cheatdetector.CheatDetectorData;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
+import miau.property.properties.ModeProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 
@@ -23,13 +24,40 @@ import net.minecraft.entity.player.EntityPlayer;
 public class CheatDetector extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
+  public final ModeProperty alertMode =
+      new ModeProperty("alert-mode", 0, new String[] {"Notification", "Chat"});
+  public final FloatProperty alertCoolDown = new FloatProperty("alert-cooldown", 1000f, 0f, 2000f);
+
   public final BooleanProperty checkAutoBlock = new BooleanProperty("auto-block", true);
-  public final BooleanProperty checkNoSlow = new BooleanProperty("no-slow", true);
-  public final BooleanProperty checkLegitScaffold = new BooleanProperty("legit-scaffold", true);
   public final BooleanProperty checkKillaura = new BooleanProperty("killaura", true);
+  public final BooleanProperty checkAttackRaytrace = new BooleanProperty("attack-raytrace", true);
+  public final BooleanProperty checkClickSpeedLimiter =
+      new BooleanProperty("click-speed-limiter", true);
+  public final BooleanProperty checkClickPatterns = new BooleanProperty("click-patterns", true);
+  public final BooleanProperty checkHeuristics = new BooleanProperty("heuristics", true);
+
+  public final BooleanProperty checkNoSlow = new BooleanProperty("no-slow", true);
+  public final BooleanProperty checkPhysics = new BooleanProperty("physics", true);
+  public final BooleanProperty checkTimer = new BooleanProperty("timer", true);
+
+  public final BooleanProperty checkInventoryClickAnalysis =
+      new BooleanProperty("inv-click-analysis", true);
+  public final BooleanProperty checkProtocolScanner = new BooleanProperty("protocol-scanner", true);
+
+  public final BooleanProperty checkBreakSpeedLimiter =
+      new BooleanProperty("break-speed-limiter", true);
+  public final BooleanProperty checkInteractionRaytrace =
+      new BooleanProperty("interaction-raytrace", true);
+
+  public final BooleanProperty checkScaffoldSneak = new BooleanProperty("scaffold-sneak", true);
+  public final BooleanProperty checkScaffoldAngleSnap =
+      new BooleanProperty("scaffold-angle-snap", true);
+  public final BooleanProperty checkScaffoldRotationSpeed =
+      new BooleanProperty("scaffold-rotation-speed", true);
+  public final BooleanProperty checkScaffoldJumpAndPlace =
+      new BooleanProperty("scaffold-jump-place", true);
 
   public final BooleanProperty selfCheck = new BooleanProperty("check-self", false);
-  public final FloatProperty alertCoolDown = new FloatProperty("alert-cooldown", 1000f, 0f, 2000f);
 
   private final Set<EntityPlayer> cheaters = new HashSet<>();
   private final Map<UUID, CheatDetectorData> dataMap = new HashMap<>();
@@ -39,9 +67,31 @@ public class CheatDetector extends Module {
   }
 
   public boolean isCheckEnabled(String name) {
+    if ("AutoBlockCheck".equals(name)) return checkAutoBlock.getValue();
+    if ("KillauraCheck".equals(name)) return checkKillaura.getValue();
+    if ("AttackRaytraceCheck".equals(name)) return checkAttackRaytrace.getValue();
+    if ("ClickSpeedLimiterCheck".equals(name)) return checkClickSpeedLimiter.getValue();
+    if ("ClickPatternsCheck".equals(name)) return checkClickPatterns.getValue();
+    if ("HeuristicsCheck".equals(name)) return checkHeuristics.getValue();
+
+    if ("NoSlowCheck".equals(name)) return checkNoSlow.getValue();
+    if ("PhysicsCheck".equals(name)) return checkPhysics.getValue();
+    if ("TimerCheck".equals(name)) return checkTimer.getValue();
+
+    if ("InventoryClickAnalysisCheck".equals(name)) return checkInventoryClickAnalysis.getValue();
+    if ("ProtocolScannerCheck".equals(name)) return checkProtocolScanner.getValue();
+
+    if ("BreakSpeedLimiterCheck".equals(name)) return checkBreakSpeedLimiter.getValue();
+    if ("InteractionRaytraceCheck".equals(name)) return checkInteractionRaytrace.getValue();
+
+    if ("ScaffoldSneakCheck".equals(name)) return checkScaffoldSneak.getValue();
+    if ("ScaffoldAngleSnapCheck".equals(name)) return checkScaffoldAngleSnap.getValue();
+    if ("ScaffoldRotationSpeedCheck".equals(name)) return checkScaffoldRotationSpeed.getValue();
+    if ("ScaffoldJumpAndPlaceCheck".equals(name)) return checkScaffoldJumpAndPlace.getValue();
+
     if ("AutoBlock".equals(name)) return checkAutoBlock.getValue();
     if ("No slow".equals(name)) return checkNoSlow.getValue();
-    if ("Legit scaffold".equals(name)) return checkLegitScaffold.getValue();
+    if ("Legit scaffold".equals(name)) return checkScaffoldSneak.getValue();
     if ("Killaura".equals(name)) return checkKillaura.getValue();
     return false;
   }

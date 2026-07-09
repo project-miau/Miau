@@ -25,8 +25,8 @@ public abstract class Check {
                 .alertCoolDown
                 .getValue()
                 .floatValue())) {
-      Miau.notificationManager.pop(
-          "CheatDetector",
+      CheatDetector cd = (CheatDetector) Miau.moduleManager.getModule(CheatDetector.class);
+      String alertMsg =
           player.getName()
               + net.minecraft.util.EnumChatFormatting.WHITE
               + " has failed "
@@ -34,9 +34,15 @@ public abstract class Check {
               + getName()
               + net.minecraft.util.EnumChatFormatting.WHITE
               + " "
-              + verbose,
-          NotificationType.INFO);
-      ((CheatDetector) Miau.moduleManager.getModule(CheatDetector.class)).mark(player);
+              + verbose;
+
+      if ("Chat".equalsIgnoreCase(cd.alertMode.getModeString())) {
+        mc.thePlayer.addChatMessage(
+            new net.minecraft.util.ChatComponentText("[CheatDetector] " + alertMsg));
+      } else {
+        Miau.notificationManager.pop("CheatDetector", alertMsg, NotificationType.INFO);
+      }
+      cd.mark(player);
       flagTimer.reset();
     }
   }

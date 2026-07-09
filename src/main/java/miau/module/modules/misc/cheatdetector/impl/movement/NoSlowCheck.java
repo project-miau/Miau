@@ -1,4 +1,4 @@
-package miau.module.modules.misc.cheatdetector.impl;
+package miau.module.modules.misc.cheatdetector.impl.movement;
 
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;

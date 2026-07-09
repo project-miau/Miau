@@ -1,4 +1,4 @@
-package miau.module.modules.misc.cheatdetector.impl;
+package miau.module.modules.misc.cheatdetector.impl.world.placementanalysis;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,7 +6,12 @@ import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemBlock;
 
-public class LegitScaffoldCheck extends Check {
+public class ScaffoldSneakCheck extends Check {
+  @Override
+  public String getName() {
+    return "ScaffoldSneakCheck";
+  }
+
   private long lastCrouchStart = 0;
   private long lastCrouchEnd = 0;
   private boolean wasSneaking = false;
@@ -14,10 +19,7 @@ public class LegitScaffoldCheck extends Check {
   private final List<Integer> crouchDurations = new ArrayList<>();
   private long lastFlagTick = 0;
 
-  @Override
-  public String getName() {
-    return "Legit scaffold";
-  }
+  // getName already overridden above
 
   @Override
   public void onUpdate(EntityPlayer player) {
