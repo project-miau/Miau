@@ -14,6 +14,8 @@ import miau.management.RotationState;
 import miau.module.Module;
 import miau.module.modules.movement.LongJump;
 import miau.module.modules.player.scaffold.ScaffoldComponent;
+import miau.module.modules.player.scaffold.ScaffoldPlacementUtil;
+import miau.module.modules.player.scaffold.ScaffoldPlacementUtil.PlacementAim;
 import miau.module.modules.player.scaffold.ScaffoldUtils;
 import miau.module.modules.player.scaffold.features.*;
 import miau.module.modules.player.scaffold.rotations.RotationHandler;
@@ -36,7 +38,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.*;
-import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.world.WorldSettings.GameType;
 
 public class Scaffold extends Module {
@@ -157,6 +158,7 @@ public class Scaffold extends Module {
   public double savedMotionX, savedMotionY, savedMotionZ;
   public double safePrevMotionY = 0.0;
   public float placeYaw, placePitch;
+  public float bridgeYaw = Float.NaN;
 
   public Scaffold() {
     super("Scaffold", false);
@@ -306,13 +308,7 @@ public class Scaffold extends Module {
   }
 
   private MovingObjectPosition getPlacementMop(BlockData blockData, float yaw, float pitch) {
-    MovingObjectPosition mop =
-        RotationUtil.rayTrace(yaw, pitch, mc.playerController.getBlockReachDistance(), 1.0F);
-    if (mop == null
-        || mop.typeOfHit != MovingObjectType.BLOCK
-        || !mop.getBlockPos().equals(blockData.blockPos)
-        || mop.sideHit != blockData.facing) return null;
-    return mop;
+    return ScaffoldPlacementUtil.verifyPlacement(blockData, yaw, pitch);
   }
 
   private boolean isDuplicateSnapRotation(float yaw, float pitch) {
@@ -444,71 +440,14 @@ public class Scaffold extends Module {
     Vec3 hitVec = null;
 
     if (blockData != null) {
-      double[] x = placeOffsets, y = placeOffsets, z = placeOffsets;
-      switch (blockData.facing) {
-        case NORTH:
-          z = new double[] {0.0};
-          break;
-        case EAST:
-          x = new double[] {1.0};
-          break;
-        case SOUTH:
-          z = new double[] {1.0};
-          break;
-        case WEST:
-          x = new double[] {0.0};
-          break;
-        case DOWN:
-          y = new double[] {0.0};
-          break;
-        case UP:
-          y = new double[] {1.0};
-          break;
-      }
-
-      float bestYaw = -180.0F, bestPitch = 0.0F, bestDiff = 0.0F;
-      for (double dx : x) {
-        for (double dy : y) {
-          for (double dz : z) {
-            double relX = (double) blockData.blockPos.getX() + dx - mc.thePlayer.posX;
-            double relY =
-                (double) blockData.blockPos.getY()
-                    + dy
-                    - mc.thePlayer.posY
-                    - (double) mc.thePlayer.getEyeHeight();
-            double relZ = (double) blockData.blockPos.getZ() + dz - mc.thePlayer.posZ;
-            float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
-            float[] rotations = RotationUtil.getRotationsTo(relX, relY, relZ, baseYaw, this.pitch);
-            MovingObjectPosition mop =
-                RotationUtil.rayTrace(
-                    rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
-            if (mop != null
-                && mop.typeOfHit == MovingObjectType.BLOCK
-                && mop.getBlockPos().equals(blockData.blockPos)
-                && mop.sideHit == blockData.facing) {
-              float totalDiff =
-                  Math.abs(rotations[0] - baseYaw) + Math.abs(rotations[1] - this.pitch);
-              if (bestYaw == -180.0F && bestPitch == 0.0F || totalDiff < bestDiff) {
-                bestYaw = rotations[0];
-                bestPitch = rotations[1];
-                bestDiff = totalDiff;
-                hitVec = mop.hitVec;
-              }
-            }
-          }
-        }
-      }
-      if (bestYaw != -180.0F || bestPitch != 0.0F) {
-        if (betaMode && betaFeature.initTicks <= 8) {
-          // Beta init phase: don't snap pitch/yaw from block placement;
-          // let the godbridge section smoothly transition from the
-          // player's current looking direction over several ticks.
-          this.canRotate = true;
-        } else {
-          this.yaw = bestYaw;
-          this.pitch = bestPitch;
-          this.canRotate = true;
-        }
+      float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
+      PlacementAim aim =
+          ScaffoldPlacementUtil.resolveAim(blockData, baseYaw, this.pitch, placeOffsets);
+      if (aim != null) {
+        this.yaw = aim.yaw;
+        this.pitch = aim.pitch;
+        hitVec = aim.hitVec;
+        this.canRotate = true;
       } else if (betaMode) {
         this.canRotate = false;
       }
@@ -551,33 +490,49 @@ public class Scaffold extends Module {
 
     if (this.canRotate
         && MoveUtil.isForwardPressed()
-        && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
-      switch (rotMode) {
-        case 2:
-          this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
-          break;
-        case 3:
-          this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
-          break;
+        && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F
+        && blockData != null
+        && (rotMode == 2 || rotMode == 3)) {
+      float styleYaw =
+          rotMode == 2
+              ? RotationUtil.quantizeAngle(yawDiffTo180)
+              : RotationUtil.quantizeAngle(diagonalYaw);
+      this.bridgeYaw = styleYaw;
+      this.yaw = styleYaw;
+      PlacementAim styled =
+          ScaffoldPlacementUtil.resolveAim(blockData, styleYaw, this.pitch, placeOffsets);
+      if (styled == null) {
+        styled =
+            ScaffoldPlacementUtil.resolveAim(
+                blockData, event.getYaw(), event.getPitch(), placeOffsets);
+      }
+      if (styled != null) {
+        this.yaw = styled.yaw;
+        this.pitch = styled.pitch;
+        this.placePitch = styled.pitch;
+        hitVec = styled.hitVec;
+      } else {
+        hitVec = null;
       }
     }
 
-    if (betaMode && !betaFeature.isBetaTellyMode() && this.canRotate) {
+    // Beta non-telly: apply godbridge rotation for automatic godbridging
+    if (betaMode && !betaFeature.isBetaTellyMode() && this.canRotate && blockData != null) {
       if (MoveUtil.isForwardPressed()) {
         float forward = mc.thePlayer.movementInput.moveForward;
         float strafe = mc.thePlayer.movementInput.moveStrafe;
         float gYaw = getGodbridgeYaw(forward, strafe, mc.thePlayer.rotationYaw);
-        float targetPitch = RotationUtil.quantizeAngle(75.0F);
-        this.yaw = RotationUtil.quantizeAngle(gYaw);
-        float pitchDiff = targetPitch - this.pitch;
-        float maxStep = (float) betaFeature.initTicks * 6.0F + 3.0F;
-        if (Math.abs(pitchDiff) > Math.min(1.5F, maxStep)) {
-          this.pitch =
-              RotationUtil.quantizeAngle(
-                  this.pitch
-                      + RotationUtil.clampAngle(pitchDiff, Math.min(maxStep, Math.abs(pitchDiff))));
+        float styleYaw = RotationUtil.quantizeAngle(gYaw);
+        float stylePitch = RotationUtil.quantizeAngle(75.0F);
+        PlacementAim betaAim =
+            ScaffoldPlacementUtil.resolveAim(blockData, styleYaw, stylePitch, placeOffsets);
+        if (betaAim != null) {
+          this.yaw = betaAim.yaw;
+          this.pitch = betaAim.pitch;
+          hitVec = betaAim.hitVec;
         } else {
-          this.pitch = targetPitch;
+          this.yaw = styleYaw;
+          this.pitch = stylePitch;
         }
       }
     }
@@ -585,7 +540,11 @@ public class Scaffold extends Module {
     rotationHandler.handleUpdateRotation(event, yawDiffTo180, diagonalYaw, snapMode, towerRotating);
 
     if (betaMode && blockData != null && hitVec != null) {
-      MovingObjectPosition verifiedMop = getPlacementMop(blockData, this.placeYaw, this.placePitch);
+      MovingObjectPosition verifiedMop =
+          getPlacementMop(
+              blockData,
+              Float.isNaN(this.bridgeYaw) ? this.yaw : this.bridgeYaw,
+              this.placePitch);
       if (verifiedMop == null) {
         verifiedMop = getPlacementMop(blockData, this.yaw, this.pitch);
       }
@@ -606,13 +565,8 @@ public class Scaffold extends Module {
         for (int i = 0; i < 3; i++) {
           blockData = getBlockData();
           if (blockData == null) break;
-          MovingObjectPosition mop =
-              RotationUtil.rayTrace(
-                  this.yaw, this.pitch, mc.playerController.getBlockReachDistance(), 1.0F);
-          if (mop != null
-              && mop.typeOfHit == MovingObjectType.BLOCK
-              && mop.getBlockPos().equals(blockData.blockPos)
-              && mop.sideHit == blockData.facing) {
+          MovingObjectPosition mop = getPlacementMop(blockData, this.yaw, this.pitch);
+          if (mop != null) {
             place(blockData.blockPos, blockData.facing, mop.hitVec);
           } else {
             hitVec = BlockUtil.getClickVec(blockData.blockPos, blockData.facing);
@@ -623,13 +577,8 @@ public class Scaffold extends Module {
                 RotationUtil.getRotationsTo(dx, dy, dz, event.getYaw(), event.getPitch());
             if (!(Math.abs(rots[0] - this.yaw) < 120.0F)
                 || !(Math.abs(rots[1] - this.pitch) < 60.0F)) break;
-            mop =
-                RotationUtil.rayTrace(
-                    rots[0], rots[1], mc.playerController.getBlockReachDistance(), 1.0F);
-            if (mop == null
-                || mop.typeOfHit != MovingObjectType.BLOCK
-                || !mop.getBlockPos().equals(blockData.blockPos)
-                || mop.sideHit != blockData.facing) break;
+            mop = getPlacementMop(blockData, rots[0], rots[1]);
+            if (mop == null) break;
             place(blockData.blockPos, blockData.facing, mop.hitVec);
           }
         }
@@ -696,6 +645,8 @@ public class Scaffold extends Module {
     }
     betaFeature.onMoveInput(event);
     godbridgeFeature.onMoveInput(event);
+    int rotMode = rotationHandler.rotationMode.getValue();
+    boolean styleBridge = rotMode == 2 || rotMode == 3;
     if (options.movementCorrection.getValue()
         && RotationState.isActived()
         && RotationState.getPriority() == 3.0F

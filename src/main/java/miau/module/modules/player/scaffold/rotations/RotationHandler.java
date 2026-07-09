@@ -97,6 +97,14 @@ public class RotationHandler {
       scaffold.placeYaw = targetYaw;
       scaffold.placePitch = targetPitch;
 
+      float[] gcd =
+          RotationUtil.flexRotation(
+              targetYaw, targetPitch, event.getYaw(), event.getPitch());
+      targetYaw = gcd[0];
+      targetPitch = gcd[1];
+      scaffold.placeYaw = targetYaw;
+      scaffold.placePitch = targetPitch;
+
       if (betaMode) {
         if (!Float.isNaN(scaffold.betaFeature.lastBetaSentYaw)) {
           boolean clampE = scaffold.betaFeature.betaPlaceTicks < 3;
@@ -133,7 +141,7 @@ public class RotationHandler {
 
       event.setRotation(targetYaw, targetPitch, 3);
       if (scaffold.options.movementCorrection.getValue()) {
-        event.setPervRotation(targetYaw, 3);
+        event.setPervRotation(moveYaw, 3);
       }
     }
   }

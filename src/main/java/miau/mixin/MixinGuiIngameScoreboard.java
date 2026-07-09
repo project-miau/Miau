@@ -5,9 +5,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import miau.Miau;
+import miau.event.EventTarget;
+import miau.event.impl.ShaderEvent;
+import miau.module.Module;
 import miau.module.modules.render.HUD;
+import miau.module.modules.render.PostProcessing;
 import miau.module.modules.render.Scoreboard;
 import miau.util.shader.RoundedUtils;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiIngame;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.scoreboard.Score;
@@ -26,8 +31,6 @@ public abstract class MixinGuiIngameScoreboard {
   @Shadow
   protected abstract void renderScoreboard(ScoreObjective objective, ScaledResolution scaledRes);
 
-  private static boolean isRenderingBloom = false;
-
   @Inject(method = "renderScoreboard", at = @At("HEAD"), cancellable = true)
   private void onRenderScoreboardPre(
       ScoreObjective objective, ScaledResolution scaledRes, CallbackInfo ci) {
@@ -38,27 +41,15 @@ public abstract class MixinGuiIngameScoreboard {
       return;
     }
 
-    // Recalculate bounds every frame (this updates defaultX/defaultY)
+    // Recalculate bounds every frame
     scoreboardMod.updateBounds(scaledRes);
 
-    HUD hud = (HUD) Miau.moduleManager.getModule(HUD.class);
-    boolean useShaders = hud != null && hud.isEnabled() && hud.shadow.getValue();
-
-    if (!isRenderingBloom && useShaders) {
-      // Bloom pass
-      isRenderingBloom = true;
-      miau.util.shader.BlurUtils.prepareBloom();
-      renderOpalScoreboard(objective, scaledRes, scoreboardMod, true);
-      miau.util.shader.BlurUtils.bloomEnd(6, 24.0f);
-
-      // Blur pass
-      miau.util.shader.BlurUtils.prepareBlur();
+    PostProcessing pp = (PostProcessing) Miau.moduleManager.getModule(PostProcessing.class);
+    if (pp != null && pp.isActive()) {
+      // PostProcessing handles blur/bloom passes via ShaderEvent.
+      // The scoreboard will render its background during the ShaderEvent passes
+      // (handled by an EventTarget elsewhere), and the final text render is here.
       renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
-      miau.util.shader.BlurUtils.blurEnd(5, 25.0f);
-
-      // Final pass
-      renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
-      isRenderingBloom = false;
       ci.cancel();
       return;
     }
@@ -67,16 +58,12 @@ public abstract class MixinGuiIngameScoreboard {
     ci.cancel();
   }
 
-  /**
-   * Opal-style scoreboard rendering with rounded-rect frosted-glass card.
-   *
-   * <p>Position is read from {@code scoreboardMod.defaultX/defaultY} — computed fresh each frame.
-   */
+  /** Renders the opal-style scoreboard card with text. */
   private void renderOpalScoreboard(
       ScoreObjective objective,
       ScaledResolution scaledRes,
       Scoreboard scoreboardMod,
-      boolean bloomPass) {
+      boolean transparencyOnly) {
     net.minecraft.scoreboard.Scoreboard scoreboard = objective.getScoreboard();
     Collection<Score> collection = scoreboard.getSortedScores(objective);
     List<Score> list = new ArrayList<>();
@@ -97,11 +84,8 @@ public abstract class MixinGuiIngameScoreboard {
 
     boolean shadow = scoreboardMod.textShadow.getValue();
 
-    // --- Draw card background ---
-    if (bloomPass) {
-      RoundedUtils.drawRound(
-          cardX, cardY, cardWidth, cardHeight, radius, new Color(0xFF090909, true));
-    } else {
+    // --- Draw card background (if not in transparency-only mode) ---
+    if (!transparencyOnly) {
       RoundedUtils.drawRound(
           cardX, cardY, cardWidth, cardHeight, radius, new Color(0x80, 0x09, 0x09, 0x09));
     }
@@ -136,8 +120,7 @@ public abstract class MixinGuiIngameScoreboard {
     }
   }
 
-  private static final net.minecraft.client.Minecraft mc =
-      net.minecraft.client.Minecraft.getMinecraft();
+  private static final Minecraft mc = Minecraft.getMinecraft();
 
   private int getStringWidth(String text) {
     return mc.fontRendererObj.getStringWidth(text);

@@ -3,6 +3,7 @@ package miau.module.modules.render;
 import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 
+import miau.Miau;
 import miau.event.EventManager;
 import miau.event.impl.ShaderEvent;
 import miau.module.Module;
@@ -33,6 +34,59 @@ public class PostProcessing extends Module {
     super("PostProcessing", false);
   }
 
+  /**
+   * Returns the current blur iteration count so other modules can read it.
+   */
+  public int getBlurIterations() {
+    return blurIterations.getValue();
+  }
+
+  /**
+   * Returns the current blur offset/radius so other modules can read it.
+   */
+  public int getBlurOffset() {
+    return blurOffset.getValue();
+  }
+
+  /**
+   * Returns the current bloom iteration count.
+   */
+  public int getBloomIterations() {
+    return bloomIterations.getValue();
+  }
+
+  /**
+   * Returns the current bloom offset/radius.
+   */
+  public int getBloomOffset() {
+    return bloomOffset.getValue();
+  }
+
+  /**
+   * Returns whether PostProcessing has bloom enabled.
+   */
+  public boolean isBloomEnabled() {
+    return bloom.getValue();
+  }
+
+  /**
+   * Returns whether PostProcessing has blur enabled.
+   */
+  public boolean isBlurEnabled() {
+    return blur.getValue();
+  }
+
+  /**
+   * Returns whether PostProcessing is active (enabled and has either blur or bloom).
+   */
+  public boolean isActive() {
+    return this.isEnabled() && (blur.getValue() || bloom.getValue());
+  }
+
+  /**
+   * Called during shader passes to render the content that needs to be blurred.
+   * This fires a ShaderEvent so all modules can render their shapes into the framebuffer.
+   */
   public void stuffToDraw(int pass) {
     ScaledResolution sr = new ScaledResolution(mc);
 
@@ -46,6 +100,11 @@ public class PostProcessing extends Module {
     RenderUtil.resetColor();
   }
 
+  /**
+   * Main entry point called from MixinGuiIngameForge before Render2DEvent.
+   * Renders all GUI elements into a bloom framebuffer and/or blur framebuffer,
+   * then applies the Kawase blur/bloom shaders.
+   */
   public void blurScreen() {
     if (!this.isEnabled()) return;
 

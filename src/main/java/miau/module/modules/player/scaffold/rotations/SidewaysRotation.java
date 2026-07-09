@@ -18,5 +18,6 @@ public class SidewaysRotation implements IRotationLogic {
     } else {
       scaffold.yaw = RotationUtil.quantizeAngle(diagonalYaw);
     }
+    scaffold.bridgeYaw = scaffold.yaw;
   }
 }

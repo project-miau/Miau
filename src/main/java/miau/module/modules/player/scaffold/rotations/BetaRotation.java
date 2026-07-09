@@ -13,9 +13,6 @@ public class BetaRotation implements IRotationLogic {
       float yawDiffTo180,
       float diagonalYaw) {
     if (scaffold.yaw == -180.0F && scaffold.pitch == 0.0F) {
-      // On first enable, preserve the player's current looking direction
-      // instead of snapping to an artificial rotation. This prevents
-      // the instant head-cup detection by anticheats.
       float keepYaw = RotationUtil.quantizeAngle(event.getYaw());
       float keepPitch = RotationUtil.quantizeAngle(event.getPitch());
       scaffold.yaw = keepYaw;
