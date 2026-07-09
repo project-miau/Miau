@@ -496,14 +496,16 @@ public class Scaffold extends Module {
         && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F
         && blockData != null
         && (rotMode == 2 || rotMode == 3)) {
-      float styleYaw =
-          rotMode == 2
-              ? RotationUtil.quantizeAngle(yawDiffTo180)
-              : RotationUtil.quantizeAngle(diagonalYaw);
-      this.bridgeYaw = styleYaw;
-      this.yaw = styleYaw;
+      float styleYaw = rotMode == 2 ? yawDiffTo180 : diagonalYaw;
+      float[] bridgeGcd =
+          RotationUtil.flexRotation(
+              styleYaw, this.pitch, event.getYaw(), event.getPitch());
+      this.bridgeYaw = bridgeGcd[0];
+      this.yaw = bridgeGcd[0];
+      this.pitch = bridgeGcd[1];
       PlacementAim styled =
-          ScaffoldPlacementUtil.resolveAim(blockData, styleYaw, this.pitch, placeOffsets);
+          ScaffoldPlacementUtil.resolveAim(
+              blockData, bridgeGcd[0], bridgeGcd[1], placeOffsets);
       if (styled == null) {
         styled =
             ScaffoldPlacementUtil.resolveAim(
@@ -650,16 +652,12 @@ public class Scaffold extends Module {
     godbridgeFeature.onMoveInput(event);
     int rotMode = rotationHandler.rotationMode.getValue();
     boolean styleBridge = rotMode == 2 || rotMode == 3;
-    boolean moveFixSilent = options.moveFix.getValue() == 1;
-    if ((options.movementCorrection.getValue() || moveFixSilent)
+    if (options.movementCorrection.getValue()
+        && !styleBridge
         && RotationState.isActived()
         && RotationState.getPriority() == 3.0F
         && MoveUtil.isForwardPressed()) {
-      float strafeYaw =
-          styleBridge && !Float.isNaN(this.bridgeYaw)
-              ? this.bridgeYaw
-              : RotationState.getSmoothedYaw();
-      MoveUtil.fixStrafe(strafeYaw);
+      MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
     }
     if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed()) {
       mc.thePlayer.movementInput.jump = true;

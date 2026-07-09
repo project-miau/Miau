@@ -141,12 +141,10 @@ public class RotationHandler {
 
       event.setRotation(targetYaw, targetPitch, 3);
       boolean moveFixSilent = scaffold.options.moveFix.getValue() == 1;
-      if (scaffold.options.movementCorrection.getValue() || moveFixSilent) {
-        float moveYaw = targetYaw;
-        if ((mode == 2 || mode == 3) && !Float.isNaN(scaffold.bridgeYaw)) {
-          moveYaw = scaffold.bridgeYaw;
-        }
-        event.setPervRotation(moveYaw, 3);
+      if (moveFixSilent) {
+        event.setPervRotation(scaffold.getCurrentYaw(), 3);
+      } else if (scaffold.options.movementCorrection.getValue()) {
+        event.setPervRotation(targetYaw, 3);
       }
     }
   }
