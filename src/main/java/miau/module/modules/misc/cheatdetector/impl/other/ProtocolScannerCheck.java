@@ -11,7 +11,11 @@ public class ProtocolScannerCheck extends Check {
   }
 
   @Override
-  public void onUpdate(EntityPlayer player) {}
+  public void onUpdate(EntityPlayer player) {
+    if (player.rotationPitch > 90 || player.rotationPitch < -90) {
+      flag(player, "Impossible Pitch: " + player.rotationPitch);
+    }
+  }
 
   @Override
   public void onPacket(PacketEvent event, EntityPlayer player) {}

@@ -10,8 +10,19 @@ public class InteractionRaytraceCheck extends Check {
     return "InteractionRaytraceCheck";
   }
 
+  private float lastPitch = 0;
+
   @Override
-  public void onUpdate(EntityPlayer player) {}
+  public void onUpdate(EntityPlayer player) {
+    if (player.isSwingInProgress
+        && player.inventory.getCurrentItem() != null
+        && player.inventory.getCurrentItem().getItem() instanceof net.minecraft.item.ItemBlock) {
+      if (player.rotationPitch > 85 && Math.abs(player.rotationPitch - lastPitch) > 20) {
+        flag(player, "Interact Snap Downward");
+      }
+    }
+    lastPitch = player.rotationPitch;
+  }
 
   @Override
   public void onPacket(PacketEvent event, EntityPlayer player) {}

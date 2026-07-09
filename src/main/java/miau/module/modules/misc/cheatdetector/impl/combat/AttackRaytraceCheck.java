@@ -11,7 +11,24 @@ public class AttackRaytraceCheck extends Check {
   }
 
   @Override
-  public void onUpdate(EntityPlayer player) {}
+  public void onUpdate(EntityPlayer player) {
+    if (player.isSwingInProgress) {
+      for (net.minecraft.entity.Entity entity : mc.theWorld.loadedEntityList) {
+        if (entity != player && entity instanceof net.minecraft.entity.EntityLivingBase) {
+          net.minecraft.entity.EntityLivingBase target =
+              (net.minecraft.entity.EntityLivingBase) entity;
+          if (target.hurtTime > 0
+              && player.getDistanceToEntity(target) > 5.0) { // Leniency for latency
+            flag(
+                player,
+                "Reach/Hitbox (Dist: "
+                    + String.format("%.2f", player.getDistanceToEntity(target))
+                    + ")");
+          }
+        }
+      }
+    }
+  }
 
   @Override
   public void onPacket(PacketEvent event, EntityPlayer player) {}
