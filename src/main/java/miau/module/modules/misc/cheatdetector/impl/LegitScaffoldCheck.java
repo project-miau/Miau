@@ -1,4 +1,4 @@
-package miau.module.modules.misc.cheatdetector.impl.world.placementanalysis;
+package miau.module.modules.misc.cheatdetector.impl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,7 +6,7 @@ import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemBlock;
 
-public class ScaffoldSneakCheck extends Check {
+public class LegitScaffoldCheck extends Check {
   private long lastCrouchStart = 0;
   private long lastCrouchEnd = 0;
   private boolean wasSneaking = false;
@@ -16,7 +16,7 @@ public class ScaffoldSneakCheck extends Check {
 
   @Override
   public String getName() {
-    return "ScaffoldSneakCheck";
+    return "Legit scaffold";
   }
 
   @Override
@@ -76,7 +76,7 @@ public class ScaffoldSneakCheck extends Check {
 
     if (quickCrouch && swingTiming && consistent) {
       if (tick - lastFlagTick >= 60L) {
-        flag(player, "Eagle/Scaffold");
+        flag(player, "");
         lastFlagTick = tick;
       }
     }

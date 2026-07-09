@@ -1,4 +1,4 @@
-package miau.module.modules.misc.cheatdetector.impl.movement;
+package miau.module.modules.misc.cheatdetector.impl;
 
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
@@ -10,10 +10,12 @@ public class NoSlowCheck extends Check {
   private double lastPosX;
   private double lastPosZ;
 
+  @Override
   public String getName() {
     return "No slow";
   }
 
+  @Override
   public void onUpdate(EntityPlayer player) {
     double deltaX = player.posX - this.lastPosX;
     double deltaZ = player.posZ - this.lastPosZ;

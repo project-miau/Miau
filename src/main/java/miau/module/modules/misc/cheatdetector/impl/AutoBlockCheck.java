@@ -1,4 +1,4 @@
-package miau.module.modules.misc.cheatdetector.impl.combat;
+package miau.module.modules.misc.cheatdetector.impl;
 
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
@@ -6,10 +6,12 @@ import net.minecraft.entity.player.EntityPlayer;
 public class AutoBlockCheck extends Check {
   private int autoBlockTicks = 0;
 
+  @Override
   public String getName() {
     return "AutoBlock";
   }
 
+  @Override
   public void onUpdate(EntityPlayer player) {
     if (player.isSwingInProgress && player.isBlocking()) {
       this.autoBlockTicks++;
