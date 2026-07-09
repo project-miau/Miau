@@ -1,11 +1,10 @@
 package miau.module.modules.misc.cheatdetector.impl.movement;
 
-import miau.event.impl.PacketEvent;
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
 
 public class TimerCheck extends Check {
-  @Override
+
   public String getName() {
     return "TimerCheck";
   }
@@ -15,7 +14,6 @@ public class TimerCheck extends Check {
   private double lastX, lastY, lastZ;
   private boolean hasLast = false;
 
-  @Override
   public void onUpdate(EntityPlayer player) {
     if (!hasLast) {
       lastX = player.posX;
@@ -41,7 +39,4 @@ public class TimerCheck extends Check {
     lastY = player.posY;
     lastZ = player.posZ;
   }
-
-  @Override
-  public void onPacket(PacketEvent event, EntityPlayer player) {}
 }

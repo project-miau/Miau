@@ -6,12 +6,10 @@ import net.minecraft.entity.player.EntityPlayer;
 public class AutoBlockCheck extends Check {
   private int autoBlockTicks = 0;
 
-  @Override
   public String getName() {
     return "AutoBlock";
   }
 
-  @Override
   public void onUpdate(EntityPlayer player) {
     if (player.isSwingInProgress && player.isBlocking()) {
       this.autoBlockTicks++;

@@ -1,18 +1,16 @@
 package miau.module.modules.misc.cheatdetector.impl.world.placementanalysis;
 
-import miau.event.impl.PacketEvent;
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
 
 public class ScaffoldJumpAndPlaceCheck extends Check {
-  @Override
+
   public String getName() {
     return "ScaffoldJumpAndPlaceCheck";
   }
 
   private double lastY;
 
-  @Override
   public void onUpdate(EntityPlayer player) {
     if (player.inventory.getCurrentItem() != null
         && player.inventory.getCurrentItem().getItem() instanceof net.minecraft.item.ItemBlock) {
@@ -25,7 +23,4 @@ public class ScaffoldJumpAndPlaceCheck extends Check {
     }
     lastY = player.posY;
   }
-
-  @Override
-  public void onPacket(PacketEvent event, EntityPlayer player) {}
 }

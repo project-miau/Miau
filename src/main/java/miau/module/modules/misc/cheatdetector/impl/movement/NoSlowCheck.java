@@ -10,12 +10,10 @@ public class NoSlowCheck extends Check {
   private double lastPosX;
   private double lastPosZ;
 
-  @Override
   public String getName() {
     return "No slow";
   }
 
-  @Override
   public void onUpdate(EntityPlayer player) {
     double deltaX = player.posX - this.lastPosX;
     double deltaZ = player.posZ - this.lastPosZ;

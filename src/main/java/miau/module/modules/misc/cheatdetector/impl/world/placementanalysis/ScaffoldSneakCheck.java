@@ -1,41 +1,84 @@
 package miau.module.modules.misc.cheatdetector.impl.world.placementanalysis;
 
+import java.util.ArrayList;
+import java.util.List;
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemBlock;
 
 public class ScaffoldSneakCheck extends Check {
+  private long lastCrouchStart = 0;
+  private long lastCrouchEnd = 0;
+  private boolean wasSneaking = false;
+  private long lastSwingTick = Long.MIN_VALUE;
+  private final List<Integer> crouchDurations = new ArrayList<>();
+  private long lastFlagTick = 0;
+
   @Override
   public String getName() {
     return "ScaffoldSneakCheck";
   }
 
-  private boolean wasSneaking = false;
-  private int sneakTicks = 0;
-  private int unsneakTicks = 0;
-
   @Override
   public void onUpdate(EntityPlayer player) {
-    if (player.isSneaking()) {
-      sneakTicks++;
-      if (!wasSneaking
-          && unsneakTicks > 0
-          && unsneakTicks < 3
-          && player.inventory.getCurrentItem() != null
-          && player.inventory.getCurrentItem().getItem() instanceof net.minecraft.item.ItemBlock) {
-        flag(player, "Eagle/Scaffold (Unsneak ticks: " + unsneakTicks + ")");
-      }
-      unsneakTicks = 0;
-    } else {
-      unsneakTicks++;
-      if (wasSneaking
-          && sneakTicks > 0
-          && sneakTicks < 3
-          && player.inventory.getCurrentItem() != null
-          && player.inventory.getCurrentItem().getItem() instanceof net.minecraft.item.ItemBlock) {
-        flag(player, "Eagle/Scaffold (Sneak ticks: " + sneakTicks + ")");
-      }
-      sneakTicks = 0;
+    long tick = mc.theWorld.getTotalWorldTime();
+    trackCrouch(tick, player.isSneaking());
+    trackSwing(tick, player.swingProgressInt);
+
+    if (isScaffold(player)) {
+      evaluate(player, tick);
     }
-    wasSneaking = player.isSneaking();
+  }
+
+  private void trackCrouch(long tick, boolean currSneak) {
+    if (currSneak && !wasSneaking) {
+      lastCrouchStart = tick;
+    } else if (!currSneak && wasSneaking) {
+      int duration = (int) (tick - lastCrouchStart);
+      lastCrouchEnd = tick;
+      crouchDurations.add(0, duration);
+      if (crouchDurations.size() > 5) crouchDurations.remove(5);
+    }
+    wasSneaking = currSneak;
+  }
+
+  private void trackSwing(long tick, int swingProgressInt) {
+    if (swingProgressInt == 1) {
+      lastSwingTick = tick;
+    }
+  }
+
+  private boolean isScaffold(EntityPlayer player) {
+    return (player.rotationPitch >= 60.0F
+        && player.onGround
+        && player.getHeldItem() != null
+        && player.getHeldItem().getItem() instanceof ItemBlock);
+  }
+
+  private void evaluate(EntityPlayer player, long tick) {
+    if (lastCrouchStart == 0 || lastCrouchEnd == 0) {
+      return;
+    }
+
+    int crouchDuration = (int) (lastCrouchEnd - lastCrouchStart);
+    boolean quickCrouch = (crouchDuration >= 1 && crouchDuration <= 2);
+
+    boolean swingTiming =
+        (lastSwingTick >= lastCrouchEnd
+            && lastSwingTick <= lastCrouchEnd + 3L
+            && tick - lastSwingTick <= 10L);
+
+    boolean consistent =
+        (crouchDurations.size() >= 3
+            && crouchDurations.get(0) <= 3
+            && crouchDurations.get(1) <= 3
+            && crouchDurations.get(2) <= 3);
+
+    if (quickCrouch && swingTiming && consistent) {
+      if (tick - lastFlagTick >= 60L) {
+        flag(player, "Eagle/Scaffold");
+        lastFlagTick = tick;
+      }
+    }
   }
 }

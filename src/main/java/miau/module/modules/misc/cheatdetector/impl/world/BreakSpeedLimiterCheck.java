@@ -1,11 +1,10 @@
 package miau.module.modules.misc.cheatdetector.impl.world;
 
-import miau.event.impl.PacketEvent;
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
 
 public class BreakSpeedLimiterCheck extends Check {
-  @Override
+
   public String getName() {
     return "BreakSpeedLimiterCheck";
   }
@@ -15,7 +14,6 @@ public class BreakSpeedLimiterCheck extends Check {
   private int snaps = 0;
   private long lastReset = 0;
 
-  @Override
   public void onUpdate(EntityPlayer player) {
     if (player.isSwingInProgress) {
       float deltaYaw = Math.abs(player.rotationYawHead - lastYaw);
@@ -37,7 +35,4 @@ public class BreakSpeedLimiterCheck extends Check {
     lastYaw = player.rotationYawHead;
     lastPitch = player.rotationPitch;
   }
-
-  @Override
-  public void onPacket(PacketEvent event, EntityPlayer player) {}
 }

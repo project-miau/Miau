@@ -18,7 +18,9 @@ public class RotationHandler {
 
   public final ModeProperty rotationMode =
       new ModeProperty(
-          "rotations", 2, new String[] {"NONE", "Normal", "Backwards", "Godbridge", "Beta"});
+          "rotations",
+          2,
+          new String[] {"NONE", "Normal", "Backwards", "Sideways", "Godbridge", "Beta"});
 
   public List<Property<?>> getProperties() {
     return Arrays.asList(rotationMode);
@@ -28,8 +30,9 @@ public class RotationHandler {
     this.scaffold = scaffold;
     rotationLogics.put(1, new DefaultRotation());
     rotationLogics.put(2, new BackwardsRotation());
-    rotationLogics.put(3, new GodbridgeRotation());
-    rotationLogics.put(4, new BetaRotation());
+    rotationLogics.put(3, new SidewaysRotation());
+    rotationLogics.put(4, new GodbridgeRotation());
+    rotationLogics.put(5, new BetaRotation());
   }
 
   public void handleInitialRotation(
@@ -47,7 +50,7 @@ public class RotationHandler {
       boolean towerRotating,
       boolean willPlaceThisTick) {
     int mode = rotationMode.getValue();
-    boolean betaMode = mode == 4;
+    boolean betaMode = mode == 5;
     boolean betaTelly = scaffold.betaFeature.isBetaTellyMode();
 
     if (mode != 0) {

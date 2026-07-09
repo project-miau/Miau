@@ -1,18 +1,16 @@
 package miau.module.modules.misc.cheatdetector.impl.combat;
 
-import miau.event.impl.PacketEvent;
 import miau.module.modules.misc.cheatdetector.Check;
 import net.minecraft.entity.player.EntityPlayer;
 
 public class HeuristicsCheck extends Check {
-  @Override
+
   public String getName() {
     return "HeuristicsCheck";
   }
 
   private float lastYaw = 0;
 
-  @Override
   public void onUpdate(EntityPlayer player) {
     float yaw = player.rotationYawHead;
     float deltaYaw = Math.abs(yaw - lastYaw);
@@ -24,7 +22,4 @@ public class HeuristicsCheck extends Check {
     }
     lastYaw = yaw;
   }
-
-  @Override
-  public void onPacket(PacketEvent event, EntityPlayer player) {}
 }
