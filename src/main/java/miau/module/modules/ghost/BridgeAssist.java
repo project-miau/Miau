@@ -9,8 +9,6 @@ import miau.event.types.Priority;
 import miau.module.Module;
 import miau.module.modules.ghost.bridgeassist.mode.NormalMode;
 import miau.module.modules.ghost.bridgeassist.mode.SilentMode;
-import miau.property.properties.BooleanProperty;
-import miau.property.properties.FloatProperty;
 import miau.property.properties.ModeProperty;
 import miau.util.player.ItemUtil;
 import net.minecraft.client.Minecraft;
@@ -20,30 +18,6 @@ public class BridgeAssist extends Module {
 
   public final ModeProperty mode = new ModeProperty("Mode", 0, new String[] {"Normal", "Silent"});
 
-  public final FloatProperty delayMs =
-      new FloatProperty(
-          "delay", 2.0F, 3.0F, 0.0F, 10.0F, () -> mode.getModeString().equals("Normal"));
-  public final BooleanProperty directionCheck =
-      new BooleanProperty("direction-check", true, () -> mode.getModeString().equals("Normal"));
-  public final BooleanProperty jumpCheck =
-      new BooleanProperty("jump-check", true, () -> mode.getModeString().equals("Normal"));
-  public final BooleanProperty pitchCheck =
-      new BooleanProperty("pitch-check", true, () -> mode.getModeString().equals("Normal"));
-  public final BooleanProperty blocksOnly =
-      new BooleanProperty("blocks-only", true, () -> mode.getModeString().equals("Normal"));
-  public final BooleanProperty normalSneakOnly =
-      new BooleanProperty("sneaking-only", false, () -> mode.getModeString().equals("Normal"));
-
-  public final BooleanProperty silentSneakingOnly =
-      new BooleanProperty("sneaking-only", false, () -> mode.getModeString().equals("Silent"));
-  public final BooleanProperty silentEdgeOnly =
-      new BooleanProperty("edge-only", true, () -> mode.getModeString().equals("Silent"));
-  public final BooleanProperty silentMoveFix =
-      new BooleanProperty("move-fix", true, () -> mode.getModeString().equals("Silent"));
-  public final FloatProperty silentRotSpeed =
-      new FloatProperty(
-          "rot-speed", 12.0F, 5.0F, 20.0F, () -> mode.getModeString().equals("Silent"));
-
   private final NormalMode normalMode = new NormalMode(this);
   private final SilentMode silentMode = new SilentMode(this);
 
@@ -52,15 +26,25 @@ public class BridgeAssist extends Module {
   }
 
   @Override
+  public java.util.List<miau.property.Property<?>> getAdditionalProperties() {
+    java.util.List<miau.property.Property<?>> props = new java.util.ArrayList<>();
+    props.addAll(normalMode.getProperties());
+    props.addAll(silentMode.getProperties());
+    return props;
+  }
+
+  @Override
   public String[] getSuffix() {
     if (this.mode.getModeString().equals("Silent")) {
       return new String[] {"Silent"};
     }
-    return Objects.equals(this.delayMs.getValue(), this.delayMs.getSecondValue())
-        ? new String[] {String.valueOf(this.delayMs.getValue().intValue())}
+    return Objects.equals(normalMode.delayMs.getValue(), normalMode.delayMs.getSecondValue())
+        ? new String[] {String.valueOf(normalMode.delayMs.getValue().intValue())}
         : new String[] {
           String.format(
-              "%d-%d", this.delayMs.getValue().intValue(), this.delayMs.getSecondValue().intValue())
+              "%d-%d",
+              normalMode.delayMs.getValue().intValue(),
+              normalMode.delayMs.getSecondValue().intValue())
         };
   }
 

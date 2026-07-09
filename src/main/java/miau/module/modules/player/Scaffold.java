@@ -20,6 +20,7 @@ import miau.module.modules.player.scaffold.rotations.RotationHandler;
 import miau.module.modules.render.PostProcessing;
 import miau.property.Property;
 import miau.property.properties.*;
+import miau.util.client.KeyBindUtil;
 import miau.util.font.FontRepository;
 import miau.util.math.RandomUtil;
 import miau.util.player.*;
@@ -69,32 +70,44 @@ public class Scaffold extends Module {
             40.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final FloatProperty tellystartrotationmaxspeed =
         new FloatProperty(
             "telly-start-rotation-max-speed",
             95.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final FloatProperty tellynormalrotationminspeed =
         new FloatProperty(
             "telly-normal-rotation-min-speed",
             30.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final FloatProperty tellynormalrotationmaxspeed =
         new FloatProperty(
             "telly-normal-rotation-max-speed",
             35.0F,
             1.0F,
             180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            () ->
+                keepYFeature.keepY.getValue() == 3
+                    || keepYFeature.keepY.getValue() == 4
+                    || keepYFeature.keepY.getValue() == 5);
     public final BooleanProperty movementCorrection =
         new BooleanProperty("movement-correction", true);
     public final ModeProperty sprintMode =
-        new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA"});
+        new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA", "OFF_GROUND", "ON_GROUND"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
@@ -147,14 +160,13 @@ public class Scaffold extends Module {
 
   public Scaffold() {
     super("Scaffold", false);
-
-    components.add(keepYFeature);
-    components.add(towerFeature);
     components.add(sneakFeature);
-    components.add(safeWalkFeature);
-    components.add(betaFeature);
+    components.add(keepYFeature);
     components.add(multiPlaceFeature);
+    components.add(safeWalkFeature);
     components.add(godbridgeFeature);
+    components.add(towerFeature);
+    components.add(betaFeature);
     components.add(blockSafeFeature);
   }
 
@@ -183,7 +195,9 @@ public class Scaffold extends Module {
   public boolean isTowering() {
     if (mc.thePlayer.onGround && MoveUtil.isForwardPressed() && !PlayerUtil.isAirAbove()) {
       boolean keepYActive =
-          keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4;
+          keepYFeature.keepY.getValue() == 3
+              || keepYFeature.keepY.getValue() == 4
+              || keepYFeature.keepY.getValue() == 5;
       boolean towerActive = towerFeature.tower.getValue() == 3;
       return keepYActive && this.stage > 0
           || towerActive && mc.gameSettings.keyBindJump.isKeyDown();
@@ -206,8 +220,20 @@ public class Scaffold extends Module {
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) return true;
     if (isTowering()) return false;
     int k = keepYFeature.keepY.getValue();
-    boolean stageActive = k == 1 || k == 2 || k == 4;
-    return (!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0;
+    boolean stageActive = k == 1 || k == 2 || k == 3 || k == 5;
+    if ((!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0) return true;
+    int sprint = options.sprintMode.getValue();
+    if (sprint == 2 && mc.thePlayer.onGround) return true;
+    if (sprint == 3 && !mc.thePlayer.onGround) return true;
+    return false;
+  }
+
+  private void applySprintMode() {
+    if (shouldStopSprint()) return;
+    int sprint = options.sprintMode.getValue();
+    if (sprint >= 1 && sprint <= 3) {
+      KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+    }
   }
 
   private EnumFacing getBestFacing(BlockPos blockPos1, BlockPos blockPos3) {
@@ -605,16 +631,20 @@ public class Scaffold extends Module {
         place(belowPlayer, this.targetFacing, hitVec);
       }
       this.targetFacing = null;
-    } else if ((keepYFeature.keepY.getValue() == 2 || keepYFeature.keepY.getValue() == 4)
+    } else if ((keepYFeature.keepY.getValue() == 2
+            || keepYFeature.keepY.getValue() == 3
+            || keepYFeature.keepY.getValue() == 5)
         && this.stage > 0
         && !mc.thePlayer.onGround) {
       int nextBlockY = MathHelper.floor_double(mc.thePlayer.posY + mc.thePlayer.motionY);
       if (nextBlockY <= this.startY && mc.thePlayer.posY > (double) (this.startY + 1)) {
         this.shouldKeepY = true;
-        blockData = getBlockData();
-        if (blockData != null && this.rotationTick <= 0 && !this.placedThisTick) {
-          MovingObjectPosition mop = getPlacementMop(blockData, this.yaw, this.pitch);
-          if (mop != null) place(blockData.blockPos, blockData.facing, mop.hitVec);
+        if (keepYFeature.keepY.getValue() != 5) {
+          blockData = getBlockData();
+          if (blockData != null && this.rotationTick <= 0 && !this.placedThisTick) {
+            MovingObjectPosition mop = getPlacementMop(blockData, this.yaw, this.pitch);
+            if (mop != null) place(blockData.blockPos, blockData.facing, mop.hitVec);
+          }
         }
       }
     }
@@ -631,6 +661,9 @@ public class Scaffold extends Module {
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) {
       this.towerTick = 0;
       this.towerDelay = 0;
+      if (!(keepYFeature.keepY.getValue() == 3
+          || keepYFeature.keepY.getValue() == 4
+          || keepYFeature.keepY.getValue() == 5)) return;
     }
     towerFeature.onStrafe(event);
   }
@@ -684,6 +717,7 @@ public class Scaffold extends Module {
       mc.thePlayer.movementInput.moveStrafe *= speed;
     }
     if (shouldStopSprint()) mc.thePlayer.setSprinting(false);
+    else applySprintMode();
     towerFeature.updateSafeStuck();
   }
 

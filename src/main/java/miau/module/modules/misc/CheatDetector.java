@@ -17,6 +17,9 @@ import miau.property.properties.FloatProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 
+/**
+ * @author meowtils
+ */
 public class CheatDetector extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 

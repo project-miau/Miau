@@ -98,28 +98,30 @@ public class AutoAuth extends Module {
   }
 
   private enum AuthPrompt {
-    REGISTER("/register "),
-    SHORT_REGISTER("/reg "),
-    LOGIN("/login ");
+    REGISTER("/register ", "/register"),
+    SHORT_REGISTER("/reg ", "/reg"),
+    LOGIN("/login ", "/login");
 
     private final String trigger;
+    private final String command;
 
-    AuthPrompt(String trigger) {
+    AuthPrompt(String trigger, String command) {
       this.trigger = trigger;
+      this.command = command;
     }
 
     private static AuthPrompt from(String message) {
       String normalized = message.toLowerCase(Locale.ROOT);
       for (AuthPrompt prompt : values()) {
         if (normalized.contains(prompt.trigger)) {
-          return prompt == SHORT_REGISTER ? REGISTER : prompt;
+          return prompt;
         }
       }
       return null;
     }
 
     private String buildCommand(String password, int repeat) {
-      StringBuilder builder = new StringBuilder(this == LOGIN ? "/login" : "/register");
+      StringBuilder builder = new StringBuilder(this.command);
       for (int i = 0; i < repeat; i++) {
         builder.append(' ').append(password);
       }

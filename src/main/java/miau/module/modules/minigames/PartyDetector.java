@@ -19,6 +19,9 @@ import net.minecraft.scoreboard.ScoreObjective;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.util.EnumChatFormatting;
 
+/**
+ * @author meowtils
+ */
 public class PartyDetector extends Module {
   public final BooleanProperty sound = new BooleanProperty("Ping sound", true);
   public final BooleanProperty showMissed = new BooleanProperty("Show missed players", true);

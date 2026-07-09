@@ -115,39 +115,12 @@ public class Scoreboard extends Module {
     autofitAnimation.run(baseY + autofitOffset);
     this.defaultY = autofitAnimation.getValue();
 
+    // Always keep position in sync (no initialisation guard — the Mixin reads defaultX/Y directly)
     this.drag.position.x = baseX;
     this.drag.position.y = this.defaultY;
     this.drag.targetPosition.x = baseX;
     this.drag.targetPosition.y = this.defaultY;
     this.drag.scale.x = width;
     this.drag.scale.y = height;
-  }
-
-  @miau.event.EventTarget
-  public void onShaderEvent(miau.event.impl.ShaderEvent event) {
-    if (!this.isEnabled() || mc.theWorld == null) return;
-    miau.module.Module postProc =
-        Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
-    if (postProc == null || !postProc.isEnabled()) return;
-
-    updateBounds(new ScaledResolution(mc));
-
-    float cardX = this.defaultX;
-    float cardY = this.defaultY;
-    float cardWidth = (float) this.drag.scale.x;
-    float cardHeight = (float) this.drag.scale.y;
-
-    if (event.isBloom()) {
-      miau.util.shader.RoundedUtils.drawRound(
-          cardX - 1,
-          cardY - 1,
-          cardWidth + 2,
-          cardHeight + 2,
-          4f,
-          new java.awt.Color(81, 99, 149, 80));
-    } else {
-      miau.util.shader.RoundedUtils.drawRound(
-          cardX, cardY, cardWidth, cardHeight, 4f, new java.awt.Color(0, 0, 0, 150));
-    }
   }
 }

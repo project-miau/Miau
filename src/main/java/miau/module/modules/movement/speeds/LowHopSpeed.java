@@ -1,21 +1,33 @@
 package miau.module.modules.movement.speeds;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import miau.event.impl.LivingUpdateEvent;
 import miau.module.modules.movement.Speed;
+import miau.property.Property;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
 import miau.util.player.MoveUtil;
 
 public class LowHopSpeed extends SpeedMode {
-  public final FloatProperty sevenTickSpeed = new FloatProperty("lowhop-speed", 2.0F, 0.8F, 2.5F);
-  public final BooleanProperty liquidDisable = new BooleanProperty("disable-in-liquid", true);
-  public final BooleanProperty sneakDisable = new BooleanProperty("disable-while-sneaking", true);
-  public final BooleanProperty jumpMoving = new BooleanProperty("only-jump-when-moving", true);
+  public final FloatProperty sevenTickSpeed =
+      new FloatProperty("lowhop-speed", 2.0F, 0.8F, 2.5F, () -> parent.mode.getValue() == 2);
+  public final BooleanProperty liquidDisable =
+      new BooleanProperty("disable-in-liquid", true, () -> parent.mode.getValue() == 2);
+  public final BooleanProperty sneakDisable =
+      new BooleanProperty("disable-while-sneaking", true, () -> parent.mode.getValue() == 2);
+  public final BooleanProperty jumpMoving =
+      new BooleanProperty("only-jump-when-moving", true, () -> parent.mode.getValue() == 2);
   private boolean hopping;
 
   public LowHopSpeed(String name, Speed parent) {
     super(name, parent);
+  }
+
+  @Override
+  public List<Property<?>> getProperties() {
+    return Arrays.asList(sevenTickSpeed, liquidDisable, sneakDisable, jumpMoving);
   }
 
   private boolean canSevenTick() {

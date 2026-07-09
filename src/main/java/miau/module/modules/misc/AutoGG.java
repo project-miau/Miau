@@ -14,6 +14,9 @@ import miau.property.properties.TextProperty;
 import miau.util.client.ChatUtil;
 import net.minecraft.network.play.server.S02PacketChat;
 
+/**
+ * @author meowtils
+ */
 public class AutoGG extends Module {
   public final BooleanProperty sendFirstMessage = new BooleanProperty("First message", true);
   public final TextProperty firstMessage =
