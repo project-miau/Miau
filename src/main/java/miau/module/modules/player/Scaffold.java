@@ -505,9 +505,21 @@ public class Scaffold extends Module {
           this.yaw = styled.yaw;
           this.pitch = styled.pitch;
           hitVec = styled.hitVec;
-        } else {
-          this.yaw = styleYaw;
         }
+      }
+    }
+
+    if (blockData != null
+        && this.canRotate
+        && (rotMode == 2 || rotMode == 3)
+        && getPlacementMop(blockData, this.yaw, this.pitch) == null) {
+      PlacementAim grimAim =
+          ScaffoldPlacementUtil.resolveAim(
+              blockData, event.getYaw(), event.getPitch(), placeOffsets);
+      if (grimAim != null) {
+        this.yaw = grimAim.yaw;
+        this.pitch = grimAim.pitch;
+        hitVec = grimAim.hitVec;
       }
     }
 

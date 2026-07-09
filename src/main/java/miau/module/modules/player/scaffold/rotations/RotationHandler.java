@@ -97,6 +97,13 @@ public class RotationHandler {
       scaffold.placeYaw = targetYaw;
       scaffold.placePitch = targetPitch;
 
+      if (mode == 2 || mode == 3) {
+        targetYaw = RotationUtil.quantizeAngle(targetYaw);
+        targetPitch = RotationUtil.quantizeAngle(targetPitch);
+        scaffold.placeYaw = targetYaw;
+        scaffold.placePitch = targetPitch;
+      }
+
       if (betaMode) {
         if (!Float.isNaN(scaffold.betaFeature.lastBetaSentYaw)) {
           boolean clampE = scaffold.betaFeature.betaPlaceTicks < 3;
