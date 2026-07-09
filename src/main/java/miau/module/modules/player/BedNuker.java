@@ -6,7 +6,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import miau.Miau;
 import miau.enums.ChatColors;
 import miau.enums.DelayModules;
@@ -505,6 +507,71 @@ public class BedNuker extends Module {
     return false;
   }
 
+  /**
+   * Finds all non-bed blocks that are blocking the player's line-of-sight to the bed.
+   * For each bed block in the pair, samples ~30 points on its surface and raytraces from
+   * player eyes to each point. Returns a map of obstruction block -> number of obstructed rays.
+   */
+  private HashMap<BlockPos, Integer> findBlocksBlockingBed(BlockPos[] bedPair) {
+    HashMap<BlockPos, Integer> obstructionCount = new HashMap<BlockPos, Integer>();
+    Vec3 eyes = mc.thePlayer.getPositionEyes(1.0f);
+    double maxRangeSq = this.range.getValue().doubleValue() * this.range.getValue().doubleValue();
+
+    for (BlockPos bp : bedPair) {
+      IBlockState state = mc.theWorld.getBlockState(bp);
+      Block block = state.getBlock();
+      AxisAlignedBB aabb = block.getCollisionBoundingBox(mc.theWorld, bp, state);
+      if (aabb == null) {
+        aabb = new AxisAlignedBB(bp, bp.add(1, 1, 1));
+      }
+      ArrayList<Vec3> samplePoints = this.buildRaytraceSamplePoints(aabb);
+      for (Vec3 point : samplePoints) {
+        if (eyes.squareDistanceTo(point) > maxRangeSq) continue;
+        MovingObjectPosition mop =
+            mc.theWorld.rayTraceBlocks(eyes, point, false, true, false);
+        if (mop == null || mop.typeOfHit != MovingObjectType.BLOCK) continue;
+        BlockPos hitPos = mop.getBlockPos();
+        if (hitPos.equals(bp)) continue;
+        Block hitBlock = mc.theWorld.getBlockState(hitPos).getBlock();
+        if (hitBlock instanceof BlockAir || hitBlock instanceof BlockBed) continue;
+        if (hitBlock.getBlockHardness(mc.theWorld, hitPos) < 0) continue;
+        obstructionCount.put(hitPos, obstructionCount.getOrDefault(hitPos, 0) + 1);
+      }
+    }
+    return obstructionCount;
+  }
+
+  /**
+   * From the blocks blocking the bed, picks the single best reachable obstruction to mine.
+   * Score considers: (1) how many rays it blocks (primary), (2) proximity to player-bed line,
+   * (3) mining ease.
+   */
+  private BlockPos findBestObstruction(BlockPos[] bedPair) {
+    HashMap<BlockPos, Integer> obstructions = this.findBlocksBlockingBed(bedPair);
+    if (obstructions.isEmpty()) return null;
+
+    BlockPos bestPos = null;
+    double bestScore = Double.POSITIVE_INFINITY;
+    double range = this.range.getValue().doubleValue();
+
+    for (Map.Entry<BlockPos, Integer> entry : obstructions.entrySet()) {
+      BlockPos pos = entry.getKey();
+      if (!PlayerUtil.canReach(pos, range)) continue;
+
+      int blockedCount = entry.getValue();
+      double score =
+          (double) -blockedCount * 1000.0
+              + this.getLoSScoreModifier(pos, bedPair) * 0.5
+              + this.scoreBlockTarget(pos, false, 0) * 0.01;
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestPos = pos;
+      }
+    }
+    return bestPos;
+  }
+
   private BlockPos[] resolveBedPair(BlockPos bedPos) {
     IBlockState state = mc.theWorld.getBlockState(bedPos);
     if (!(state.getBlock() instanceof BlockBed)) return null;
@@ -921,8 +988,14 @@ public class BedNuker extends Module {
           return nearest;
         }
       }
-      // If covered, use BFS layer-by-layer to find the outermost defense block
-      BlockPos target = this.bfsFindOutermostDefenseBlock(pair);
+      // Smart obstruction clearing: find and mine blocks actually blocking view of the bed
+      BlockPos target = this.findBestObstruction(pair);
+      if (target != null) {
+        this.currentBedPair = pair;
+        return target;
+      }
+      // Fallback: BFS layer-by-layer to find outermost defense block (for fully enclosed beds)
+      target = this.bfsFindOutermostDefenseBlock(pair);
       if (target != null) {
         this.currentBedPair = pair;
         return target;
