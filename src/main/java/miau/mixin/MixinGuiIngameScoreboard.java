@@ -5,11 +5,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import miau.Miau;
-import miau.event.EventTarget;
-import miau.event.impl.ShaderEvent;
-import miau.module.Module;
-import miau.module.modules.render.HUD;
-import miau.module.modules.render.PostProcessing;
 import miau.module.modules.render.Scoreboard;
 import miau.util.shader.RoundedUtils;
 import net.minecraft.client.Minecraft;
@@ -43,16 +38,6 @@ public abstract class MixinGuiIngameScoreboard {
 
     // Recalculate bounds every frame
     scoreboardMod.updateBounds(scaledRes);
-
-    PostProcessing pp = (PostProcessing) Miau.moduleManager.getModule(PostProcessing.class);
-    if (pp != null && pp.isActive()) {
-      // PostProcessing handles blur/bloom passes via ShaderEvent.
-      // The scoreboard will render its background during the ShaderEvent passes
-      // (handled by an EventTarget elsewhere), and the final text render is here.
-      renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
-      ci.cancel();
-      return;
-    }
 
     renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
     ci.cancel();

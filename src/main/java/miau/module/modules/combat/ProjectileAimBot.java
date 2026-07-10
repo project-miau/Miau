@@ -144,7 +144,8 @@ public class ProjectileAimBot extends Module {
     if (showTarget.getValue() != 0) {
       Color color =
           showTarget.getValue() == 2
-              ? ((HUD) Miau.moduleManager.modules.get(HUD.class)).getColor(System.currentTimeMillis())
+              ? ((HUD) Miau.moduleManager.modules.get(HUD.class))
+                  .getColor(System.currentTimeMillis())
               : new Color(255, 0, 0);
       RenderUtil.drawEntityBox(target, color.getRed(), color.getGreen(), color.getBlue());
     }

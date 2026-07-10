@@ -27,7 +27,7 @@ public class KawaseBlur {
     }
     framebufferList.clear();
 
-    framebufferList.add(framebuffer = RenderUtil.createFrameBuffer(null));
+    framebufferList.add(framebuffer = RenderUtil.createFrameBuffer(null, false));
 
     for (int i = 1; i <= iterations; i++) {
       Framebuffer currentBuffer =
@@ -81,15 +81,16 @@ public class KawaseBlur {
         "halfpixel", 1.0f / lastBuffer.framebufferWidth, 1.0f / lastBuffer.framebufferHeight);
     kawaseUp.setUniformf("iResolution", lastBuffer.framebufferWidth, lastBuffer.framebufferHeight);
     GL13.glActiveTexture(GL13.GL_TEXTURE16);
-    RenderUtil.bindTexture(stencilFrameBufferTexture);
+    GlStateManager.bindTexture(stencilFrameBufferTexture);
     GL13.glActiveTexture(GL13.GL_TEXTURE0);
-    RenderUtil.bindTexture(framebufferList.get(1).framebufferTexture);
+    GlStateManager.bindTexture(framebufferList.get(1).framebufferTexture);
     ShaderUtils.drawQuads();
     kawaseUp.unload();
 
     mc.getFramebuffer().bindFramebuffer(true);
-    RenderUtil.bindTexture(framebufferList.get(0).framebufferTexture);
-    RenderUtil.setAlphaLimit(0);
+    GlStateManager.bindTexture(framebufferList.get(0).framebufferTexture);
+    GlStateManager.enableAlpha();
+    GlStateManager.alphaFunc(GL_GREATER, 0.0f);
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     ShaderUtils.drawQuads();
@@ -102,7 +103,7 @@ public class KawaseBlur {
     framebuffer.framebufferClear();
     framebuffer.bindFramebuffer(false);
     shader.init();
-    RenderUtil.bindTexture(framebufferTexture);
+    GlStateManager.bindTexture(framebufferTexture);
     shader.setUniformf("offset", offset, offset);
     shader.setUniformi("inTexture", 0);
     shader.setUniformi("check", 0);

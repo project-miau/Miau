@@ -201,12 +201,6 @@ public class ClickGui extends GuiScreen {
     GL11.glScaled(scaleFactor, scaleFactor, 1.0);
     GL11.glTranslatef(-centerX, -centerY, 0);
 
-    miau.module.Module postProc =
-        miau.Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
-    if (postProc != null && postProc.isEnabled()) {
-      // Background glow is handled in PostProcessing now
-    }
-
     for (CategoryComponent c : renderOrder) {
       c.render(this.fontRendererObj);
       c.mousePosition(scaledX, scaledY, c == topmostUnderCursor);

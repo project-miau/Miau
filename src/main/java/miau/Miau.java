@@ -212,7 +212,6 @@ public class Miau {
     moduleManager.modules.put(Wtap.class, new Wtap());
     moduleManager.modules.put(Statistics.class, new Statistics());
     moduleManager.modules.put(CheatDetector.class, new CheatDetector());
-    moduleManager.modules.put(PostProcessing.class, new PostProcessing());
     commandManager.commands.add(new BindCommand());
     commandManager.commands.add(new ConfigCommand());
     commandManager.commands.add(new OnlineConfigCommand());

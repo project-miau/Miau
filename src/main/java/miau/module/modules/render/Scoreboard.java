@@ -1,19 +1,15 @@
 package miau.module.modules.render;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import miau.Miau;
-import miau.event.EventTarget;
-import miau.event.impl.ShaderEvent;
 import miau.module.Module;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.DragProperty;
 import miau.property.properties.IntProperty;
 import miau.util.animation.Animation;
 import miau.util.animation.Easing;
-import miau.util.shader.RoundedUtils;
 import miau.util.vector.Vector2d;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
@@ -126,43 +122,5 @@ public class Scoreboard extends Module {
     this.drag.targetPosition.y = this.defaultY;
     this.drag.scale.x = width;
     this.drag.scale.y = height;
-  }
-
-  /**
-   * Renders the scoreboard background during PostProcessing shader passes.
-   * Pass 0 = bloom background (solid dark)
-   * Pass 1 = blur background (semi-transparent dark)
-   * Pass 2 = normal render (background + text — handled by mixin)
-   */
-  @EventTarget
-  public void onShaderEvent(ShaderEvent event) {
-    ScoreObjective objective = null;
-    if (mc.theWorld != null) {
-      net.minecraft.scoreboard.Scoreboard sb = mc.theWorld.getScoreboard();
-      if (sb != null) {
-        objective = sb.getObjectiveInDisplaySlot(1);
-      }
-    }
-    if (objective == null) return;
-
-    PostProcessing pp = (PostProcessing) Miau.moduleManager.getModule(PostProcessing.class);
-    if (pp == null || !pp.isActive()) return;
-
-    int pass = event.getPass();
-    float cardX = this.defaultX;
-    float cardY = this.defaultY;
-    float cardWidth = (float) this.drag.scale.x;
-    float cardHeight = (float) this.drag.scale.y;
-    float radius = 2.0f;
-
-    if (pass == ShaderEvent.BLOOM_PASS) {
-      // Bloom pass: draw solid dark background for glow effect
-      RoundedUtils.drawRound(
-          cardX, cardY, cardWidth, cardHeight, radius, new Color(0xFF090909, true));
-    } else if (pass == ShaderEvent.BLUR_PASS) {
-      // Blur pass: draw semi-transparent background for blur effect
-      RoundedUtils.drawRound(
-          cardX, cardY, cardWidth, cardHeight, radius, new Color(0x80, 0x09, 0x09, 0x09));
-    }
   }
 }

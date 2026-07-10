@@ -11,7 +11,6 @@ public class BetaFeature implements ScaffoldComponent {
   public int betaAirTicks = 0;
   public int betaGroundTicks = 0;
   public int betaPlaceCooldown = 0;
-  public int initTicks = 0;
   public float lastBetaSentYaw = Float.NaN;
   public float lastBetaSentPitch = Float.NaN;
   public long lastBetaPitchQuotient = 0L;
@@ -33,9 +32,8 @@ public class BetaFeature implements ScaffoldComponent {
   public boolean isBetaTellyMode() {
     return isBetaMode()
         && (scaffold.keepYFeature.keepY.getValue() == 3
-            || scaffold.keepYFeature.keepY.getValue() == 4
-            || scaffold.keepYFeature.keepY.getValue() == 5)
-        && (!scaffold.keepYFeature.keepYonPress.getValue() || isRightClickHeld());
+            || scaffold.keepYFeature.keepY.getValue() == 4)
+        && (!scaffold.keepYFeature.tellyRightClick.getValue() || isRightClickHeld());
   }
 
   private boolean isRightClickHeld() {
@@ -68,10 +66,8 @@ public class BetaFeature implements ScaffoldComponent {
       this.betaAirTicks = 0;
       this.betaGroundTicks = 0;
       this.betaPlaceCooldown = 0;
-      this.initTicks = 0;
       return;
     }
-    this.initTicks++;
     if (Scaffold.mc.thePlayer.onGround) {
       this.betaGroundTicks++;
       this.betaAirTicks = 0;
@@ -101,6 +97,5 @@ public class BetaFeature implements ScaffoldComponent {
     this.lastBetaSentPitch = Float.NaN;
     this.lastBetaPitchQuotient = 0L;
     this.betaPlaceTicks = 999;
-    this.initTicks = 0;
   }
 }

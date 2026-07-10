@@ -54,7 +54,8 @@ public class KawaseBloom {
       currentIterations = iterations;
     }
 
-    RenderUtil.setAlphaLimit(0);
+    GlStateManager.enableAlpha();
+    GlStateManager.alphaFunc(GL_GREATER, 0.0f);
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_ONE, GL_ONE);
 
@@ -92,24 +93,25 @@ public class KawaseBloom {
     kawaseUp.setUniformf(
         "halfpixel", 1.0f / lastBuffer.framebufferWidth, 1.0f / lastBuffer.framebufferHeight);
     kawaseUp.setUniformf("iResolution", lastBuffer.framebufferWidth, lastBuffer.framebufferHeight);
-    GlStateManager.setActiveTexture(GL13.GL_TEXTURE16);
-    RenderUtil.bindTexture(framebufferTexture);
-    GlStateManager.setActiveTexture(GL13.GL_TEXTURE0);
-    RenderUtil.bindTexture(framebufferList.get(1).framebufferTexture);
+    GL13.glActiveTexture(GL13.GL_TEXTURE16);
+    GlStateManager.bindTexture(framebufferTexture);
+    GL13.glActiveTexture(GL13.GL_TEXTURE0);
+    GlStateManager.bindTexture(framebufferList.get(1).framebufferTexture);
     ShaderUtils.drawQuads();
     kawaseUp.unload();
 
-    GlStateManager.clearColor(0, 0, 0, 0);
+    GL11.glClearColor(0, 0, 0, 0);
     mc.getFramebuffer().bindFramebuffer(false);
-    RenderUtil.bindTexture(framebufferList.get(0).framebufferTexture);
-    RenderUtil.setAlphaLimit(0);
+    GlStateManager.bindTexture(framebufferList.get(0).framebufferTexture);
+    GlStateManager.enableAlpha();
+    GlStateManager.alphaFunc(GL_GREATER, 0.0f);
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     ShaderUtils.drawQuads();
     GlStateManager.bindTexture(0);
-    RenderUtil.setAlphaLimit(0);
+    GlStateManager.enableAlpha();
+    GlStateManager.alphaFunc(GL_GREATER, 0.0f);
 
-    // start blend
     GlStateManager.enableBlend();
     GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
@@ -119,7 +121,7 @@ public class KawaseBloom {
     framebuffer.framebufferClear();
     framebuffer.bindFramebuffer(false);
     shader.init();
-    RenderUtil.bindTexture(framebufferTexture);
+    GlStateManager.bindTexture(framebufferTexture);
     shader.setUniformf("offset", offset, offset);
     shader.setUniformi("inTexture", 0);
     shader.setUniformi("check", 0);

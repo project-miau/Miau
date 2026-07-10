@@ -17,17 +17,14 @@ public class KeepYFeature implements ScaffoldComponent {
 
   public final ModeProperty keepY =
       new ModeProperty(
-          "keep-y",
-          0,
-          new String[] {"NONE", "VANILLA", "Extra 1 Block", "Extra 2 Blocks", "TELLY", "Test"});
+          "keep-y", 0, new String[] {"NONE", "VANILLA", "Extra 1 Block", "TELLY", "EXTRATELLY"});
   public final BooleanProperty keepYonPress =
+      new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
+  public final BooleanProperty tellyRightClick =
       new BooleanProperty(
-          "keep-y-on-press",
+          "telly-on-right-click",
           false,
-          () ->
-              this.keepY.getValue() == 3
-                  || this.keepY.getValue() == 4
-                  || this.keepY.getValue() == 5);
+          () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
 
   public KeepYFeature(Scaffold scaffold) {
     this.scaffold = scaffold;
@@ -35,7 +32,7 @@ public class KeepYFeature implements ScaffoldComponent {
 
   @Override
   public List<Property<?>> getProperties() {
-    return Arrays.asList(keepY, keepYonPress);
+    return Arrays.asList(keepY, keepYonPress, tellyRightClick);
   }
 
   @Override

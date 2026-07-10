@@ -22,6 +22,8 @@ import miau.util.render.ColorUtil;
 import miau.util.render.MenuBackground;
 import miau.util.render.RenderUtil;
 import miau.util.render.Themes;
+import miau.util.shader.BlurUtils;
+import miau.util.shader.RoundedUtils;
 import miau.util.vector.Vector2d;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiChat;
@@ -77,6 +79,11 @@ public class HUD extends Module {
   public final BooleanProperty toggleSound = new BooleanProperty("toggle-sounds", true);
   public final BooleanProperty toggleAlerts = new BooleanProperty("toggle-alerts", false);
   public final BooleanProperty notifications = new BooleanProperty("notifications", true);
+  public final BooleanProperty shaders = new BooleanProperty("Shaders", false);
+  public final IntProperty blurIterations = new IntProperty("Blur Iterations", 2, 1, 8);
+  public final IntProperty blurOffset = new IntProperty("Blur Offset", 3, 1, 10);
+  public final IntProperty bloomIterations = new IntProperty("Bloom Iterations", 3, 1, 8);
+  public final IntProperty bloomOffset = new IntProperty("Bloom Offset", 2, 1, 10);
 
   public final IntProperty backgroundAlpha = new IntProperty("Background Alpha", 110, 0, 255);
   public final FloatProperty roundingRadius =
@@ -227,31 +234,26 @@ public class HUD extends Module {
     return text;
   }
 
-  @EventTarget
-  public void onShaderEvent(miau.event.impl.ShaderEvent event) {
-    miau.module.Module postProc =
-        Miau.moduleManager.getModule(miau.module.modules.render.PostProcessing.class);
-    if (this.isEnabled()
-        && !mc.gameSettings.showDebugInfo
-        && postProc != null
-        && postProc.isEnabled()) {
-      long l = System.currentTimeMillis();
-      float delta = 16f;
-      ScaledResolution sr = new ScaledResolution(mc);
+  /**
+   * When Shaders is enabled on HUD, draws backgrounds into bloom and blur framebuffers inline (like
+   * ravenbS) before rendering the final text.
+   */
+  private void renderBlurBloom(
+      long l,
+      float delta,
+      java.util.List<InterfaceComponent> animatingComponents,
+      ScaledResolution sr) {
+    // Bloom pass
+    BlurUtils.prepareBloom();
+    renderElements(l, delta, animatingComponents, sr, 0, false);
+    renderPotions(sr, 0);
+    BlurUtils.bloomEnd(bloomIterations.getValue(), bloomOffset.getValue());
 
-      java.util.List<InterfaceComponent> animatingComponents =
-          Miau.moduleManager.modules.values().stream()
-              .map(this::getComponent)
-              .filter(c -> c.animationTime > 0.001)
-              .sorted(
-                  Comparator.comparingInt((InterfaceComponent c) -> this.getModuleWidth(c.module))
-                      .reversed())
-              .collect(Collectors.toList());
-
-      int pass = event.isBloom() ? 0 : 1;
-      renderElements(l, delta, animatingComponents, sr, pass, false);
-      renderPotions(sr, pass);
-    }
+    // Blur pass
+    BlurUtils.prepareBlur();
+    renderElements(l, delta, animatingComponents, sr, 1, false);
+    renderPotions(sr, 1);
+    BlurUtils.blurEnd(blurIterations.getValue(), blurOffset.getValue());
   }
 
   @EventTarget
@@ -359,6 +361,11 @@ public class HUD extends Module {
 
     if (this.isEnabled() && !mc.gameSettings.showDebugInfo) {
       long l = System.currentTimeMillis();
+
+      if (this.shaders.getValue()) {
+        renderBlurBloom(l, delta, animatingComponents, sr);
+      }
+
       renderElements(l, delta, animatingComponents, sr, 2, true);
       renderPotions(sr, 2);
     }
@@ -413,13 +420,13 @@ public class HUD extends Module {
           float pH = font.height() + 1.5f;
 
           if (renderPass == 0) {
-            miau.util.shader.RoundedUtils.drawRound(
+            RoundedUtils.drawRound(
                 pX - 1f, pY - 1f, pW + 2f, pH + 2f, 4f, new Color(81, 99, 149, 80));
           } else if (renderPass == 1) {
-            miau.util.shader.RoundedUtils.drawRound(pX, pY, pW, pH, 4f, new Color(0, 0, 0, 150));
+            RoundedUtils.drawRound(pX, pY, pW, pH, 4f, new Color(0, 0, 0, 150));
           } else {
-            if (this.backgroundAlpha.getValue() > 0) {
-              miau.util.shader.RoundedUtils.drawRound(
+            if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+              RoundedUtils.drawRound(
                   pX, pY, pW, pH, 4f, new Color(0, 0, 0, this.backgroundAlpha.getValue()));
             }
             int effectColor = potion.getLiquidColor() | 0xFF000000;
@@ -472,14 +479,14 @@ public class HUD extends Module {
           float wH = mc.fontRendererObj.FONT_HEIGHT;
 
           if (renderPass == 0) {
-            miau.util.shader.RoundedUtils.drawRound(
+            RoundedUtils.drawRound(
                 wX - 2.0f, wY - 2.0f, wW + 4.0f, wH + 4.0f, 4f, new Color(81, 99, 149, 80));
           } else if (renderPass == 1) {
-            miau.util.shader.RoundedUtils.drawRound(
+            RoundedUtils.drawRound(
                 wX - 1.0f, wY - 1.0f, wW + 2.0f, wH + 2.0f, 4f, new Color(0, 0, 0, 150));
           } else {
-            if (this.backgroundAlpha.getValue() > 0) {
-              miau.util.shader.RoundedUtils.drawRound(
+            if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+              RoundedUtils.drawRound(
                   wX - 1.0f,
                   wY - 1.0f,
                   wW + 2.0f,
@@ -556,7 +563,7 @@ public class HUD extends Module {
         int bgAlphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
 
         if (renderPass == 0) {
-          miau.util.shader.RoundedUtils.drawRound(
+          RoundedUtils.drawRound(
               drawX - 3.0F,
               drawY - 3.0F,
               totalWidth + 6.0F,
@@ -564,7 +571,7 @@ public class HUD extends Module {
               4f,
               new Color(81, 99, 149, 80));
         } else if (renderPass == 1) {
-          miau.util.shader.RoundedUtils.drawRound(
+          RoundedUtils.drawRound(
               drawX - 2.0F,
               drawY - 2.0F,
               totalWidth + 4.0F,
@@ -572,8 +579,8 @@ public class HUD extends Module {
               4f,
               new Color(0, 0, 0, 150));
         } else {
-          if (this.backgroundAlpha.getValue() > 0) {
-            miau.util.shader.RoundedUtils.drawRound(
+          if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+            RoundedUtils.drawRound(
                 drawX - 2.0F,
                 drawY - 2.0F,
                 totalWidth + 4.0F,
@@ -662,7 +669,7 @@ public class HUD extends Module {
         int bgAlphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
 
         if (renderPass == 0) {
-          miau.util.shader.RoundedUtils.drawRound(
+          RoundedUtils.drawRound(
               drawX - 2.0F,
               drawY - 2.0F,
               totalWidth + 4.0F,
@@ -670,7 +677,7 @@ public class HUD extends Module {
               4f,
               new Color(81, 99, 149, 80));
         } else if (renderPass == 1) {
-          miau.util.shader.RoundedUtils.drawRound(
+          RoundedUtils.drawRound(
               drawX - 1.0F,
               drawY - 1.0F,
               totalWidth + 2.0F,
@@ -678,8 +685,8 @@ public class HUD extends Module {
               4f,
               new Color(0, 0, 0, 150));
         } else {
-          if (this.backgroundAlpha.getValue() > 0) {
-            miau.util.shader.RoundedUtils.drawRound(
+          if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+            RoundedUtils.drawRound(
                 drawX - 1.0F,
                 drawY - 1.0F,
                 totalWidth + 2.0F,

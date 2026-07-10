@@ -50,11 +50,22 @@ public class TargetManager {
         (e1, e2) -> {
           int sortBase = 0;
           switch (this.killAura.sort.getValue()) {
+            case 2:
+              // HURT-TIME: Bucket by hurtResistantTime/5 to prevent per-tick reordering
+              // that causes rapid target switching. Also deprioritize entities that
+              // were just hit (hurtTime > 0) behind unbeaten targets.
+              boolean e1JustHit = e1.hurtTime > 0;
+              boolean e2JustHit = e2.hurtTime > 0;
+              if (e1JustHit != e2JustHit) {
+                sortBase = e1JustHit ? 1 : -1;
+              } else {
+                sortBase = Integer.compare(
+                    e1.hurtResistantTime / 5,
+                    e2.hurtResistantTime / 5);
+              }
+              break;
             case 1:
               sortBase = Float.compare(TeamUtil.getHealthScore(e1), TeamUtil.getHealthScore(e2));
-              break;
-            case 2:
-              sortBase = Integer.compare(e1.hurtResistantTime, e2.hurtResistantTime);
               break;
             case 3:
               sortBase =

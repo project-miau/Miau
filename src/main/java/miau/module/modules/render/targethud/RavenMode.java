@@ -2,12 +2,11 @@ package miau.module.modules.render.targethud;
 
 import java.awt.Color;
 import miau.Miau;
-import miau.event.EventTarget;
-import miau.event.impl.ShaderEvent;
-import miau.module.modules.render.PostProcessing;
+import miau.module.modules.render.HUD;
 import miau.module.modules.render.TargetHUD;
 import miau.util.render.ColorUtil;
 import miau.util.render.Themes;
+import miau.util.shader.BlurUtils;
 import miau.util.shader.RoundedUtils;
 import miau.util.time.TimerUtil;
 import net.minecraft.client.gui.ScaledResolution;
@@ -25,18 +24,6 @@ public class RavenMode extends TargetHUDMode {
   private double lastHealth;
   private float lastHealthBar;
   private boolean positionInitialized = false;
-
-  /** Cached card bounds for shader passes. Updated every frame during render(). */
-  private float cachedN6, cachedN7, cachedN8, cachedN9;
-
-  /** Cached card height (boxHeight). Updated every frame during render(). */
-  private float cachedBoxHeight;
-
-  /** Cached alpha for fade animation. Updated every frame during render(). */
-  private int cachedAlpha;
-
-  /** Current theme gradient colors for shader passes. */
-  private int[] cachedGradientColors;
 
   public RavenMode(TargetHUD parent) {
     super(parent);
@@ -105,38 +92,6 @@ public class RavenMode extends TargetHUDMode {
     drawTargetHUD(playerInfo, health);
   }
 
-  /** Draws the TargetHUD background for bloom/blur passes (called from ShaderEvent). */
-  @EventTarget
-  public void onShaderEvent(ShaderEvent event) {
-    PostProcessing pp = (PostProcessing) Miau.moduleManager.getModule(PostProcessing.class);
-    if (pp == null || !pp.isActive()) return;
-    if (cachedAlpha <= 0) return;
-
-    int pass = event.getPass();
-    float n6 = this.cachedN6;
-    float n7 = this.cachedN7;
-    float n8 = this.cachedN8;
-    float n9 = this.cachedN9;
-    float boxHeight = this.cachedBoxHeight;
-    int alpha = this.cachedAlpha;
-    int[] gradientColors = this.cachedGradientColors;
-
-    int modeIndex = parent.ravenMode.getValue();
-    if (modeIndex != 0) return; // Only Modern mode has bloom/blur
-
-    if (pass == ShaderEvent.BLOOM_PASS) {
-      float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
-      RoundedUtils.drawRound(
-          n6, n7, Math.abs(n6 - n8), Math.abs(n7 - (n9 + boxHeight - n7 - 13f)),
-          8.0f, true, new Color(0, 0, 0, Math.min(alpha, 210)));
-    } else if (pass == ShaderEvent.BLUR_PASS) {
-      float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
-      RoundedUtils.drawRound(
-          n6, n7, Math.abs(n6 - n8), Math.abs(n7 - (n9 + boxHeight - n7 - 13f)),
-          8.0f, true, new Color(mergeAlpha(Color.black.getRGB(), Math.min(alpha, 110))));
-    }
-  }
-
   private void drawTargetHUD(String string, double health) {
     if (parent.showStatus.getValue()) {
       float playerTotalHealth = mc.thePlayer.getHealth() + mc.thePlayer.getAbsorptionAmount();
@@ -195,40 +150,42 @@ public class RavenMode extends TargetHUDMode {
       float n8 = (absX + boxWidth) * invSc;
       float n9 = (absY + boxHeight - 13f) * invSc;
 
-      // Cache values for ShaderEvent
-      this.cachedN6 = n6;
-      this.cachedN7 = n7;
-      this.cachedN8 = n8;
-      this.cachedN9 = n9;
-      this.cachedBoxHeight = boxHeight;
-      this.cachedAlpha = alpha;
-      this.cachedGradientColors =
-          new int[] {
-            Themes.getCurrentTheme().getFirstColor().getRGB(),
-            Themes.getCurrentTheme().getSecondColor().getRGB()
-          };
+      HUD hud = (HUD) Miau.moduleManager.getModule(HUD.class);
+      boolean shadersOn = hud != null && hud.isEnabled() && hud.shaders.getValue();
 
-      PostProcessing pp = (PostProcessing) Miau.moduleManager.getModule(PostProcessing.class);
-      boolean ppActive = pp != null && pp.isActive();
-
-      if (!ppActive) {
-        // PostProcessing is OFF → do bloom/blur inline like ravenBS
+      if (shadersOn) {
+        // Shaders are ON → do bloom/blur inline like ravenBS
         switch (parent.ravenMode.getValue()) {
           case 0:
             float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
             float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
-            miau.util.shader.BlurUtils.prepareBloom();
+            BlurUtils.prepareBloom();
             RoundedUtils.drawRound(
-                n6, n7, Math.abs(n6 - n8), Math.abs(n7 - (n9 + 13f * invSc)),
-                8.0f, true, new Color(0, 0, 0, maxAlphaBackground));
-            miau.util.shader.BlurUtils.bloomEnd(3, bloomRadius);
-            miau.util.shader.BlurUtils.prepareBlur();
+                n6,
+                n7,
+                Math.abs(n6 - n8),
+                Math.abs(n7 - (n9 + 13f * invSc)),
+                8.0f,
+                true,
+                new Color(0, 0, 0, maxAlphaBackground));
+            BlurUtils.bloomEnd(3, bloomRadius);
+            BlurUtils.prepareBlur();
             RoundedUtils.drawRound(
-                n6, n7, Math.abs(n6 - n8), Math.abs(n7 - (n9 + 13f * invSc)),
-                8.0f, true, new Color(mergeAlpha(Color.black.getRGB(), maxAlphaOutline)));
-            miau.util.shader.BlurUtils.blurEnd(2, blurRadius);
+                n6,
+                n7,
+                Math.abs(n6 - n8),
+                Math.abs(n7 - (n9 + 13f * invSc)),
+                8.0f,
+                true,
+                new Color(mergeAlpha(Color.black.getRGB(), maxAlphaOutline)));
+            BlurUtils.blurEnd(2, blurRadius);
             break;
           case 1:
+            int[] gradientColors =
+                new int[] {
+                  Themes.getCurrentTheme().getFirstColor().getRGB(),
+                  Themes.getCurrentTheme().getSecondColor().getRGB()
+                };
             drawRoundedGradientOutlinedRectangle(
                 n6,
                 n7,
@@ -236,12 +193,17 @@ public class RavenMode extends TargetHUDMode {
                 n9 + 13f * invSc,
                 10.0f,
                 mergeAlpha(Color.black.getRGB(), maxAlphaOutline),
-                mergeAlpha(this.cachedGradientColors[0], alpha),
-                mergeAlpha(this.cachedGradientColors[1], alpha));
+                mergeAlpha(gradientColors[0], alpha),
+                mergeAlpha(gradientColors[1], alpha));
             break;
         }
       } else if (parent.ravenMode.getValue() == 1) {
-        // PostProcessing is ON but Legacy mode doesn't use blur, draw directly
+        // Shaders are OFF — draw directly
+        int[] gradientColors =
+            new int[] {
+              Themes.getCurrentTheme().getFirstColor().getRGB(),
+              Themes.getCurrentTheme().getSecondColor().getRGB()
+            };
         drawRoundedGradientOutlinedRectangle(
             n6,
             n7,
@@ -249,8 +211,8 @@ public class RavenMode extends TargetHUDMode {
             n9 + 13f * invSc,
             10.0f,
             mergeAlpha(Color.black.getRGB(), maxAlphaOutline),
-            mergeAlpha(this.cachedGradientColors[0], alpha),
-            mergeAlpha(this.cachedGradientColors[1], alpha));
+            mergeAlpha(gradientColors[0], alpha),
+            mergeAlpha(gradientColors[1], alpha));
       }
 
       // ── Health bar background ──
@@ -261,8 +223,10 @@ public class RavenMode extends TargetHUDMode {
       drawRoundedRectangle(
           n13, n15, n14, n15 + 5f * invSc, 4.0f, mergeAlpha(Color.black.getRGB(), maxAlphaOutline));
 
-      int mergedGradientLeft = mergeAlpha(this.cachedGradientColors[0], maxAlphaBackground);
-      int mergedGradientRight = mergeAlpha(this.cachedGradientColors[1], maxAlphaBackground);
+      int mergedGradientLeft =
+          mergeAlpha(Themes.getCurrentTheme().getFirstColor().getRGB(), maxAlphaBackground);
+      int mergedGradientRight =
+          mergeAlpha(Themes.getCurrentTheme().getSecondColor().getRGB(), maxAlphaBackground);
 
       float healthBar = n14 + (n13 - n14) * (float) (1 - health);
 

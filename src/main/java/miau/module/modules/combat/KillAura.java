@@ -209,7 +209,29 @@ public class KillAura extends Module {
         boolean useRaycast = this.rayCast.getValue();
 
         if (this.rotations.getValue() != 0) {
-          rayCastHit = true;
+          // Validate the actual quantized rotation against the target's bounding box
+          // before allowing attack. This prevents Grim Hitboxes flags when rotation
+          // smoothing during target switches causes interim rotations to miss.
+          if (this.throughWalls.getValue()) {
+            rayCastPos =
+                miau.util.player.RayCastUtil.getEntityIntercept(
+                    this.target.getEntity(), yaw, pitch, this.attackRange.getValue());
+          } else {
+            rayCastPos =
+                miau.util.player.RayCastUtil.rayCast(yaw, pitch, this.attackRange.getValue());
+          }
+          if (rayCastPos != null && rayCastPos.entityHit == this.target.getEntity()) {
+            rayCastHit = true;
+          } else if (rayCastPos != null
+              && rayCastPos.typeOfHit
+                  == net.minecraft.util.MovingObjectPosition.MovingObjectType.ENTITY) {
+            if (!(rayCastPos.entityHit instanceof net.minecraft.entity.projectile.EntityFireball
+                || rayCastPos.entityHit instanceof net.minecraft.entity.item.EntityItemFrame)) {
+              this.target =
+                  new AttackData((net.minecraft.entity.EntityLivingBase) rayCastPos.entityHit);
+              rayCastHit = true;
+            }
+          }
         } else if (useRaycast) {
           if (this.throughWalls.getValue()) {
             // Rise getEntityIntercept: ignores blocks, uses proper collision border size

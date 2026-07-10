@@ -29,14 +29,6 @@ public abstract class MixinGuiIngameForge {
             remap = false)
       })
   private void renderGameOverlay(float float1, CallbackInfo callbackInfo) {
-    if (Miau.moduleManager != null) {
-      miau.module.modules.render.PostProcessing postProcessing =
-          (miau.module.modules.render.PostProcessing)
-              Miau.moduleManager.modules.get(miau.module.modules.render.PostProcessing.class);
-      if (postProcessing != null) {
-        postProcessing.blurScreen();
-      }
-    }
     EventManager.call(new Render2DEvent(float1));
   }
 

@@ -13,13 +13,10 @@ public class BetaRotation implements IRotationLogic {
       float yawDiffTo180,
       float diagonalYaw) {
     if (scaffold.yaw == -180.0F && scaffold.pitch == 0.0F) {
-      float keepYaw = RotationUtil.quantizeAngle(event.getYaw());
-      float keepPitch = RotationUtil.quantizeAngle(event.getPitch());
-      scaffold.yaw = keepYaw;
-      scaffold.pitch = keepPitch;
+      scaffold.yaw = RotationUtil.quantizeAngle(event.getYaw());
+      scaffold.pitch = RotationUtil.quantizeAngle(event.getPitch());
       scaffold.betaFeature.lastBetaSentYaw = event.getYaw();
       scaffold.betaFeature.lastBetaSentPitch = event.getPitch();
-      scaffold.betaFeature.initTicks = 1;
     }
   }
 }

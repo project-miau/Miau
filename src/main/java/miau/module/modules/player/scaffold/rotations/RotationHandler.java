@@ -52,7 +52,8 @@ public class RotationHandler {
       float yawDiffTo180,
       float diagonalYaw,
       boolean snapMode,
-      boolean towerRotating) {
+      boolean towerRotating,
+      boolean willPlaceThisTick) {
     int mode = rotationMode.getValue();
     boolean betaMode = mode == 7;
     boolean betaTelly = scaffold.betaFeature.isBetaTellyMode();
@@ -94,16 +95,33 @@ public class RotationHandler {
         scaffold.towering = true;
       }
 
-      scaffold.placeYaw = targetYaw;
-      scaffold.placePitch = targetPitch;
+      float[] placeGcd;
+      if (betaMode) {
+        placeGcd = new float[] {targetYaw, targetPitch};
+      } else {
+        placeGcd =
+            RotationUtil.flexRotation(targetYaw, targetPitch, event.getYaw(), event.getPitch());
+      }
+      scaffold.placeYaw = placeGcd[0];
+      scaffold.placePitch = placeGcd[1];
 
-      float[] gcd =
-          RotationUtil.flexRotation(
-              targetYaw, targetPitch, event.getYaw(), event.getPitch());
-      targetYaw = gcd[0];
-      targetPitch = gcd[1];
-      scaffold.placeYaw = targetYaw;
-      scaffold.placePitch = targetPitch;
+      boolean moveFix = scaffold.options.movementCorrection.getValue();
+      float packetYaw = placeGcd[0];
+      float packetPitch = placeGcd[1];
+      if (moveFix
+          && (mode == 2 || mode == 3)
+          && !Float.isNaN(scaffold.bridgeYaw)
+          && !willPlaceThisTick) {
+        float bridgePitch = !Float.isNaN(scaffold.placePitch) ? scaffold.placePitch : targetPitch;
+        float[] bridgeGcd =
+            RotationUtil.flexRotation(
+                scaffold.bridgeYaw, bridgePitch, event.getYaw(), event.getPitch());
+        packetYaw = bridgeGcd[0];
+        packetPitch = bridgeGcd[1];
+      }
+
+      targetYaw = packetYaw;
+      targetPitch = packetPitch;
 
       if (betaMode) {
         if (!Float.isNaN(scaffold.betaFeature.lastBetaSentYaw)) {
@@ -139,9 +157,25 @@ public class RotationHandler {
         scaffold.betaFeature.betaPlaceTicks++;
       }
 
+      if (willPlaceThisTick) {
+        float deltaX = Math.abs(MathHelper.wrapAngleTo180_float(targetYaw - event.getYaw()));
+        if (deltaX > 2.0F
+            && !Float.isNaN(scaffold.lastPlacedAbsPacketYawDelta)
+            && Math.abs(deltaX - scaffold.lastPlacedAbsPacketYawDelta) < 0.0001F) {
+          double gcdStep = RotationUtil.mouseGcdStepMultiplier();
+          if (gcdStep >= 0.01) {
+            targetYaw += (float) (scaffold.duplicatePlaceRotNudgeSign * gcdStep);
+            scaffold.duplicatePlaceRotNudgeSign = -scaffold.duplicatePlaceRotNudgeSign;
+            deltaX = Math.abs(MathHelper.wrapAngleTo180_float(targetYaw - event.getYaw()));
+          }
+        }
+        scaffold.lastPlacedAbsPacketYawDelta = deltaX;
+      }
+
       event.setRotation(targetYaw, targetPitch, 3);
-      if (scaffold.options.movementCorrection.getValue()) {
-        event.setPervRotation(moveYaw, 3);
+      scaffold.lastMoveFixPacketYaw = targetYaw;
+      if (moveFix) {
+        event.setPervRotation(targetYaw, 3);
       }
     }
   }

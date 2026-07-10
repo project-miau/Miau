@@ -495,7 +495,7 @@ public class RotationUtil {
       targetPitch = (float) (-(Math.atan2(deltaY, horizDist) * 57.295780181884766));
     }
 
-    float pitch = basePitch + MathHelper.wrapAngleTo180_float(targetPitch - basePitch) + 3.0f;
+    float pitch = basePitch + MathHelper.wrapAngleTo180_float(targetPitch - basePitch);
     return new float[] {yaw, clampPitch(pitch)};
   }
 
@@ -634,6 +634,11 @@ public class RotationUtil {
     float yaw = baseYaw + stepYaw;
     float pitch = basePitch + stepPitch;
     return new float[] {yaw, clampPitch(pitch)};
+  }
+
+  public static double mouseGcdStepMultiplier() {
+    float sensitivity = (float) (mc.gameSettings.mouseSensitivity * 0.6F + 0.2F);
+    return sensitivity * sensitivity * sensitivity * 8.0F * 0.15D;
   }
 
   public static float[] flexRotation(
