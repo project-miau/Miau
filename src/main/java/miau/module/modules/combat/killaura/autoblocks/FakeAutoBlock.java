@@ -15,7 +15,7 @@ public class FakeAutoBlock extends AutoBlockMode {
     boolean swap = false;
     Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
     parent.isBlocking = false;
-    parent.fakeBlockState = parent.hasValidTarget();
+    parent.fakeBlockState = parent.getTarget() != null;
     if (PlayerUtil.isUsingItem()
         && !parent.isPlayerBlocking()
         && !Miau.playerStateManager.digging

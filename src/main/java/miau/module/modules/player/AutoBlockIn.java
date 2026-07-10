@@ -38,7 +38,10 @@ public class AutoBlockIn extends Module {
   public final BooleanProperty showProgress = new BooleanProperty("show-progress", true);
   public final ModeProperty moveFix =
       new ModeProperty("move-fix", 1, new String[] {"NONE", "SILENT", "STRICT"});
+  public final BooleanProperty disableOnMove = new BooleanProperty("disable-on-move", false);
+  public final BooleanProperty autoDisable = new BooleanProperty("auto-disable", true);
 
+  private BlockPos startPos;
   private float serverYaw;
   private float serverPitch;
   private float progress;
@@ -85,6 +88,7 @@ public class AutoBlockIn extends Module {
       targetFacing = null;
       targetHitVec = null;
       lastPlaceTime = 0;
+      startPos = mc.thePlayer.getPosition();
     }
   }
 
@@ -112,7 +116,19 @@ public class AutoBlockIn extends Module {
     serverYaw = event.getYaw();
     serverPitch = event.getPitch();
 
+    if (disableOnMove.getValue()
+        && startPos != null
+        && !mc.thePlayer.getPosition().equals(startPos)) {
+      this.toggle();
+      return;
+    }
+
     updateProgress();
+
+    if (autoDisable.getValue() && progress >= 1.0f) {
+      this.toggle();
+      return;
+    }
 
     // Don't switch off a sword — player expects right-click to block, not place a block
     if (!ItemUtil.isHoldingSword()) {
