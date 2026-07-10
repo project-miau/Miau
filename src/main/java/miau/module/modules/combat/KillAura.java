@@ -62,6 +62,8 @@ public class KillAura extends Module {
   private miau.module.modules.combat.killaura.render.TargetRenderer targetRenderer;
   private final miau.module.modules.combat.killaura.target.TargetManager targetManager =
       new miau.module.modules.combat.killaura.target.TargetManager(this);
+  public final java.util.List<miau.module.modules.combat.killaura.rotation.RotationMode>
+      rotationModes = new java.util.ArrayList<>();
   public int switchTick = 0;
   public boolean hitRegistered = false;
   public boolean blockingState = false;
@@ -523,6 +525,9 @@ public class KillAura extends Module {
     this.autoBlockModes.add(new InteractAutoBlock(this));
     this.autoBlockModes.add(new LegitAutoBlock(this));
     this.autoBlockModes.add(new FakeAutoBlock(this));
+
+    this.rotationModes.add(
+        new miau.module.modules.combat.killaura.rotation.NormalRotation(this));
 
     this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
     this.switchDelay = new IntProperty("switch-delay", 150, 0, 1000);

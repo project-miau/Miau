@@ -615,30 +615,35 @@ public class Scaffold extends Module {
     boolean shaders = hud != null && hud.isEnabled() && hud.blur.getValue();
 
     if (shaders) {
-      GlStateManager.pushMatrix();
-      GlStateManager.translate(centerX, centerY, 0);
-      GlStateManager.scale(animationProgress, animationProgress, 1f);
-      GlStateManager.translate(-centerX, -centerY, 0);
+      // Bloom pass — glow border (matches old client style)
+      RoundedUtils.drawRound(
+          x - 1, y - 1, width + 2, height + 2, 4f, new Color(81, 99, 149, 80));
+
+      // Blur pass — blur background behind widget
+      BlurUtils.prepareBlur();
       RoundedUtils.drawRound(x, y, width, height, 4f, new Color(0, 0, 0, 150));
-      GlStateManager.popMatrix();
+      BlurUtils.blurEnd(hud.blurIterations.getValue(), (float) hud.blurOffset.getValue());
     }
 
+    // Solid background with animation alpha
     int bgAlpha = (int) (150 * animationProgress);
     RoundedUtils.drawRound(x, y, width, height, 4f, new Color(0, 0, 0, bgAlpha));
 
+    // Item rendering
     GlStateManager.pushMatrix();
     RenderHelper.enableGUIStandardItemLighting();
     mc.getRenderItem().renderItemAndEffectIntoGUI(itemStack, (int) x + 4, (int) y + 3);
     RenderHelper.disableStandardItemLighting();
     GlStateManager.popMatrix();
 
+    // Text
     GlStateManager.enableBlend();
     int textAlpha = (int) (255 * animationProgress);
     float fontY = y + (height / 2f) - (FontRepository.getHudFont(18).height() / 2f);
     float textX = x + 24f;
 
     FontRepository.getHudFont(18)
-        .drawWithShadow(info, textX, fontY, new Color(255, 255, 255, textAlpha).getRGB());
+        .drawWithShadow(info, textX, fontY, new Color(200, 200, 200, textAlpha).getRGB());
 
     GlStateManager.popMatrix();
   }
