@@ -18,11 +18,7 @@ public class RotationHandler {
 
   public final ModeProperty rotationMode =
       new ModeProperty(
-          "rotations",
-          2,
-          new String[] {
-            "NONE", "Normal", "Backwards", "Sideways", "Godbridge", "Smooth", "Snap", "Beta"
-          });
+          "rotations", 2, new String[] {"NONE", "Normal", "Backwards", "Sideways", "Beta"});
 
   public List<Property<?>> getProperties() {
     return Arrays.asList(rotationMode);
@@ -33,10 +29,7 @@ public class RotationHandler {
     rotationLogics.put(1, new DefaultRotation());
     rotationLogics.put(2, new BackwardsRotation());
     rotationLogics.put(3, new SidewaysRotation());
-    rotationLogics.put(4, new GodbridgeRotation());
-    rotationLogics.put(5, new SmoothRotation());
-    rotationLogics.put(6, new SnapRotation());
-    rotationLogics.put(7, new BetaRotation());
+    rotationLogics.put(4, new BetaRotation());
   }
 
   public void handleInitialRotation(
@@ -51,14 +44,13 @@ public class RotationHandler {
       UpdateEvent event,
       float yawDiffTo180,
       float diagonalYaw,
-      boolean snapMode,
       boolean towerRotating,
       boolean willPlaceThisTick) {
     int mode = rotationMode.getValue();
-    boolean betaMode = mode == 7;
+    boolean betaMode = mode == 5;
     boolean betaTelly = scaffold.betaFeature.isBetaTellyMode();
 
-    if (mode != 0 && (!snapMode || scaffold.snapRotating || towerRotating)) {
+    if (mode != 0) {
       float targetYaw = scaffold.yaw;
       float targetPitch = scaffold.pitch;
 
@@ -105,13 +97,10 @@ public class RotationHandler {
       scaffold.placeYaw = placeGcd[0];
       scaffold.placePitch = placeGcd[1];
 
-      boolean moveFix = scaffold.options.movementCorrection.getValue();
+      boolean moveFix = false || scaffold.options.movementCorrection.getValue();
       float packetYaw = placeGcd[0];
       float packetPitch = placeGcd[1];
-      if (moveFix
-          && (mode == 2 || mode == 3)
-          && !Float.isNaN(scaffold.bridgeYaw)
-          && !willPlaceThisTick) {
+      if (moveFix && mode == 2 && !Float.isNaN(scaffold.bridgeYaw) && !willPlaceThisTick) {
         float bridgePitch = !Float.isNaN(scaffold.placePitch) ? scaffold.placePitch : targetPitch;
         float[] bridgeGcd =
             RotationUtil.flexRotation(

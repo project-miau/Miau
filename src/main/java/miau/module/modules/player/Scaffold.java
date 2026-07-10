@@ -1,49 +1,43 @@
 package miau.module.modules.player;
 
-import java.awt.Color;
+import java.awt.*;
+import java.util.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import miau.Miau;
-import miau.enums.BlinkModules;
-import miau.event.EventTarget;
+import miau.*;
+import miau.enums.*;
+import miau.event.*;
 import miau.event.impl.*;
-import miau.event.types.EventType;
-import miau.event.types.Priority;
-import miau.management.RotationState;
-import miau.module.Module;
-import miau.module.modules.movement.LongJump;
-import miau.module.modules.player.scaffold.ScaffoldComponent;
-import miau.module.modules.player.scaffold.ScaffoldPlacementUtil;
-import miau.module.modules.player.scaffold.ScaffoldPlacementUtil.PlacementAim;
-import miau.module.modules.player.scaffold.ScaffoldUtils;
+import miau.event.types.*;
+import miau.management.*;
+import miau.module.*;
+import miau.module.modules.movement.*;
+import miau.module.modules.player.scaffold.*;
+import miau.module.modules.player.scaffold.ScaffoldPlacementUtil.*;
 import miau.module.modules.player.scaffold.features.*;
-import miau.module.modules.player.scaffold.rotations.RotationHandler;
-import miau.module.modules.render.HUD;
-import miau.property.Property;
+import miau.module.modules.player.scaffold.rotations.*;
+import miau.module.modules.render.*;
+import miau.property.*;
 import miau.property.properties.*;
-import miau.util.client.KeyBindUtil;
-import miau.util.font.FontRepository;
-import miau.util.math.RandomUtil;
+import miau.util.client.*;
+import miau.util.font.*;
+import miau.util.math.*;
 import miau.util.player.*;
-import miau.util.shader.RoundedUtils;
-import miau.util.world.BlockUtil;
-import net.minecraft.block.Block;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemBlock;
-import net.minecraft.item.ItemStack;
+import miau.util.shader.*;
+import miau.util.world.*;
+import net.minecraft.block.*;
+import net.minecraft.client.*;
+import net.minecraft.client.gui.*;
+import net.minecraft.client.renderer.*;
+import net.minecraft.client.settings.*;
+import net.minecraft.item.*;
 import net.minecraft.util.*;
-import net.minecraft.world.WorldSettings.GameType;
+import net.minecraft.world.WorldSettings.*;
 
 public class Scaffold extends Module {
   public static final Minecraft mc = Minecraft.getMinecraft();
-  private static final int ROTATION_SNAP = 6;
-  private static final int ROTATION_BETA = 7;
+  private static final int ROTATION_BETA = 4;
   public static final double[] placeOffsets =
       new double[] {
         0.03125, 0.09375, 0.15625, 0.21875, 0.28125, 0.34375, 0.40625, 0.46875, 0.53125, 0.59375,
@@ -58,47 +52,36 @@ public class Scaffold extends Module {
   public final SafeWalkFeature safeWalkFeature = new SafeWalkFeature(this);
   public final BetaFeature betaFeature = new BetaFeature(this);
   public final MultiPlaceFeature multiPlaceFeature = new MultiPlaceFeature(this);
-  public final GodbridgeFeature godbridgeFeature = new GodbridgeFeature(this);
-  public final BlockSafeFeature blockSafeFeature = new BlockSafeFeature(this);
+
+  public final BlockRenderFeature blockRenderFeature = new BlockRenderFeature(this);
   private final List<ScaffoldComponent> components = new ArrayList<>();
 
   public final ScaffoldOptions options = new ScaffoldOptions();
 
   public class ScaffoldOptions {
+
+    private boolean isKeepYActive() {
+      int val = keepYFeature.keepY.getValue();
+      return val == 3 || val == 4 || val == 5;
+    }
+
     public final FloatProperty tellystartrotationminspeed =
         new FloatProperty(
-            "telly-start-rotation-min-speed",
-            40.0F,
-            1.0F,
-            180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            "telly-start-rotation-min-speed", 40.0F, 1.0F, 180.0F, this::isKeepYActive);
     public final FloatProperty tellystartrotationmaxspeed =
         new FloatProperty(
-            "telly-start-rotation-max-speed",
-            95.0F,
-            1.0F,
-            180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            "telly-start-rotation-max-speed", 95.0F, 1.0F, 180.0F, this::isKeepYActive);
     public final FloatProperty tellynormalrotationminspeed =
         new FloatProperty(
-            "telly-normal-rotation-min-speed",
-            30.0F,
-            1.0F,
-            180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            "telly-normal-rotation-min-speed", 30.0F, 1.0F, 180.0F, this::isKeepYActive);
     public final FloatProperty tellynormalrotationmaxspeed =
         new FloatProperty(
-            "telly-normal-rotation-max-speed",
-            35.0F,
-            1.0F,
-            180.0F,
-            () -> keepYFeature.keepY.getValue() == 3 || keepYFeature.keepY.getValue() == 4);
+            "telly-normal-rotation-max-speed", 35.0F, 1.0F, 180.0F, this::isKeepYActive);
     public final BooleanProperty movementCorrection =
         new BooleanProperty("movement-correction", true);
     public final ModeProperty sprintMode =
         new ModeProperty("sprint", 0, new String[] {"NONE", "VANILLA", "OFF_GROUND", "ON_GROUND"});
-    public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
-    public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
+
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
     public final BooleanProperty blockCounter = new BooleanProperty("block-counter", true);
     public final FloatProperty placeDelay = new FloatProperty("place-delay", 0.0F, 0.0F, 5.0F);
@@ -111,8 +94,7 @@ public class Scaffold extends Module {
       list.add(tellynormalrotationmaxspeed);
       list.add(movementCorrection);
       list.add(sprintMode);
-      list.add(groundMotion);
-      list.add(airMotion);
+
       list.add(speedMotion);
       list.add(blockCounter);
       list.add(placeDelay);
@@ -134,17 +116,10 @@ public class Scaffold extends Module {
   public int stage = 0;
   public boolean shouldKeepY = false;
   public boolean placedThisTick = false;
-  public boolean snapRotating = false;
-  public float lastSnapPlaceYaw = Float.NaN;
-  public float lastSnapPlacePitch = Float.NaN;
+
   public boolean towering = false;
   public EnumFacing targetFacing = null;
   public int startY = 0;
-  public int safeStuckTicks = 0;
-  public int safeStuckDelayTicks = 0;
-  public boolean safeStuckActive = false;
-  public double savedMotionX, savedMotionY, savedMotionZ;
-  public double safePrevMotionY = 0.0;
   public float placeYaw, placePitch;
   public float bridgeYaw = Float.NaN;
   public float lastMoveFixPacketYaw = Float.NaN;
@@ -157,10 +132,9 @@ public class Scaffold extends Module {
     components.add(keepYFeature);
     components.add(multiPlaceFeature);
     components.add(safeWalkFeature);
-    components.add(godbridgeFeature);
     components.add(towerFeature);
     components.add(betaFeature);
-    components.add(blockSafeFeature);
+    components.add(blockRenderFeature);
   }
 
   public int getSlot() {
@@ -172,10 +146,7 @@ public class Scaffold extends Module {
   }
 
   public float getSpeed() {
-    if (!mc.thePlayer.onGround) return (float) options.airMotion.getValue() / 100.0F;
-    return MoveUtil.getSpeedLevel() > 0
-        ? (float) options.speedMotion.getValue() / 100.0F
-        : (float) options.groundMotion.getValue() / 100.0F;
+    return (float) options.speedMotion.getValue() / 100.0F;
   }
 
   public float getCurrentYaw() {
@@ -211,12 +182,10 @@ public class Scaffold extends Module {
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) return true;
     if (isTowering()) return false;
     int k = keepYFeature.keepY.getValue();
-    boolean stageActive = k == 1 || k == 2 || k == 4;
-    if ((!stageActive || this.stage <= 0) && options.sprintMode.getValue() == 0) return true;
+    boolean stageActive = k == 1 || k == 2 || k == 3 || k == 5;
     int sprint = options.sprintMode.getValue();
-    if (sprint == 2 && mc.thePlayer.onGround) return true;
-    if (sprint == 3 && !mc.thePlayer.onGround) return true;
-    return false;
+    if ((!stageActive || this.stage <= 0) && sprint == 0) return true;
+    return (sprint == 2 && mc.thePlayer.onGround) || (sprint == 3 && !mc.thePlayer.onGround);
   }
 
   private void applySprintMode() {
@@ -300,36 +269,6 @@ public class Scaffold extends Module {
     return ScaffoldPlacementUtil.verifyPlacement(blockData, yaw, pitch);
   }
 
-  private boolean isDuplicateSnapRotation(float yaw, float pitch) {
-    return !Float.isNaN(this.lastSnapPlaceYaw)
-        && Math.abs(MathHelper.wrapAngleTo180_float(yaw - this.lastSnapPlaceYaw)) < 0.35F;
-  }
-
-  private float[] getSnapRotation(BlockData blockData, float yaw, float pitch) {
-    float baseYaw = RotationUtil.quantizeAngle(yaw);
-    float basePitch = RotationUtil.quantizeAngle(MathHelper.clamp_float(pitch, -90.0F, 90.0F));
-    if (!isDuplicateSnapRotation(baseYaw, basePitch)) return new float[] {baseYaw, basePitch};
-
-    for (int i = 0; i < 24; i++) {
-      float yawStep = 0.35F + 0.075F * (float) (i / 2);
-      float pitchStep = 0.025F + 0.01F * (float) (i / 3);
-      float testYaw = RotationUtil.quantizeAngle(baseYaw + (i % 2 == 0 ? yawStep : -yawStep));
-      float testPitch =
-          RotationUtil.quantizeAngle(
-              MathHelper.clamp_float(
-                  basePitch + (i % 4 < 2 ? pitchStep : -pitchStep), -90.0F, 90.0F));
-      if (!isDuplicateSnapRotation(testYaw, testPitch)
-          && getPlacementMop(blockData, testYaw, testPitch) != null)
-        return new float[] {testYaw, testPitch};
-    }
-    return null;
-  }
-
-  private void rememberSnapRotation() {
-    this.lastSnapPlaceYaw = this.yaw;
-    this.lastSnapPlacePitch = this.pitch;
-  }
-
   public void place(BlockPos blockPos, EnumFacing enumFacing, Vec3 vec3) {
     if (!betaFeature.canBetaPlaceNow()) return;
     ItemStack activeItem = Miau.slotComponent.getItemStack();
@@ -338,6 +277,8 @@ public class Scaffold extends Module {
           mc.thePlayer, mc.theWorld, activeItem, blockPos, enumFacing, vec3)) {
         if (mc.playerController.getCurrentGameType() != GameType.CREATIVE) this.blockCount--;
         this.placedThisTick = true;
+        blockRenderFeature.markPlaced(blockPos.offset(enumFacing));
+
         if (betaFeature.isBetaMode()) {
           betaFeature.betaPlaceCooldown = 1;
           betaFeature.betaPlaceTicks = 0;
@@ -348,36 +289,20 @@ public class Scaffold extends Module {
     }
   }
 
+  @EventTarget
+  public void onRender3D(Render3DEvent event) {
+    if (!isEnabled()) return;
+    for (ScaffoldComponent comp : components) {
+      comp.onRender3D(event);
+    }
+  }
+
   @EventTarget(Priority.HIGH)
   public void onUpdate(UpdateEvent event) {
     if (!isEnabled() || event.getType() != EventType.PRE) return;
 
     this.placedThisTick = false;
     betaFeature.onUpdate(event);
-    blockSafeFeature.onUpdate(event);
-
-    if (this.safeStuckDelayTicks > 0) {
-      this.safeStuckDelayTicks--;
-      if (this.safeStuckDelayTicks <= 0) this.safeStuckTicks = 1;
-    }
-    if (this.safeStuckTicks > 0) {
-      if (!this.safeStuckActive) {
-        this.savedMotionX = mc.thePlayer.motionX;
-        this.savedMotionY = mc.thePlayer.motionY;
-        this.savedMotionZ = mc.thePlayer.motionZ;
-        this.safeStuckActive = true;
-      }
-      Miau.blinkManager.setBlinkState(true, BlinkModules.BLINK);
-      mc.thePlayer.motionX = 0.0;
-      mc.thePlayer.motionY = 0.0;
-      mc.thePlayer.motionZ = 0.0;
-    } else if (this.safeStuckActive) {
-      Miau.blinkManager.setBlinkState(false, BlinkModules.BLINK);
-      mc.thePlayer.motionX = this.savedMotionX;
-      mc.thePlayer.motionY = this.savedMotionY;
-      mc.thePlayer.motionZ = this.savedMotionZ;
-      this.safeStuckActive = false;
-    }
 
     if (this.rotationTick > 0) this.rotationTick--;
 
@@ -417,9 +342,7 @@ public class Scaffold extends Module {
                 event.getYaw());
 
     int rotMode = rotationHandler.rotationMode.getValue();
-    boolean snapMode = rotMode == ROTATION_SNAP;
     boolean betaMode = rotMode == ROTATION_BETA;
-    this.snapRotating = false;
 
     if (!this.canRotate) {
       rotationHandler.handleInitialRotation(event, currentYaw, yawDiffTo180, diagonalYaw);
@@ -443,39 +366,6 @@ public class Scaffold extends Module {
     }
 
     boolean towerRotating = this.towering || isTowering();
-    boolean snapCanPlace = true;
-    if (snapMode && !towerRotating && blockData != null) {
-      MovingObjectPosition currentMop =
-          getPlacementMop(blockData, event.getYaw(), event.getPitch());
-      if (currentMop != null) {
-        float[] snapRotation = getSnapRotation(blockData, event.getYaw(), event.getPitch());
-        if (snapRotation == null) {
-          snapCanPlace = false;
-          hitVec = null;
-        } else {
-          this.yaw = snapRotation[0];
-          this.pitch = snapRotation[1];
-          this.canRotate = true;
-          MovingObjectPosition snapMop = getPlacementMop(blockData, this.yaw, this.pitch);
-          hitVec = snapMop != null ? snapMop.hitVec : currentMop.hitVec;
-          this.snapRotating = true;
-          if (this.rotationTick > 1) this.rotationTick = 1;
-        }
-      } else if (hitVec != null && this.canRotate) {
-        float[] snapRotation = getSnapRotation(blockData, this.yaw, this.pitch);
-        if (snapRotation == null) {
-          snapCanPlace = false;
-          hitVec = null;
-        } else {
-          this.yaw = snapRotation[0];
-          this.pitch = snapRotation[1];
-          MovingObjectPosition snapMop = getPlacementMop(blockData, this.yaw, this.pitch);
-          if (snapMop != null) hitVec = snapMop.hitVec;
-          this.snapRotating = true;
-          if (this.rotationTick > 1) this.rotationTick = 1;
-        }
-      }
-    }
 
     if (this.canRotate
         && MoveUtil.isForwardPressed()
@@ -529,13 +419,12 @@ public class Scaffold extends Module {
     boolean willPlaceThisTick =
         blockData != null
             && hitVec != null
-            && snapCanPlace
             && this.rotationTick <= 0
             && this.sneakFeature.ticksOnAir
                 >= RandomUtil.nextFloat(
                     options.placeDelay.getValue(), options.placeDelay.getSecondValue());
     rotationHandler.handleUpdateRotation(
-        event, yawDiffTo180, diagonalYaw, snapMode, towerRotating, willPlaceThisTick);
+        event, yawDiffTo180, diagonalYaw, towerRotating, willPlaceThisTick);
 
     if (betaMode && blockData != null && hitVec != null) {
       MovingObjectPosition verifiedMop =
@@ -549,9 +438,7 @@ public class Scaffold extends Module {
 
     if (willPlaceThisTick) {
       place(blockData.blockPos, blockData.facing, hitVec);
-      if (snapMode) rememberSnapRotation();
-
-      if (multiPlaceFeature.multiplace.getValue() && !snapMode) {
+      if (multiPlaceFeature.multiplace.getValue()) {
         for (int i = 0; i < 3; i++) {
           blockData = getBlockData();
           if (blockData == null) break;
@@ -608,11 +495,6 @@ public class Scaffold extends Module {
   @EventTarget
   public void onStrafe(StrafeEvent event) {
     if (!isEnabled()) return;
-    if (this.safeStuckTicks > 0) {
-      event.setForward(0.0F);
-      event.setStrafe(0.0F);
-      return;
-    }
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) {
       this.towerTick = 0;
       this.towerDelay = 0;
@@ -624,15 +506,7 @@ public class Scaffold extends Module {
   @EventTarget
   public void onMoveInput(MoveInputEvent event) {
     if (!isEnabled()) return;
-    if (this.safeStuckTicks > 0) {
-      mc.thePlayer.movementInput.moveForward = 0.0f;
-      mc.thePlayer.movementInput.moveStrafe = 0.0f;
-      mc.thePlayer.movementInput.jump = false;
-      mc.thePlayer.movementInput.sneak = false;
-      return;
-    }
     betaFeature.onMoveInput(event);
-    godbridgeFeature.onMoveInput(event);
     boolean applyMoveFix = options.movementCorrection.getValue();
     if (applyMoveFix
         && RotationState.isActived()
@@ -656,12 +530,6 @@ public class Scaffold extends Module {
   @EventTarget
   public void onLivingUpdate(LivingUpdateEvent event) {
     if (!isEnabled()) return;
-    if (this.safeStuckTicks > 0) {
-      mc.thePlayer.motionX = 0.0;
-      mc.thePlayer.motionY = 0.0;
-      mc.thePlayer.motionZ = 0.0;
-      this.safeStuckTicks--;
-    }
     betaFeature.onLivingUpdate(event);
 
     float speed = betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode() ? 1.0F : getSpeed();
@@ -676,7 +544,7 @@ public class Scaffold extends Module {
     }
     if (shouldStopSprint()) mc.thePlayer.setSprinting(false);
     else applySprintMode();
-    towerFeature.updateSafeStuck();
+    // Safe stuck removed
   }
 
   @EventTarget
@@ -826,21 +694,14 @@ public class Scaffold extends Module {
     this.towerTick = 0;
     this.towerDelay = 0;
     this.towering = false;
-    this.safeStuckTicks = 0;
-    this.safeStuckDelayTicks = 0;
-    this.safePrevMotionY = 0.0;
-    this.safeStuckActive = false;
     this.sneakFeature.sneakingTicks = -1;
     this.sneakFeature.placements = 0;
     this.sneakFeature.pause = 0;
     this.sneakFeature.slow = 0;
     this.sneakFeature.ticksOnAir = 0;
-    this.snapRotating = false;
     this.betaFeature.betaAirTicks = 0;
     this.betaFeature.betaGroundTicks = 0;
     this.betaFeature.betaPlaceCooldown = 0;
-    this.lastSnapPlaceYaw = Float.NaN;
-    this.lastSnapPlacePitch = Float.NaN;
     this.lastPlacedAbsPacketYawDelta = Float.NaN;
     this.duplicatePlaceRotNudgeSign = 1;
     this.betaFeature.lastBetaSentYaw = Float.NaN;
@@ -856,15 +717,6 @@ public class Scaffold extends Module {
       mc.thePlayer.inventory.currentItem = this.lastSlot;
     }
     Miau.blinkManager.setBlinkState(false, BlinkModules.BLINK);
-    if (this.safeStuckActive && mc.thePlayer != null) {
-      mc.thePlayer.motionX = this.savedMotionX;
-      mc.thePlayer.motionY = this.savedMotionY;
-      mc.thePlayer.motionZ = this.savedMotionZ;
-    }
-    this.safeStuckTicks = 0;
-    this.safeStuckDelayTicks = 0;
-    this.safePrevMotionY = 0.0;
-    this.safeStuckActive = false;
     this.sneakFeature.sneakingTicks = -1;
     this.sneakFeature.placements = 0;
     this.sneakFeature.pause = 0;

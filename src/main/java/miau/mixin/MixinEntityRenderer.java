@@ -14,14 +14,11 @@ import miau.module.modules.movement.*;
 import miau.module.modules.network.*;
 import miau.module.modules.player.*;
 import miau.module.modules.render.*;
-import miau.motionblur.MotionBlurShaderHook;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.EntityRenderer;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.shader.ShaderGroup;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -42,7 +39,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 @Mixin(
     value = {EntityRenderer.class},
     priority = 9999)
-public abstract class MixinEntityRenderer implements MotionBlurShaderHook {
+public abstract class MixinEntityRenderer {
   @Unique private Box<Integer> slot = null;
   @Unique private Box<ItemStack> using = null;
   @Unique private Box<Integer> useCount = null;
@@ -50,7 +47,6 @@ public abstract class MixinEntityRenderer implements MotionBlurShaderHook {
   @Shadow private float thirdPersonDistance;
   @Shadow private float thirdPersonDistanceTemp;
   @Shadow private ShaderGroup theShaderGroup;
-  @Unique private ShaderGroup miau$motionBlurShader;
   @Unique private boolean miau$freeLookRestoreRotation;
   @Unique private float miau$freeLookYaw;
   @Unique private float miau$freeLookPitch;
@@ -89,75 +85,6 @@ public abstract class MixinEntityRenderer implements MotionBlurShaderHook {
       ((IAccessorEntityPlayer) this.mc.thePlayer).setItemInUseCount(this.useCount.value);
       this.useCount = null;
     }
-  }
-
-  @Inject(
-      method = {"isShaderActive"},
-      at = {@At("HEAD")},
-      cancellable = true)
-  private void miau$isMotionBlurShaderActive(
-      org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> callbackInfo) {
-    if (this.miau$motionBlurShader != null && OpenGlHelper.shadersSupported) {
-      callbackInfo.setReturnValue(true);
-    }
-  }
-
-  @Inject(
-      method = {"getShaderGroup"},
-      at = {@At("HEAD")},
-      cancellable = true)
-  private void miau$getMotionBlurShaderGroup(
-      org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ShaderGroup>
-          callbackInfo) {
-    if (this.miau$motionBlurShader != null
-        && OpenGlHelper.shadersSupported
-        && this.theShaderGroup == null) {
-      callbackInfo.setReturnValue(this.miau$motionBlurShader);
-    }
-  }
-
-  @Inject(
-      method = {"updateShaderGroupSize"},
-      at = {
-        @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/RenderGlobal;createBindEntityOutlineFbs(II)V")
-      })
-  private void miau$updateMotionBlurShaderSize(int width, int height, CallbackInfo callbackInfo) {
-    if (this.miau$motionBlurShader != null) {
-      this.miau$motionBlurShader.createBindFramebuffers(width, height);
-    }
-  }
-
-  @Inject(
-      method = {"updateCameraAndRender"},
-      at = {
-        @At(
-            value = "INVOKE",
-            target =
-                "Lnet/minecraft/client/renderer/RenderGlobal;renderEntityOutlineFramebuffer()V",
-            shift = At.Shift.AFTER)
-      })
-  private void miau$renderMotionBlurShader(
-      float partialTicks, long nanoTime, CallbackInfo callbackInfo) {
-    if (this.miau$motionBlurShader != null) {
-      GlStateManager.matrixMode(5890);
-      GlStateManager.pushMatrix();
-      GlStateManager.loadIdentity();
-      this.miau$motionBlurShader.loadShaderGroup(partialTicks);
-      GlStateManager.popMatrix();
-      GlStateManager.matrixMode(5888);
-    }
-  }
-
-  @Override
-  public ShaderGroup miau$getMotionBlurShader() {
-    return this.miau$motionBlurShader;
-  }
-
-  @Override
-  public void miau$setMotionBlurShader(ShaderGroup shaderGroup) {
-    this.miau$motionBlurShader = shaderGroup;
   }
 
   @Inject(

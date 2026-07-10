@@ -24,4 +24,6 @@ public interface ScaffoldComponent {
   default void onDisable() {}
 
   default void onBlockPlaced() {}
+
+  default void onRender3D(miau.event.impl.Render3DEvent event) {}
 }

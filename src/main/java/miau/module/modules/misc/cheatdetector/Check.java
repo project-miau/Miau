@@ -25,18 +25,48 @@ public abstract class Check {
                 .alertCoolDown
                 .getValue()
                 .floatValue())) {
-      Miau.notificationManager.pop(
-          "CheatDetector",
-          player.getName()
-              + net.minecraft.util.EnumChatFormatting.WHITE
-              + " has failed "
-              + net.minecraft.util.EnumChatFormatting.GRAY
-              + getName()
-              + net.minecraft.util.EnumChatFormatting.WHITE
-              + " "
-              + verbose,
-          NotificationType.INFO);
-      ((CheatDetector) Miau.moduleManager.getModule(CheatDetector.class)).mark(player);
+      CheatDetector cd = (CheatDetector) Miau.moduleManager.getModule(CheatDetector.class);
+      String verboseStr = "";
+      if (cd.verbose.getValue() && verbose != null && !verbose.isEmpty()) {
+        verboseStr =
+            " ["
+                + net.minecraft.util.EnumChatFormatting.WHITE
+                + verbose
+                + net.minecraft.util.EnumChatFormatting.GRAY
+                + "]";
+      }
+
+      if (cd.alertMode.getValue() == 0) {
+        Miau.notificationManager.pop(
+            "CheatDetector",
+            player.getName()
+                + net.minecraft.util.EnumChatFormatting.WHITE
+                + " has failed "
+                + net.minecraft.util.EnumChatFormatting.GRAY
+                + getName()
+                + net.minecraft.util.EnumChatFormatting.GRAY
+                + verboseStr,
+            NotificationType.INFO);
+      } else {
+        mc.thePlayer.addChatMessage(
+            new net.minecraft.util.ChatComponentText(
+                net.minecraft.util.EnumChatFormatting.DARK_GRAY
+                    + "["
+                    + net.minecraft.util.EnumChatFormatting.RED
+                    + "CheatDetector"
+                    + net.minecraft.util.EnumChatFormatting.DARK_GRAY
+                    + "]"
+                    + net.minecraft.util.EnumChatFormatting.GRAY
+                    + " \u00BB "
+                    + net.minecraft.util.EnumChatFormatting.WHITE
+                    + player.getName()
+                    + " failed "
+                    + net.minecraft.util.EnumChatFormatting.RED
+                    + getName()
+                    + net.minecraft.util.EnumChatFormatting.GRAY
+                    + verboseStr));
+      }
+      cd.mark(player);
       flagTimer.reset();
     }
   }

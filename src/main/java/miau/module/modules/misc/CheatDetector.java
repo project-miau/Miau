@@ -14,6 +14,7 @@ import miau.module.Module;
 import miau.module.modules.misc.cheatdetector.CheatDetectorData;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
+import miau.property.properties.ModeProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 
@@ -22,6 +23,10 @@ import net.minecraft.entity.player.EntityPlayer;
  */
 public class CheatDetector extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
+
+  public final ModeProperty alertMode =
+      new ModeProperty("alert-mode", 0, new String[] {"Notification", "Chat"});
+  public final BooleanProperty verbose = new BooleanProperty("verbose", false);
 
   public final BooleanProperty checkAutoBlock = new BooleanProperty("auto-block", true);
   public final BooleanProperty checkNoSlow = new BooleanProperty("no-slow", true);

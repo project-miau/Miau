@@ -40,7 +40,7 @@ public class NoSlowCheck extends Check {
     }
 
     if (this.noSlowTicks > 20) {
-      flag(player, "");
+      flag(player, "speed: " + String.format("%.2f", speed) + ", ticks: " + this.noSlowTicks);
       this.noSlowTicks = 0;
     }
 

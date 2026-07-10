@@ -31,7 +31,7 @@ public class MultiPlaceFeature implements ScaffoldComponent {
 
   @Override
   public void onUpdate(UpdateEvent event) {
-    if (this.multiplace.getValue() && !scaffold.snapRotating) {
+    if (this.multiplace.getValue()) {
       for (int i = 0; i < 3; i++) {
         Scaffold.BlockData blockData = scaffold.getBlockData();
         if (blockData == null) {

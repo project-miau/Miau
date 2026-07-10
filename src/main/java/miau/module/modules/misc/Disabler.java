@@ -14,77 +14,13 @@ public class Disabler extends Module {
   public final List<DisablerMode> modes = new ArrayList<>();
 
   // -- Mode instances --
-  public final VulcanDisabler vulcan = new VulcanDisabler("Vulcan", this);
-  public final WatchdogDisabler watchdog = new WatchdogDisabler("Watchdog", this);
-  public final Verus2Disabler verus2 = new Verus2Disabler("Verus2", this);
-  public final VerusCustomDisabler verusCustom = new VerusCustomDisabler("VerusCustom", this);
-  public final CubeCraftDisabler cubeCraft = new CubeCraftDisabler("CubeCraft", this);
-  public final MineLandKickDisabler mineLand = new MineLandKickDisabler("MineLand", this);
-  public final VehicleDisabler vehicle = new VehicleDisabler("Vehicle", this);
-  public final TeleportDisabler teleport = new TeleportDisabler("Teleport", this);
-  public final ConvertMovingPacketsDisabler convertPackets =
-      new ConvertMovingPacketsDisabler("ConvertPackets", this);
-  public final SprintDisabler sprint = new SprintDisabler("Sprint", this);
-  public final OmniSprintDisabler omniSprint = new OmniSprintDisabler("OmniSprint", this);
-  public final UniversoCraftDisabler universoCraft =
-      new UniversoCraftDisabler("UniversoCraft", this);
-  public final RiseBalanceDisabler riseBalance = new RiseBalanceDisabler("RiseBalance", this);
   public final TransactionDisabler transaction = new TransactionDisabler("Transaction", this);
-  public final MMCReachDisabler mmcReach = new MMCReachDisabler("MMCReach", this);
-  public final AbilitiesDisabler abilities = new AbilitiesDisabler("Abilities", this);
-  public final InputDisabler input = new InputDisabler("Input", this);
-  public final SpectateDisabler spectate = new SpectateDisabler("Spectate", this);
-  public final KeepAliveDisabler keepAlive = new KeepAliveDisabler("KeepAlive", this);
-  public final NoRulesDisabler noRules = new NoRulesDisabler("NoRules", this);
-  public final ExperimentalDisabler experimental = new ExperimentalDisabler("Experimental", this);
-  public final TestDisabler test = new TestDisabler("Test", this);
-  public final LunarDisabler lunar = new LunarDisabler("Lunar", this);
-  public final GhostlyDisabler ghostly = new GhostlyDisabler("Ghostly", this);
-  public final DynamicPVPDisabler dynamicPVP = new DynamicPVPDisabler("DynamicPVP", this);
-  public final BlockDisabler block = new BlockDisabler("Block", this);
 
-  public final ModeProperty mode =
-      new ModeProperty(
-          "Mode",
-          0,
-          new String[] {
-            "Vulcan", "Watchdog", "Verus2", "VerusCustom",
-            "CubeCraft", "MineLand", "Vehicle", "Teleport",
-            "ConvertPackets", "Sprint", "OmniSprint", "UniversoCraft",
-            "RiseBalance", "Transaction", "MMCReach", "Abilities",
-            "Input", "Spectate", "KeepAlive", "NoRules",
-            "Experimental", "Test", "Lunar", "Ghostly",
-            "DynamicPVP", "Block"
-          });
+  public final ModeProperty mode = new ModeProperty("Mode", 0, new String[] {"Transaction"});
 
   public Disabler() {
     super("Disabler", false);
-    modes.add(vulcan);
-    modes.add(watchdog);
-    modes.add(verus2);
-    modes.add(verusCustom);
-    modes.add(cubeCraft);
-    modes.add(mineLand);
-    modes.add(vehicle);
-    modes.add(teleport);
-    modes.add(convertPackets);
-    modes.add(sprint);
-    modes.add(omniSprint);
-    modes.add(universoCraft);
-    modes.add(riseBalance);
     modes.add(transaction);
-    modes.add(mmcReach);
-    modes.add(abilities);
-    modes.add(input);
-    modes.add(spectate);
-    modes.add(keepAlive);
-    modes.add(noRules);
-    modes.add(experimental);
-    modes.add(test);
-    modes.add(lunar);
-    modes.add(ghostly);
-    modes.add(dynamicPVP);
-    modes.add(block);
   }
 
   public DisablerMode getActiveMode() {

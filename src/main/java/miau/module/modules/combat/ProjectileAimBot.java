@@ -14,6 +14,7 @@ import miau.module.modules.misc.AntiBot;
 import miau.module.modules.render.HUD;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
+import miau.property.properties.IntProperty;
 import miau.property.properties.ModeProperty;
 import miau.util.player.MoveUtil;
 import miau.util.player.RotationUtil;
@@ -83,7 +84,20 @@ public class ProjectileAimBot extends Module {
   public final BooleanProperty targetSilverfish = new BooleanProperty("target-silverfish", false);
   public final BooleanProperty targetTeams = new BooleanProperty("target-teams", true);
 
+  public final BooleanProperty auto = new BooleanProperty("auto", false);
+  public final IntProperty autoAmount =
+      new IntProperty("auto-amount", 1, 1, 10, this.auto::getValue);
+  public final BooleanProperty weaponOnly =
+      new BooleanProperty("weapon-only", true, this.auto::getValue);
+  public final FloatProperty autoDelay =
+      new FloatProperty("auto-delay", 500.0F, 0.0F, 2000.0F, this.auto::getValue);
+
   private EntityLivingBase target;
+  private int throwState = 0;
+  private int lastSlot = -1;
+  private long lastThrowTime = 0L;
+  private int throwsRemaining = 0;
+  private boolean hasRotated = false;
 
   public ProjectileAimBot() {
     super("ProjectileAimBot", false, false);
@@ -95,6 +109,68 @@ public class ProjectileAimBot extends Module {
         || event.getType() != EventType.PRE
         || mc.thePlayer == null
         || mc.theWorld == null) return;
+
+    if (auto.getValue()) {
+      if (weaponOnly.getValue()
+          && !(mc.thePlayer.getHeldItem() != null
+              && mc.thePlayer.getHeldItem().getItem() instanceof ItemSword)) {
+        if (this.throwState != 0 || this.lastSlot != -1) this.switchBack();
+        resetAutoState();
+        return;
+      }
+      if (!this.hasProjectile()) {
+        resetAutoState();
+        this.switchBack();
+        return;
+      }
+      if (this.throwState == 0) {
+        this.target = getTarget();
+        if (this.target == null) return;
+        KillAura killAura = (KillAura) Miau.moduleManager.modules.get(KillAura.class);
+        if (killAura != null && killAura.isEnabled() && killAura.isInRange(this.target)) {
+          return;
+        }
+        if (System.currentTimeMillis() - this.lastThrowTime < autoDelay.getValue()) return;
+        this.throwsRemaining = this.autoAmount.getValue();
+        this.throwState = 1;
+        this.hasRotated = false;
+      }
+      if (this.throwState == 1) {
+        this.switchToProjectile();
+        this.throwState = 2;
+      } else if (this.throwState == 2) {
+        if (this.throwsRemaining > 0) {
+          ItemStack stack = mc.thePlayer.getHeldItem();
+          if (stack == null) {
+            this.throwState = 4;
+            return;
+          }
+          float[] rotations =
+              gravityType.getValue() == 1
+                  ? getProjectileRotations(this.target, stack)
+                  : getDirectRotations(this.target);
+          if (rotations != null) {
+            event.setRotation(rotations[0], rotations[1], 3);
+            event.setPervRotation(rotations[0], 3);
+            this.hasRotated = true;
+            this.throwState = 3;
+          } else {
+            this.throwState = 4;
+          }
+        } else {
+          this.throwState = 4;
+        }
+      } else if (this.throwState == 3) {
+        this.throwProjectile();
+        this.throwsRemaining--;
+        this.throwState = this.throwsRemaining > 0 ? 2 : 4;
+      } else if (this.throwState == 4) {
+        this.switchBack();
+        resetAutoState();
+        this.lastThrowTime = System.currentTimeMillis();
+      }
+      return;
+    }
 
     target = null;
     ItemStack stack = mc.thePlayer.getHeldItem();
@@ -117,7 +193,6 @@ public class ProjectileAimBot extends Module {
       if (moveFix.getValue() != 0) {
         event.setPervRotation(yaw, 3);
       }
-
     } else {
       event.setPervRotation(yaw, 3);
       Miau.rotationManager.setRotation(yaw, pitch, 3, true);
@@ -158,6 +233,51 @@ public class ProjectileAimBot extends Module {
     if (item instanceof ItemSnowball) return snowball.getValue();
     if (item instanceof ItemEnderPearl) return pearl.getValue();
     return otherItems.getValue();
+  }
+
+  private void resetAutoState() {
+    this.target = null;
+    this.throwState = 0;
+    this.throwsRemaining = 0;
+    this.hasRotated = false;
+  }
+
+  private boolean hasProjectile() {
+    return getProjectileSlot() != -1;
+  }
+
+  private int getProjectileSlot() {
+    for (int i = 0; i < 9; i++) {
+      ItemStack stack = mc.thePlayer.inventory.getStackInSlot(i);
+      if (stack != null && isValidHeldItem(stack) && !(stack.getItem() instanceof ItemBow))
+        return i;
+    }
+    return -1;
+  }
+
+  private void switchToProjectile() {
+    int slot = getProjectileSlot();
+    if (slot != -1) {
+      lastSlot = mc.thePlayer.inventory.currentItem;
+      mc.thePlayer.inventory.currentItem = slot;
+    }
+  }
+
+  private void switchBack() {
+    if (lastSlot != -1) {
+      mc.thePlayer.inventory.currentItem = lastSlot;
+      lastSlot = -1;
+    }
+  }
+
+  private void throwProjectile() {
+    int slot = mc.thePlayer.inventory.currentItem;
+    ItemStack stack = mc.thePlayer.inventory.getStackInSlot(slot);
+    if (stack != null) {
+      mc.getNetHandler()
+          .addToSendQueue(
+              new net.minecraft.network.play.client.C08PacketPlayerBlockPlacement(stack));
+    }
   }
 
   private EntityLivingBase getTarget() {
@@ -343,6 +463,8 @@ public class ProjectileAimBot extends Module {
 
   @Override
   public void onDisabled() {
+    switchBack();
+    resetAutoState();
     target = null;
     RotationState.applyState(false, 0.0F, 0.0F, 0.0F, Integer.MIN_VALUE);
   }
