@@ -59,9 +59,7 @@ public class TargetManager {
               if (e1JustHit != e2JustHit) {
                 sortBase = e1JustHit ? 1 : -1;
               } else {
-                sortBase = Integer.compare(
-                    e1.hurtResistantTime / 5,
-                    e2.hurtResistantTime / 5);
+                sortBase = Integer.compare(e1.hurtResistantTime / 5, e2.hurtResistantTime / 5);
               }
               break;
             case 1:

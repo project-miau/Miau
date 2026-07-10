@@ -612,16 +612,9 @@ public class Scaffold extends Module {
     GlStateManager.translate(-centerX, -centerY, 0);
 
     HUD hud = (HUD) Miau.moduleManager.getModule(HUD.class);
-    boolean shaders = hud != null && hud.isEnabled() && hud.shaders.getValue();
+    boolean shaders = hud != null && hud.isEnabled() && hud.blur.getValue();
 
     if (shaders) {
-      GlStateManager.pushMatrix();
-      GlStateManager.translate(centerX, centerY, 0);
-      GlStateManager.scale(animationProgress, animationProgress, 1f);
-      GlStateManager.translate(-centerX, -centerY, 0);
-      RoundedUtils.drawRound(x - 1, y - 1, width + 2, height + 2, 4f, new Color(81, 99, 149, 80));
-      GlStateManager.popMatrix();
-
       GlStateManager.pushMatrix();
       GlStateManager.translate(centerX, centerY, 0);
       GlStateManager.scale(animationProgress, animationProgress, 1f);

@@ -79,11 +79,9 @@ public class HUD extends Module {
   public final BooleanProperty toggleSound = new BooleanProperty("toggle-sounds", true);
   public final BooleanProperty toggleAlerts = new BooleanProperty("toggle-alerts", false);
   public final BooleanProperty notifications = new BooleanProperty("notifications", true);
-  public final BooleanProperty shaders = new BooleanProperty("Shaders", false);
+  public final BooleanProperty blur = new BooleanProperty("Blur", false);
   public final IntProperty blurIterations = new IntProperty("Blur Iterations", 2, 1, 8);
   public final IntProperty blurOffset = new IntProperty("Blur Offset", 3, 1, 10);
-  public final IntProperty bloomIterations = new IntProperty("Bloom Iterations", 3, 1, 8);
-  public final IntProperty bloomOffset = new IntProperty("Bloom Offset", 2, 1, 10);
 
   public final IntProperty backgroundAlpha = new IntProperty("Background Alpha", 110, 0, 255);
   public final FloatProperty roundingRadius =
@@ -235,21 +233,15 @@ public class HUD extends Module {
   }
 
   /**
-   * When Shaders is enabled on HUD, draws backgrounds into bloom and blur framebuffers inline (like
-   * ravenbS) before rendering the final text.
+   * When Blur is enabled on HUD, draws backgrounds into blur framebuffers inline (like ravenbS)
+   * before rendering the final text.
    */
   private void renderBlurBloom(
       long l,
       float delta,
       java.util.List<InterfaceComponent> animatingComponents,
       ScaledResolution sr) {
-    // Bloom pass
-    BlurUtils.prepareBloom();
-    renderElements(l, delta, animatingComponents, sr, 0, false);
-    renderPotions(sr, 0);
-    BlurUtils.bloomEnd(bloomIterations.getValue(), bloomOffset.getValue());
-
-    // Blur pass
+    // Blur pass (like RavenbS)
     BlurUtils.prepareBlur();
     renderElements(l, delta, animatingComponents, sr, 1, false);
     renderPotions(sr, 1);
@@ -362,7 +354,7 @@ public class HUD extends Module {
     if (this.isEnabled() && !mc.gameSettings.showDebugInfo) {
       long l = System.currentTimeMillis();
 
-      if (this.shaders.getValue()) {
+      if (this.blur.getValue()) {
         renderBlurBloom(l, delta, animatingComponents, sr);
       }
 
@@ -425,7 +417,7 @@ public class HUD extends Module {
           } else if (renderPass == 1) {
             RoundedUtils.drawRound(pX, pY, pW, pH, 4f, new Color(0, 0, 0, 150));
           } else {
-            if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+            if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
               RoundedUtils.drawRound(
                   pX, pY, pW, pH, 4f, new Color(0, 0, 0, this.backgroundAlpha.getValue()));
             }
@@ -485,7 +477,7 @@ public class HUD extends Module {
             RoundedUtils.drawRound(
                 wX - 1.0f, wY - 1.0f, wW + 2.0f, wH + 2.0f, 4f, new Color(0, 0, 0, 150));
           } else {
-            if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+            if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
               RoundedUtils.drawRound(
                   wX - 1.0f,
                   wY - 1.0f,
@@ -579,7 +571,7 @@ public class HUD extends Module {
               4f,
               new Color(0, 0, 0, 150));
         } else {
-          if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+          if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
             RoundedUtils.drawRound(
                 drawX - 2.0F,
                 drawY - 2.0F,
@@ -685,7 +677,7 @@ public class HUD extends Module {
               4f,
               new Color(0, 0, 0, 150));
         } else {
-          if (!this.shaders.getValue() && this.backgroundAlpha.getValue() > 0) {
+          if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
             RoundedUtils.drawRound(
                 drawX - 1.0F,
                 drawY - 1.0F,

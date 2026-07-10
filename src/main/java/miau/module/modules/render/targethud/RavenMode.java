@@ -151,24 +151,13 @@ public class RavenMode extends TargetHUDMode {
       float n9 = (absY + boxHeight - 13f) * invSc;
 
       HUD hud = (HUD) Miau.moduleManager.getModule(HUD.class);
-      boolean shadersOn = hud != null && hud.isEnabled() && hud.shaders.getValue();
+      boolean blurOn = hud != null && hud.isEnabled() && hud.blur.getValue();
 
-      if (shadersOn) {
-        // Shaders are ON → do bloom/blur inline like ravenBS
+      if (blurOn) {
+        // Blur is ON → do inline like ravenBS
         switch (parent.ravenMode.getValue()) {
           case 0:
-            float bloomRadius = (fadeTimer == null) ? 2f : (2f * alpha / 255f);
             float blurRadius = (fadeTimer == null) ? 3f : (3f * alpha / 255f);
-            BlurUtils.prepareBloom();
-            RoundedUtils.drawRound(
-                n6,
-                n7,
-                Math.abs(n6 - n8),
-                Math.abs(n7 - (n9 + 13f * invSc)),
-                8.0f,
-                true,
-                new Color(0, 0, 0, maxAlphaBackground));
-            BlurUtils.bloomEnd(3, bloomRadius);
             BlurUtils.prepareBlur();
             RoundedUtils.drawRound(
                 n6,
