@@ -8,7 +8,6 @@ import java.util.*;
 import java.util.List;
 import java.util.Locale;
 import miau.Miau;
-import miau.component.PingSpoofComponent;
 import miau.enums.BlinkModules;
 import miau.event.EventManager;
 import miau.event.EventTarget;
@@ -21,7 +20,6 @@ import miau.module.Module;
 import miau.module.modules.combat.killaura.autoblocks.*;
 import miau.module.modules.combat.killaura.target.AttackData;
 import miau.module.modules.combat.killaura.target.LastAttackData;
-import miau.module.modules.misc.AntiBot;
 import miau.module.modules.movement.NoSlow;
 import miau.module.modules.player.AutoBlockIn;
 import miau.module.modules.player.AutoHead;
@@ -35,25 +33,12 @@ import miau.util.player.*;
 import miau.util.render.*;
 import miau.util.time.*;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.DataWatcher.WatchableObject;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.EnumCreatureAttribute;
 import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.entity.boss.EntityDragon;
-import net.minecraft.entity.boss.EntityWither;
-import net.minecraft.entity.monster.EntityIronGolem;
-import net.minecraft.entity.monster.EntityMob;
-import net.minecraft.entity.monster.EntitySilverfish;
-import net.minecraft.entity.monster.EntitySlime;
-import net.minecraft.entity.passive.EntityAnimal;
-import net.minecraft.entity.passive.EntityBat;
-import net.minecraft.entity.passive.EntitySquid;
-import net.minecraft.entity.passive.EntityVillager;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
 import net.minecraft.network.play.client.C02PacketUseEntity;
@@ -62,7 +47,6 @@ import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
 import net.minecraft.network.play.server.S06PacketUpdateHealth;
-import net.minecraft.network.play.server.S1CPacketEntityMetadata;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.*;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
@@ -77,6 +61,8 @@ public class KillAura extends Module {
   private miau.module.modules.combat.killaura.render.TargetRenderer targetRenderer;
   private final miau.module.modules.combat.killaura.target.TargetManager targetManager =
       new miau.module.modules.combat.killaura.target.TargetManager(this);
+  public final java.util.List<miau.module.modules.combat.killaura.rotation.RotationMode>
+      rotationModes = new java.util.ArrayList<>();
   public int switchTick = 0;
   public boolean hitRegistered = false;
   public boolean blockingState = false;
@@ -87,41 +73,32 @@ public class KillAura extends Module {
   public long attackDelayMS = 0L;
   public int blockTick = 0;
   public boolean cancelAttack = false;
-  private int lastTickProcessed;
   public int ticksSinceVelocity = 0;
-  private double expandRange = 0.0;
+  public double expandRange = 0.0;
   public final ModeProperty mode;
   public final IntProperty switchDelay;
   public final ModeProperty autoBlock;
+  public final ModeProperty rotations;
+  public final ModeProperty debugLog;
+  public final ModeProperty moveFix;
+  public final BooleanProperty rayCast;
+  public final FloatProperty cps;
+  public final FloatProperty autoBlockCps;
+  public final FloatProperty swingRange;
+  public final PercentProperty smoothing;
+  public final IntProperty angleStep;
+  public int lastTickProcessed = 0;
   public final List<AutoBlockMode> autoBlockModes = new ArrayList<>();
   public final BooleanProperty autoBlockRequirePress;
   public final BooleanProperty preventServersideBlocking;
   public final ModeProperty sort;
   public final FloatProperty attackRange;
-  public final FloatProperty swingRange;
-  public final FloatProperty cps;
-  public final FloatProperty autoBlockCps;
-  public final ModeProperty rotations;
-  public final PercentProperty smoothing;
-  public final IntProperty angleStep;
-  public final ModeProperty moveFix;
-  public final BooleanProperty keepSprint;
-  public final BooleanProperty rayCast;
   public final BooleanProperty throughWalls;
   public final BooleanProperty whileScaffold;
-  public final BooleanProperty badPacketsCheck;
   public final IntProperty fov;
   public final BooleanProperty requirePress;
   public final BooleanProperty allowMining;
-  public final BooleanProperty weaponsOnly;
-  public final BooleanProperty allowTools;
-  public final BooleanProperty inventoryCheck;
   public final ModeProperty showTarget;
-  public final ModeProperty debugLog;
-
-  public int keepSprintBlinkTicks = 0;
-  private int ticks = 255;
-
   public final BooleanProperty targetPlayers = new BooleanProperty("target-players", true);
   public final BooleanProperty targetInvisibles =
       new BooleanProperty("target-invisibles", false, this.targetPlayers::getValue);
@@ -143,10 +120,6 @@ public class KillAura extends Module {
   }
 
   private boolean performAttack(float yaw, float pitch) {
-    if (this.badPacketsCheck.getValue()
-        && miau.component.BadPacketsComponent.bad(false, false, false, true, true)) {
-      return false;
-    }
     if (!Miau.playerStateManager.digging && !Miau.playerStateManager.placing) {
       if (this.isPlayerBlocking()
           && this.autoBlock.getValue() != 1
@@ -157,50 +130,6 @@ public class KillAura extends Module {
       } else if (this.attackDelayMS > 0L) {
         return false;
       } else {
-        this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
-
-        if (this.keepSprint.getValue()) {
-          miau.module.modules.movement.KeepSprint ks =
-              (miau.module.modules.movement.KeepSprint)
-                  Miau.moduleManager.modules.get(miau.module.modules.movement.KeepSprint.class);
-          boolean ksWillPreserveSprint =
-              ks != null && ks.isEnabled() && ks.shouldKeepSprint() && mc.thePlayer.isSprinting();
-
-          if (ksWillPreserveSprint && !PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
-            PingSpoofComponent.beginSession(
-                "KillAuraKeepSprint", 40, false, false, false, false, false, true);
-          }
-
-          mc.thePlayer.swingItem();
-
-          ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
-          PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.ATTACK));
-
-          if (mc.playerController.getCurrentGameType() != GameType.SPECTATOR) {
-            if (mc.thePlayer.fallDistance > 0.0F
-                && !mc.thePlayer.onGround
-                && !mc.thePlayer.isOnLadder()
-                && !mc.thePlayer.isInWater()
-                && !mc.thePlayer.isPotionActive(Potion.blindness)
-                && mc.thePlayer.ridingEntity == null) {
-              mc.thePlayer.onCriticalHit(this.target.getEntity());
-            }
-          }
-
-          LastAttackData lastAttack = this.targetMap.get(this.target.getEntity().getEntityId());
-          if (lastAttack == null) {
-            this.targetMap.put(
-                this.target.getEntity().getEntityId(),
-                new LastAttackData(this.getDamage(this.target.getEntity())));
-          } else {
-            lastAttack.reset(true, this.getDamage(this.target.getEntity()));
-          }
-
-          this.keepSprintBlinkTicks = ksWillPreserveSprint ? 1 : 0;
-          this.hitRegistered = true;
-          return true;
-        }
-
         mc.thePlayer.swingItem();
 
         net.minecraft.util.MovingObjectPosition rayCastPos = null;
@@ -261,7 +190,8 @@ public class KillAura extends Module {
           rayCastHit = true;
         }
 
-        if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
+        if ((this.rotations.getValue() != 0
+                || !this.targetManager.isBoxInAttackRange(this.target.getBox()))
             && !rayCastHit) {
           return false;
         } else {
@@ -353,11 +283,9 @@ public class KillAura extends Module {
   }
 
   private boolean canAttack() {
-    if (this.inventoryCheck.getValue() && mc.currentScreen instanceof GuiContainer) {
+    if (mc.currentScreen instanceof GuiContainer) {
       return false;
-    } else if (!(Boolean) this.weaponsOnly.getValue()
-        || ItemUtil.hasRawUnbreakingEnchant()
-        || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
+    } else {
       if (((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock()) {
         return false;
       } else if ((ItemUtil.isEating() || ItemUtil.isUsingBow()) && PlayerUtil.isUsingItem()) {
@@ -385,8 +313,6 @@ public class KillAura extends Module {
           }
         }
       }
-    } else {
-      return false;
     }
   }
 
@@ -398,112 +324,8 @@ public class KillAura extends Module {
     }
   }
 
-  public boolean hasValidTarget() {
-    return mc.theWorld.loadedEntityList.stream()
-        .anyMatch(
-            entity ->
-                entity instanceof EntityLivingBase
-                    && this.isValidTarget((EntityLivingBase) entity)
-                    && this.isInRange((EntityLivingBase) entity));
-  }
-
-  public boolean isValidTarget(EntityLivingBase entityLivingBase) {
-    return this.isValid(entityLivingBase)
-        && (this.rotations.getValue() != 0
-            || RotationUtil.angleToEntity(entityLivingBase) <= this.fov.getValue().floatValue())
-        && (this.throughWalls.getValue() || RotationUtil.rayTrace(entityLivingBase) == null);
-  }
-
-  public boolean isInRange(EntityLivingBase entityLivingBase) {
-    double maxRange = Math.max(this.swingRange.getValue(), this.attackRange.getValue());
-    maxRange += this.expandRange;
-    return RotationUtil.distanceToEntity(entityLivingBase) <= maxRange;
-  }
-
-  public boolean isInSwingRange(EntityLivingBase entityLivingBase) {
-    return RotationUtil.distanceToEntity(entityLivingBase) <= (double) this.swingRange.getValue();
-  }
-
-  public boolean isBoxInSwingRange(AxisAlignedBB axisAlignedBB) {
-    return RotationUtil.distanceToBox(axisAlignedBB) <= (double) this.swingRange.getValue();
-  }
-
-  public boolean isInAttackRange(EntityLivingBase entityLivingBase) {
-    return RotationUtil.distanceToEntity(entityLivingBase) <= (double) this.attackRange.getValue();
-  }
-
-  public boolean isBoxInAttackRange(AxisAlignedBB axisAlignedBB) {
-    return RotationUtil.distanceToBox(axisAlignedBB) <= (double) this.attackRange.getValue();
-  }
-
-  public boolean isPlayerTarget(EntityLivingBase entityLivingBase) {
-    return entityLivingBase instanceof EntityPlayer
-        && TeamUtil.isTarget((EntityPlayer) entityLivingBase);
-  }
-
-  // --- Target Validation (inlined from Targets.java) -------------
-
-  public boolean isValid(EntityLivingBase entityLivingBase) {
-    if (entityLivingBase == null || mc.theWorld == null || mc.thePlayer == null) {
-      return false;
-    }
-    if (!mc.theWorld.loadedEntityList.contains(entityLivingBase)) {
-      return false;
-    }
-    if (entityLivingBase == mc.thePlayer || entityLivingBase == mc.thePlayer.ridingEntity) {
-      return false;
-    }
-    if (entityLivingBase == mc.getRenderViewEntity()
-        || entityLivingBase == mc.getRenderViewEntity().ridingEntity) {
-      return false;
-    }
-    if (entityLivingBase.deathTime > 0) {
-      return false;
-    }
-    if (entityLivingBase instanceof EntityOtherPlayerMP) {
-      return this.isValidPlayer((EntityPlayer) entityLivingBase);
-    }
-    if (entityLivingBase instanceof EntityDragon || entityLivingBase instanceof EntityWither) {
-      return this.targetBosses.getValue();
-    }
-    if (entityLivingBase instanceof EntityMob || entityLivingBase instanceof EntitySlime) {
-      if (entityLivingBase instanceof EntitySilverfish) {
-        return this.targetSilverfish.getValue() && this.allowTeamColor(entityLivingBase);
-      }
-      return this.targetMobs.getValue();
-    }
-    if (entityLivingBase instanceof EntityAnimal
-        || entityLivingBase instanceof EntityBat
-        || entityLivingBase instanceof EntitySquid
-        || entityLivingBase instanceof EntityVillager) {
-      return this.targetAnimals.getValue();
-    }
-    if (entityLivingBase instanceof EntityIronGolem) {
-      return this.targetGolems.getValue() && this.allowTeamColor(entityLivingBase);
-    }
-    return false;
-  }
-
-  private boolean isValidPlayer(EntityPlayer player) {
-    if (!this.targetPlayers.getValue()) {
-      return false;
-    }
-    boolean isInvisible = player.isInvisible();
-    if (isInvisible && !this.targetInvisibles.getValue()) {
-      return false;
-    }
-    if (TeamUtil.isFriend(player)) {
-      return false;
-    }
-    return this.allowSameTeam(player) && (isInvisible || !AntiBot.isBot(player));
-  }
-
-  private boolean allowTeamColor(EntityLivingBase entityLivingBase) {
-    return this.targetTeams.getValue() || !TeamUtil.hasTeamColor(entityLivingBase);
-  }
-
-  private boolean allowSameTeam(EntityPlayer player) {
-    return this.targetTeams.getValue() || !TeamUtil.isSameTeam(player);
+  public AttackData getAttackData() {
+    return this.target;
   }
 
   public int findEmptySlot(int currentSlot) {
@@ -540,12 +362,13 @@ public class KillAura extends Module {
     this.autoBlockModes.add(new NoneAutoBlock(this));
     this.autoBlockModes.add(new VanillaAutoBlock(this));
     this.autoBlockModes.add(new SpoofAutoBlock(this));
-    this.autoBlockModes.add(new HypixelAutoBlock(this));
     this.autoBlockModes.add(new BlinkAutoBlock(this));
     this.autoBlockModes.add(new InteractAutoBlock(this));
     this.autoBlockModes.add(new LegitAutoBlock(this));
     this.autoBlockModes.add(new FakeAutoBlock(this));
-    this.autoBlockModes.add(new TestAutoBlock(this));
+
+    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.SilentRotation(this));
+    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LockViewRotation(this));
 
     this.lastTickProcessed = 0;
     this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
@@ -566,49 +389,32 @@ public class KillAura extends Module {
             "auto-block",
             0,
             new String[] {
-              "NONE",
-              "VANILLA",
-              "SPOOF",
-              "HYPIXEL",
-              "BLINK",
-              "INTERACT",
-              "LEGIT",
-              "FAKE",
-              "GRIM",
-              "TEST"
+              "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM"
             });
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
     this.autoBlockCps = new FloatProperty("autoblock-aps", 8.0F, 10.0F, 1.0F, 10.0F);
-    this.rotations =
-        new ModeProperty(
-            "rotations", 1, new String[] {"NONE", "LEGIT/NORMAL", "SNAP", "NCP", "LOCK_VIEW"});
+    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "SILENT", "LOCK_VIEW"});
     this.smoothing = new PercentProperty("smoothing", 0);
     this.angleStep = new IntProperty("angle-step", 90, 30, 180);
-    this.moveFix =
-        new ModeProperty(
-            "move-fix",
-            0,
-            new String[] {"OFF", "Normal", "Traditional", "Backwards_Sprint", "Silent"});
-    this.keepSprint = new BooleanProperty("keep-sprint", false);
+    this.moveFix = new ModeProperty("move-fix", 0, new String[] {"OFF", "Normal"});
     this.rayCast = new BooleanProperty("ray-cast", false);
     this.throughWalls = new BooleanProperty("through-walls", true);
     this.whileScaffold = new BooleanProperty("while-scaffold", false);
-    this.badPacketsCheck = new BooleanProperty("bad-packets-check", true);
     this.fov = new IntProperty("fov", 360, 30, 360);
     this.requirePress = new BooleanProperty("require-press", false);
     this.allowMining = new BooleanProperty("allow-mining", true);
-    this.weaponsOnly = new BooleanProperty("weapons-only", true);
-    this.allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
-    this.inventoryCheck = new BooleanProperty("inventory-check", true);
     this.showTarget =
-        new ModeProperty(
-            "show-target", 0, new String[] {"NONE", "SIGMA_RING", "ABOVE_BOX", "FULL_BOX"});
+        new ModeProperty("show-target", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
     this.debugLog = new ModeProperty("debug-log", 0, new String[] {"NONE", "HEALTH"});
   }
 
   public EntityLivingBase getTarget() {
     return this.target != null ? this.target.getEntity() : null;
+  }
+
+  public boolean isInRange(EntityLivingBase entity) {
+    return this.targetManager.isInRange(entity);
   }
 
   private boolean shouldDelayHit() {
@@ -619,15 +425,11 @@ public class KillAura extends Module {
     Scaffold scaffold = (Scaffold) Miau.moduleManager.modules.get(Scaffold.class);
     if (!this.whileScaffold.getValue() && scaffold.isEnabled()) {
       return false;
-    } else if (!this.weaponsOnly.getValue()
-        || ItemUtil.hasRawUnbreakingEnchant()
-        || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
-      return !this.requirePress.getValue()
-          || KeyBindUtil.isKeyDown(mc.gameSettings.keyBindAttack.getKeyCode());
     } else if (this.shouldDelayHit()) {
       return false;
     } else {
-      return false;
+      return !this.requirePress.getValue()
+          || KeyBindUtil.isKeyDown(mc.gameSettings.keyBindAttack.getKeyCode());
     }
   }
 
@@ -664,15 +466,6 @@ public class KillAura extends Module {
       Miau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
       Miau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
     }
-    if (event.getType() == EventType.POST) {
-      if (this.keepSprintBlinkTicks > 0) {
-        this.keepSprintBlinkTicks--;
-        if (this.keepSprintBlinkTicks <= 0 && PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
-          // Idle timeout: no attacks for a while, release session
-          PingSpoofComponent.finishSession("KillAuraKeepSprint", true);
-        }
-      }
-    }
     if (this.isEnabled() && event.getType() == EventType.PRE) {
       this.ticksSinceVelocity++;
       if (mc.thePlayer.ticksExisted % 20 == 0) {
@@ -699,7 +492,7 @@ public class KillAura extends Module {
           if (this.cancelAttack) attack = false;
         }
         boolean attacked = false;
-        if (this.isBoxInSwingRange(this.target.getBox())) {
+        if (this.targetManager.isBoxInSwingRange(this.target.getBox())) {
           if (this.rotations.getValue() != 0) {
             float[] targetRots =
                 RotationUtil.getRotationsWithBackup(
@@ -723,74 +516,14 @@ public class KillAura extends Module {
             double rotSpeed = (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
             float[] rotations = lastRots;
 
-            switch (this.rotations.getValue()) {
-              case 1:
-                {
-                  if (rotSpeed != 0) {
-                    int ravenSpeed = Math.min(30, (int) (rotSpeed / 6.0));
-                    float randomPct = (float) this.smoothing.getValue();
-                    rotations =
-                        RotationUtil.smoothRotation(
-                            lastRots[0],
-                            lastRots[1],
-                            targetRots[0],
-                            targetRots[1],
-                            ravenSpeed,
-                            randomPct);
-                  } else {
-                    rotations = lastRots;
-                  }
-                }
-                break;
-              case 2: // SNAP - smooth when attacking, instant otherwise
-                if (rotSpeed != 0 && this.attackDelayMS <= 50L) {
-                  int ravenSpeed = Math.min(30, (int) (rotSpeed / 6.0));
-                  float randomPct = (float) this.smoothing.getValue();
-                  rotations =
-                      RotationUtil.smoothRotation(
-                          lastRots[0],
-                          lastRots[1],
-                          targetRots[0],
-                          targetRots[1],
-                          ravenSpeed,
-                          randomPct);
-                } else {
-                  rotations = new float[] {mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch};
-                }
-                break;
-              case 3: // NCP - instant with random noise
-                if (rotSpeed != 0) {
-                  if (Math.random() > 0.1) {
-                    rotations = targetRots;
-                  } else {
-                    rotations =
-                        new float[] {
-                          targetRots[0] + (float) ((Math.random() - 0.5) * 10),
-                          targetRots[1] + (float) ((Math.random() - 0.5) * 3)
-                        };
-                  }
-                }
-                break;
-              case 4:
-                {
-                  float[] lockViewRots =
-                      RotationUtil.getRotationsToBox(
-                          this.target.getBox(),
-                          event.getYaw(),
-                          event.getPitch(),
-                          (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
-                          (float) this.smoothing.getValue() / 100.0F);
-                  if (lockViewRots != null) {
-                    rotations = new float[] {lockViewRots[0], lockViewRots[1]};
-                    mc.thePlayer.rotationYaw = rotations[0];
-                    mc.thePlayer.rotationPitch = rotations[1];
-                    mc.thePlayer.rotationYawHead = rotations[0];
-                    mc.thePlayer.renderYawOffset = rotations[0];
-                    // Set prev rotation for move fix
-                    event.setPervRotation(rotations[0], 1);
-                  }
-                }
-                break;
+            miau.module.modules.combat.killaura.rotation.RotationMode currentMode =
+                this.rotations.getValue() > 0
+                        && this.rotations.getValue() <= this.rotationModes.size()
+                    ? this.rotationModes.get(this.rotations.getValue() - 1)
+                    : null;
+
+            if (currentMode != null) {
+              rotations = currentMode.processRotations(targetRots, lastRots, rotSpeed, event);
             }
 
             float[] quantized =
@@ -798,7 +531,7 @@ public class KillAura extends Module {
 
             // NORMAL MODE: Set rotation via event (changes server rotation)
             event.setRotation(quantized[0], quantized[1], 1);
-            if (this.rotations.getValue() != 4) {
+            if (this.rotations.getValue() != 2) {
               event.setPervRotation(quantized[0], 1);
             }
           }
@@ -828,9 +561,9 @@ public class KillAura extends Module {
       switch (event.getType()) {
         case PRE:
           if (this.target == null
-              || !this.isValidTarget(this.target.getEntity())
-              || !this.isBoxInAttackRange(this.target.getBox())
-              || !this.isBoxInSwingRange(this.target.getBox())
+              || !this.targetManager.isValidTarget(this.target.getEntity())
+              || !this.targetManager.isBoxInAttackRange(this.target.getBox())
+              || !this.targetManager.isBoxInSwingRange(this.target.getBox())
               || this.timer.hasTimeElapsed(this.switchDelay.getValue().longValue())) {
             this.timer.reset();
             java.util.List<EntityLivingBase> validTargets = this.targetManager.getValidTargets();
@@ -916,26 +649,6 @@ public class KillAura extends Module {
                     mc.thePlayer.ticksExisted));
           }
         }
-        if (event.getPacket() instanceof S1CPacketEntityMetadata) {
-          S1CPacketEntityMetadata packet = (S1CPacketEntityMetadata) event.getPacket();
-          if (packet.getEntityId() == mc.thePlayer.getEntityId()) {
-            for (WatchableObject watchableObject : packet.func_149376_c()) {
-              if (watchableObject.getDataValueId() == 6) {
-                float diff = (Float) watchableObject.getObject() - mc.thePlayer.getHealth();
-                if (diff != 0.0F && this.lastTickProcessed != mc.thePlayer.ticksExisted) {
-                  this.lastTickProcessed = mc.thePlayer.ticksExisted;
-                  ChatUtil.sendFormatted(
-                      String.format(
-                          "%sHealth: %s&l%s&r (&otick: %d&r)&r",
-                          Miau.clientName,
-                          diff > 0.0F ? "&a" : "&c",
-                          df.format(diff),
-                          mc.thePlayer.ticksExisted));
-                }
-              }
-            }
-          }
-        }
       }
     }
   }
@@ -943,14 +656,8 @@ public class KillAura extends Module {
   @EventTarget
   public void onMove(MoveInputEvent event) {
     if (this.isEnabled()) {
-      if (this.moveFix.getValue() == 1 && RotationState.isActived()) {
+      if (this.rotations.getValue() != 0 && RotationState.isActived()) {
         MoveUtil.fixMovement(RotationState.getRotationYawHead());
-      }
-      if (this.moveFix.getValue() == 4
-          && this.rotations.getValue() != 4
-          && RotationState.isActived()
-          && MoveUtil.isForwardPressed()) {
-        MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
       }
       if (this.shouldAutoBlock()) {
         mc.thePlayer.movementInput.jump = false;
@@ -961,7 +668,7 @@ public class KillAura extends Module {
   @EventTarget
   public void onStrafe(StrafeEvent event) {
     if (this.isEnabled() && RotationState.isActived() && this.target != null) {
-      if (this.moveFix.getValue() == 1 || this.moveFix.getValue() == 2) {
+      if (this.rotations.getValue() != 0) {
         event.setYaw(RotationState.getRotationYawHead());
       }
     }
@@ -970,9 +677,7 @@ public class KillAura extends Module {
   @EventTarget
   public void onJump(JumpEvent event) {
     if (this.isEnabled() && RotationState.isActived() && this.target != null) {
-      if (this.moveFix.getValue() == 1
-          || this.moveFix.getValue() == 2
-          || this.moveFix.getValue() == 3) {
+      if (this.rotations.getValue() != 0) {
         event.setYaw(RotationState.getRotationYawHead());
       }
     }
@@ -1038,8 +743,8 @@ public class KillAura extends Module {
     if (this.target == null || this.target.getEntity() == null) return false;
     if (this.target.getEntity().isDead) return false;
     double dist = RotationUtil.distanceToEntity(this.target.getEntity());
-    if (dist > this.swingRange.getValue()) return false;
-    if (this.inventoryCheck.getValue() && mc.currentScreen instanceof GuiContainer) return false;
+    if (dist > this.attackRange.getValue()) return false;
+    if (mc.currentScreen instanceof GuiContainer) return false;
     return true;
   }
 
@@ -1081,7 +786,6 @@ public class KillAura extends Module {
     this.hitRegistered = false;
     this.attackDelayMS = 0L;
     this.blockTick = 0;
-    this.ticks = 255;
     this.rightHoldActive = false;
   }
 
@@ -1092,50 +796,16 @@ public class KillAura extends Module {
     this.blockingState = false;
     this.isBlocking = false;
     this.fakeBlockState = false;
-
-    // Clean up keepSprint blink state – only if we own the session
-    if (PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
-      // Flush remaining queued packets so nothing is lost on disable
-      PingSpoofComponent.finishSession("KillAuraKeepSprint", true);
-    }
-    this.keepSprintBlinkTicks = 0;
   }
 
   @Override
-  public void verifyValue(String value) {
-    boolean badCps =
-        this.autoBlock.getValue() == 2
-            || this.autoBlock.getValue() == 3
-            || this.autoBlock.getValue() == 4
-            || this.autoBlock.getValue() == 5
-            || this.autoBlock.getValue() == 6;
-    if (!this.autoBlock.getName().equals(value)) {
-      if (this.swingRange.getName().equals(value)) {
-        if (this.swingRange.getValue() < this.attackRange.getValue()) {
-          this.attackRange.setValue(this.swingRange.getValue());
-        }
-      } else if (this.attackRange.getName().equals(value)) {
-        if (this.swingRange.getValue() < this.attackRange.getValue()) {
-          this.swingRange.setValue(this.attackRange.getValue());
-        }
-      }
-    }
-  }
+  public void verifyValue(String value) {}
 
   @Override
   public String[] getSuffix() {
     return new String[] {
       CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, this.mode.getModeString())
     };
-  }
-
-  private long getPing() {
-    if (mc.getNetHandler() != null
-        && mc.thePlayer != null
-        && mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID()) != null) {
-      return mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID()).getResponseTime();
-    }
-    return 250;
   }
 
   public final java.util.Map<Integer, LastAttackData> targetMap = new java.util.HashMap<>();

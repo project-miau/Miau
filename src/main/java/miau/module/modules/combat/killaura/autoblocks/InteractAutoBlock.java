@@ -12,7 +12,7 @@ public class InteractAutoBlock extends AutoBlockMode {
   @Override
   public boolean processBlock(boolean attack, boolean block) {
     boolean swap = false;
-    if (parent.hasValidTarget()) {
+    if (parent.getTarget() != null) {
       if (!parent.isPlayerBlocking()
           && !Miau.playerStateManager.digging
           && !Miau.playerStateManager.placing) {

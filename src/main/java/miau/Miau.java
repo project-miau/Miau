@@ -108,7 +108,8 @@ public class Miau {
     moduleManager.modules.put(AutoAuth.class, new AutoAuth());
     moduleManager.modules.put(AutoGG.class, new AutoGG());
     moduleManager.modules.put(AutoPlay.class, new AutoPlay());
-    moduleManager.modules.put(AutoBedDef.class, new AutoBedDef());
+
+    moduleManager.modules.put(BedDefender.class, new BedDefender());
     moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
     moduleManager.modules.put(AutoBuy.class, new AutoBuy());
     moduleManager.modules.put(AutoChest.class, new AutoChest());
@@ -139,7 +140,6 @@ public class Miau {
     moduleManager.modules.put(ClickGUI.class, new ClickGUI());
     moduleManager.modules.put(ClientSpoofer.class, new ClientSpoofer());
     moduleManager.modules.put(Clutch.class, new Clutch());
-    moduleManager.modules.put(Criticals.class, new Criticals());
     moduleManager.modules.put(Disabler.class, new Disabler());
     moduleManager.modules.put(Displace.class, new Displace());
     moduleManager.modules.put(ESP.class, new ESP());
@@ -210,7 +210,7 @@ public class Miau {
     moduleManager.modules.put(Trajectories.class, new Trajectories());
     moduleManager.modules.put(Velocity.class, new Velocity());
     moduleManager.modules.put(ViewClip.class, new ViewClip());
-    moduleManager.modules.put(Wtap.class, new Wtap());
+    moduleManager.modules.put(MoreKB.class, new MoreKB());
     moduleManager.modules.put(Statistics.class, new Statistics());
     moduleManager.modules.put(CheatDetector.class, new CheatDetector());
     commandManager.commands.add(new BindCommand());

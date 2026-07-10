@@ -49,7 +49,7 @@ public class TargetRenderer {
                 + (player.posZ - player.prevPosZ) * partialTicks
                 - ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ();
 
-        if (this.killAura.showTarget.getValue() == 1) {
+        if (this.killAura.showTarget.getValue() == 2) {
           final Color color =
               ((HUD) Miau.moduleManager.modules.get(HUD.class))
                   .getColor(System.currentTimeMillis());
@@ -102,51 +102,7 @@ public class TargetRenderer {
           GL11.glEnable(3553);
           GL11.glPopMatrix();
           GlStateManager.resetColor();
-        } else if (this.killAura.showTarget.getValue() == 2) {
-          final Color color =
-              player.hurtTime > 0
-                  ? Color.red
-                  : ((HUD) Miau.moduleManager.modules.get(HUD.class))
-                      .getColor(System.currentTimeMillis());
-          GL11.glPushMatrix();
-          GL11.glEnable(3042);
-          GL11.glLineWidth(1.8F);
-          GL11.glBlendFunc(770, 771);
-          GL11.glEnable(2848);
-          GlStateManager.depthMask(true);
-
-          GL11.glEnable(GL11.GL_BLEND);
-          GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-          GL11.glDisable(GL11.GL_TEXTURE_2D);
-          GL11.glEnable(GL11.GL_LINE_SMOOTH);
-          GL11.glDisable(GL11.GL_DEPTH_TEST);
-          GL11.glDepthMask(false);
-
-          double renderY = y + player.getEyeHeight() * 1.2;
-          float width = player.width;
-          AxisAlignedBB aabb =
-              new AxisAlignedBB(
-                  x - width / 1.75,
-                  renderY,
-                  z - width / 1.75,
-                  x + width / 1.75,
-                  renderY + 0.1,
-                  z + width / 1.75);
-
-          RenderUtil.drawBoundingBox(
-              aabb, color.getRed(), color.getGreen(), color.getBlue(), 40, 1.8F);
-
-          GL11.glDisable(GL11.GL_LINE_SMOOTH);
-          GL11.glEnable(GL11.GL_TEXTURE_2D);
-          GL11.glEnable(GL11.GL_DEPTH_TEST);
-          GL11.glDepthMask(true);
-          GL11.glDisable(GL11.GL_BLEND);
-
-          GL11.glDisable(3042);
-          GL11.glDisable(2848);
-          GL11.glPopMatrix();
-          GlStateManager.resetColor();
-        } else if (this.killAura.showTarget.getValue() == 3) {
+        } else if (this.killAura.showTarget.getValue() == 1) {
           boolean wasHurtRecently = false;
           if (player.hurtTime > 0) {
             wasHurtRecently = true;

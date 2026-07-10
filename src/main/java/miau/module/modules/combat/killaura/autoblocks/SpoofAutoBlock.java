@@ -18,7 +18,7 @@ public class SpoofAutoBlock extends AutoBlockMode {
   @Override
   public boolean processBlock(boolean attack, boolean block) {
     boolean swap = false;
-    if (parent.hasValidTarget()) {
+    if (parent.getTarget() != null) {
       int item = ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
       if (Miau.playerStateManager.digging
           || Miau.playerStateManager.placing

@@ -15,7 +15,7 @@ public class LegitAutoBlock extends AutoBlockMode {
   @Override
   public boolean processBlock(boolean attack, boolean block) {
     boolean swap = false;
-    if (parent.hasValidTarget()) {
+    if (parent.getTarget() != null) {
       if (!Miau.playerStateManager.digging && !Miau.playerStateManager.placing) {
         switch (parent.blockTick) {
           case 0:

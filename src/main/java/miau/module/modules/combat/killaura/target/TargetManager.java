@@ -23,9 +23,7 @@ public class TargetManager {
     for (net.minecraft.entity.Entity entity : mc.theWorld.loadedEntityList) {
       if (entity instanceof EntityLivingBase) {
         EntityLivingBase livingBase = (EntityLivingBase) entity;
-        // Accessing isValidTarget and isInRange through reflection or making them public
-        // For this refactor, assuming we made them public in KillAura
-        if (this.killAura.isValidTarget(livingBase) && this.killAura.isInRange(livingBase)) {
+        if (this.isValidTarget(livingBase) && this.isInRange(livingBase)) {
           targets.add(livingBase);
         }
       }
@@ -36,14 +34,14 @@ public class TargetManager {
   public AttackData findBestTarget(List<EntityLivingBase> targets) {
     if (targets.isEmpty()) return null;
 
-    if (targets.stream().anyMatch(this.killAura::isInSwingRange)) {
-      targets.removeIf(e -> !this.killAura.isInSwingRange(e));
+    if (targets.stream().anyMatch(this::isInSwingRange)) {
+      targets.removeIf(e -> !this.isInSwingRange(e));
     }
-    if (targets.stream().anyMatch(this.killAura::isInAttackRange)) {
-      targets.removeIf(e -> !this.killAura.isInAttackRange(e));
+    if (targets.stream().anyMatch(this::isInAttackRange)) {
+      targets.removeIf(e -> !this.isInAttackRange(e));
     }
-    if (targets.stream().anyMatch(this.killAura::isPlayerTarget)) {
-      targets.removeIf(e -> !this.killAura.isPlayerTarget(e));
+    if (targets.stream().anyMatch(this::isPlayerTarget)) {
+      targets.removeIf(e -> !this.isPlayerTarget(e));
     }
 
     targets.sort(
@@ -51,9 +49,6 @@ public class TargetManager {
           int sortBase = 0;
           switch (this.killAura.sort.getValue()) {
             case 2:
-              // HURT-TIME: Bucket by hurtResistantTime/5 to prevent per-tick reordering
-              // that causes rapid target switching. Also deprioritize entities that
-              // were just hit (hurtTime > 0) behind unbeaten targets.
               boolean e1JustHit = e1.hurtTime > 0;
               boolean e2JustHit = e2.hurtTime > 0;
               if (e1JustHit != e2JustHit) {
@@ -96,5 +91,111 @@ public class TargetManager {
     }
 
     return new AttackData(targets.get(this.killAura.switchTick));
+  }
+
+  public boolean isValidTarget(EntityLivingBase entityLivingBase) {
+    return this.isValid(entityLivingBase)
+        && (this.killAura.rotations.getValue() != 0
+            || RotationUtil.angleToEntity(entityLivingBase)
+                <= this.killAura.fov.getValue().floatValue())
+        && (this.killAura.throughWalls.getValue()
+            || RotationUtil.rayTrace(entityLivingBase) == null);
+  }
+
+  public boolean isInRange(EntityLivingBase entityLivingBase) {
+    double maxRange = this.killAura.attackRange.getValue();
+    maxRange += this.killAura.expandRange;
+    return RotationUtil.distanceToEntity(entityLivingBase) <= maxRange;
+  }
+
+  public boolean isInSwingRange(EntityLivingBase entityLivingBase) {
+    return RotationUtil.distanceToEntity(entityLivingBase)
+        <= (double) this.killAura.attackRange.getValue();
+  }
+
+  public boolean isBoxInSwingRange(net.minecraft.util.AxisAlignedBB axisAlignedBB) {
+    return RotationUtil.distanceToBox(axisAlignedBB)
+        <= (double) this.killAura.attackRange.getValue();
+  }
+
+  public boolean isInAttackRange(EntityLivingBase entityLivingBase) {
+    return RotationUtil.distanceToEntity(entityLivingBase)
+        <= (double) this.killAura.attackRange.getValue();
+  }
+
+  public boolean isBoxInAttackRange(net.minecraft.util.AxisAlignedBB axisAlignedBB) {
+    return RotationUtil.distanceToBox(axisAlignedBB)
+        <= (double) this.killAura.attackRange.getValue();
+  }
+
+  public boolean isPlayerTarget(EntityLivingBase entityLivingBase) {
+    return entityLivingBase instanceof net.minecraft.entity.player.EntityPlayer
+        && TeamUtil.isTarget((net.minecraft.entity.player.EntityPlayer) entityLivingBase);
+  }
+
+  public boolean isValid(EntityLivingBase entityLivingBase) {
+    if (entityLivingBase == null || mc.theWorld == null || mc.thePlayer == null) {
+      return false;
+    }
+    if (!mc.theWorld.loadedEntityList.contains(entityLivingBase)) {
+      return false;
+    }
+    if (entityLivingBase == mc.thePlayer || entityLivingBase == mc.thePlayer.ridingEntity) {
+      return false;
+    }
+    if (entityLivingBase == mc.getRenderViewEntity()
+        || entityLivingBase == mc.getRenderViewEntity().ridingEntity) {
+      return false;
+    }
+    if (entityLivingBase.deathTime > 0) {
+      return false;
+    }
+    if (entityLivingBase instanceof net.minecraft.client.entity.EntityOtherPlayerMP) {
+      return this.isValidPlayer((net.minecraft.entity.player.EntityPlayer) entityLivingBase);
+    }
+    if (entityLivingBase instanceof net.minecraft.entity.boss.EntityDragon
+        || entityLivingBase instanceof net.minecraft.entity.boss.EntityWither) {
+      return this.killAura.targetBosses.getValue();
+    }
+    if (entityLivingBase instanceof net.minecraft.entity.monster.EntityMob
+        || entityLivingBase instanceof net.minecraft.entity.monster.EntitySlime) {
+      if (entityLivingBase instanceof net.minecraft.entity.monster.EntitySilverfish) {
+        return this.killAura.targetSilverfish.getValue() && this.allowTeamColor(entityLivingBase);
+      }
+      return this.killAura.targetMobs.getValue();
+    }
+    if (entityLivingBase instanceof net.minecraft.entity.passive.EntityAnimal
+        || entityLivingBase instanceof net.minecraft.entity.passive.EntityBat
+        || entityLivingBase instanceof net.minecraft.entity.passive.EntitySquid
+        || entityLivingBase instanceof net.minecraft.entity.passive.EntityVillager) {
+      return this.killAura.targetAnimals.getValue();
+    }
+    if (entityLivingBase instanceof net.minecraft.entity.monster.EntityIronGolem) {
+      return this.killAura.targetGolems.getValue() && this.allowTeamColor(entityLivingBase);
+    }
+    return false;
+  }
+
+  private boolean isValidPlayer(net.minecraft.entity.player.EntityPlayer player) {
+    if (!this.killAura.targetPlayers.getValue()) {
+      return false;
+    }
+    boolean isInvisible = player.isInvisible();
+    if (isInvisible && !this.killAura.targetInvisibles.getValue()) {
+      return false;
+    }
+    if (TeamUtil.isFriend(player)) {
+      return false;
+    }
+    return this.allowSameTeam(player)
+        && (isInvisible || !miau.module.modules.misc.AntiBot.isBot(player));
+  }
+
+  private boolean allowTeamColor(EntityLivingBase entityLivingBase) {
+    return this.killAura.targetTeams.getValue() || !TeamUtil.hasTeamColor(entityLivingBase);
+  }
+
+  private boolean allowSameTeam(net.minecraft.entity.player.EntityPlayer player) {
+    return this.killAura.targetTeams.getValue() || !TeamUtil.isSameTeam(player);
   }
 }
