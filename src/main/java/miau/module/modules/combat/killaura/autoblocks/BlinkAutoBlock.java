@@ -27,7 +27,7 @@ public class BlinkAutoBlock extends AutoBlockMode {
               // attack = false;
               parent.cancelAttack = true;
             }
-            if (parent.attackDelayMS <= 50L) {
+            if (parent.nextSwing <= 50L) {
               parent.blockTick = 0;
             }
             break;
