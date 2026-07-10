@@ -17,7 +17,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
-public class MiauMode extends TargetHUDMode {
+public class MyauMode extends TargetHUDMode {
   private ResourceLocation headTexture = null;
   private final TimerUtil animTimer = new TimerUtil();
   private float oldHealth = 0.0F;
@@ -25,7 +25,7 @@ public class MiauMode extends TargetHUDMode {
   private float maxHealth = 1.0F;
   private EntityLivingBase lastTarget = null;
 
-  public MiauMode(TargetHUD targetHUD) {
+  public MyauMode(TargetHUD targetHUD) {
     super(targetHUD);
   }
 

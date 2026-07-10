@@ -146,6 +146,7 @@ public class Miau {
     moduleManager.modules.put(EntityCulling.class, new EntityCulling());
     moduleManager.modules.put(FakeLag.class, new FakeLag());
     moduleManager.modules.put(FastPlace.class, new FastPlace());
+    moduleManager.modules.put(FlagDetector.class, new FlagDetector());
     moduleManager.modules.put(Fly.class, new Fly());
     moduleManager.modules.put(FreeLook.class, new FreeLook());
     moduleManager.modules.put(Freeze.class, new Freeze());

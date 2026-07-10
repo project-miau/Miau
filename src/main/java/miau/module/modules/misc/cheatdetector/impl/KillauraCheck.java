@@ -201,7 +201,7 @@ public class KillauraCheck extends Check {
     this.movementComponent(player, moveX, moveY, moveZ, yaw, targets);
 
     if (aimVl > VL_LIMIT) {
-      flag(player, "");
+      flag(player, "vl: " + aimVl);
       aimVl = 360.0F;
     }
     if (aimVl > 0.0F) {
@@ -504,7 +504,7 @@ public class KillauraCheck extends Check {
     if (isAttacking && useItemTicks > MIN_USE_TIME && sinceLastEat < EAT_TIMEOUT && isConsumable) {
       ++consumeVl;
       if (consumeVl >= CONSUME_FAIL_VL) {
-        flag(player, "");
+        flag(player, "vl: " + this.consumeVl);
         consumeVl = 0;
       }
     } else if (consumeVl > 0) {

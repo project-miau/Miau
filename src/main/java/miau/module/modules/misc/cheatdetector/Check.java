@@ -26,6 +26,16 @@ public abstract class Check {
                 .getValue()
                 .floatValue())) {
       CheatDetector cd = (CheatDetector) Miau.moduleManager.getModule(CheatDetector.class);
+      String verboseStr = "";
+      if (cd.verbose.getValue() && verbose != null && !verbose.isEmpty()) {
+        verboseStr =
+            " ["
+                + net.minecraft.util.EnumChatFormatting.WHITE
+                + verbose
+                + net.minecraft.util.EnumChatFormatting.GRAY
+                + "]";
+      }
+
       if (cd.alertMode.getValue() == 0) {
         Miau.notificationManager.pop(
             "CheatDetector",
@@ -34,9 +44,8 @@ public abstract class Check {
                 + " has failed "
                 + net.minecraft.util.EnumChatFormatting.GRAY
                 + getName()
-                + net.minecraft.util.EnumChatFormatting.WHITE
-                + " "
-                + verbose,
+                + net.minecraft.util.EnumChatFormatting.GRAY
+                + verboseStr,
             NotificationType.INFO);
       } else {
         mc.thePlayer.addChatMessage(
@@ -55,11 +64,7 @@ public abstract class Check {
                     + net.minecraft.util.EnumChatFormatting.RED
                     + getName()
                     + net.minecraft.util.EnumChatFormatting.GRAY
-                    + " ["
-                    + net.minecraft.util.EnumChatFormatting.WHITE
-                    + verbose
-                    + net.minecraft.util.EnumChatFormatting.GRAY
-                    + "]"));
+                    + verboseStr));
       }
       cd.mark(player);
       flagTimer.reset();

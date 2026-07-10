@@ -38,7 +38,7 @@ public class Velocity extends Module {
 
   public final ModeProperty mode =
       new ModeProperty(
-          "Mode",
+          "mode",
           0,
           new String[] {
             register(new ThreeFPracVelocity("3FPrac", this)),

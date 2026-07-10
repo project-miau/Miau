@@ -76,7 +76,7 @@ public class LegitScaffoldCheck extends Check {
 
     if (quickCrouch && swingTiming && consistent) {
       if (tick - lastFlagTick >= 60L) {
-        flag(player, "");
+        flag(player, "crouch: " + crouchDuration + "t");
         lastFlagTick = tick;
       }
     }

@@ -18,9 +18,7 @@ public class RotationHandler {
 
   public final ModeProperty rotationMode =
       new ModeProperty(
-          "rotations",
-          2,
-          new String[] {"NONE", "Normal", "Backwards", "Sideways", "Godbridge", "Beta"});
+          "rotations", 2, new String[] {"NONE", "Normal", "Backwards", "Sideways", "Beta"});
 
   public List<Property<?>> getProperties() {
     return Arrays.asList(rotationMode);
@@ -31,8 +29,7 @@ public class RotationHandler {
     rotationLogics.put(1, new DefaultRotation());
     rotationLogics.put(2, new BackwardsRotation());
     rotationLogics.put(3, new SidewaysRotation());
-    rotationLogics.put(4, new GodbridgeRotation());
-    rotationLogics.put(5, new BetaRotation());
+    rotationLogics.put(4, new BetaRotation());
   }
 
   public void handleInitialRotation(

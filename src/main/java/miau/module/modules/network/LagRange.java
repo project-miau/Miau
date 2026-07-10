@@ -40,7 +40,10 @@ public class LagRange extends Module {
 
   public final IntProperty delay = new IntProperty("delay", 150, 0, 1000);
   public final FloatProperty range = new FloatProperty("range", 10.0F, 3.0F, 100.0F);
-  public final BooleanProperty aggressive = new BooleanProperty("aggressive", false);
+  public final ModeProperty mode =
+      new ModeProperty("mode", 0, new String[] {"Delay", "Test", "Lag"});
+  public final IntProperty blinkTick =
+      new IntProperty("blink-tick", 3, 0, 10, () -> this.mode.getValue() == 2);
   public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
   public final BooleanProperty allowTools =
       new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
@@ -50,30 +53,11 @@ public class LagRange extends Module {
       new ModeProperty("show-position", 0, new String[] {"NONE", "DEFAULT", "HUD"});
 
   public final BooleanProperty sprintReset =
-      new BooleanProperty("sprint-reset", true, () -> this.aggressive.getValue());
+      new BooleanProperty("sprint-reset", true, () -> this.mode.getValue() == 1);
   public final BooleanProperty blockSword =
-      new BooleanProperty("block-sword", true, () -> this.aggressive.getValue());
+      new BooleanProperty("block-sword", true, () -> this.mode.getValue() == 1);
   public final BooleanProperty splashPotion =
-      new BooleanProperty("splash-potion", true, () -> this.aggressive.getValue());
-  public final BooleanProperty realPosIndicator =
-      new BooleanProperty("real-pos-indicator", true, () -> this.aggressive.getValue());
-  public final BooleanProperty showFirstPerson =
-      new BooleanProperty(
-          "show-first-person",
-          false,
-          () -> this.aggressive.getValue() && this.realPosIndicator.getValue());
-  public final FloatProperty indicatorLineWidth =
-      new FloatProperty(
-          "indicator-line-width",
-          2.0F,
-          0.5F,
-          5.0F,
-          () -> this.aggressive.getValue() && this.realPosIndicator.getValue());
-  public final BooleanProperty indicatorFilled =
-      new BooleanProperty(
-          "indicator-filled",
-          true,
-          () -> this.aggressive.getValue() && this.realPosIndicator.getValue());
+      new BooleanProperty("splash-potion", true, () -> this.mode.getValue() == 1);
 
   private int tickIndex = -1;
   private long delayCounter = 0L;
@@ -131,13 +115,20 @@ public class LagRange extends Module {
     super("LagRange", false);
   }
 
+  private void resetOldMiau() {
+    this.tickIndex = -1;
+    if (this.mode.getValue() == 2) {
+      Miau.blinkManager.setBlinkState(false, miau.enums.BlinkModules.BLINK);
+    }
+  }
+
   private void tickOldMiau() {
-    Miau.lagManager.setDelay(0);
+    if (this.mode.getValue() == 0) Miau.lagManager.setDelay(0);
     this.hasTarget = false;
 
     Scaffold scaffold = (Scaffold) Miau.moduleManager.modules.get(Scaffold.class);
     if (scaffold != null && scaffold.isEnabled()) {
-      this.tickIndex = -1;
+      resetOldMiau();
       return;
     }
 
@@ -145,7 +136,7 @@ public class LagRange extends Module {
     if ((bedNuker.isEnabled() && bedNuker.isReady())
         || ((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock()
         || (mc.thePlayer.isUsingItem() && !mc.thePlayer.isBlocking())) {
-      this.tickIndex = -1;
+      resetOldMiau();
       return;
     }
 
@@ -154,7 +145,7 @@ public class LagRange extends Module {
             || ItemUtil.hasRawUnbreakingEnchant()
             || this.allowTools.getValue() && ItemUtil.isHoldingTool();
     if (!weaponOk) {
-      this.tickIndex = -1;
+      resetOldMiau();
       return;
     }
 
@@ -166,7 +157,7 @@ public class LagRange extends Module {
             .collect(Collectors.toList());
 
     if (players.isEmpty()) {
-      this.tickIndex = -1;
+      resetOldMiau();
       return;
     }
 
@@ -194,12 +185,20 @@ public class LagRange extends Module {
               this.tickIndex++;
             }
           }
-          Miau.lagManager.setDelay(this.tickIndex);
+          if (this.mode.getValue() == 2) {
+            Miau.blinkManager.setBlinkState(true, miau.enums.BlinkModules.BLINK);
+            if (Miau.blinkManager.countMovement() > this.blinkTick.getValue().longValue()) {
+              Miau.blinkManager.setBlinkState(false, miau.enums.BlinkModules.BLINK);
+            }
+          } else if (this.mode.getValue() == 0) {
+            Miau.lagManager.setDelay(this.tickIndex);
+          }
           this.hasTarget = true;
           return;
         }
       }
     }
+    resetOldMiau();
   }
 
   private EntityPlayer getMouseOverTarget(double rangeSq) {
@@ -476,7 +475,7 @@ public class LagRange extends Module {
     if (this.isEnabled()) {
       switch (event.getType()) {
         case PRE:
-          if (this.aggressive.getValue()) {
+          if (this.mode.getValue() == 1) {
             tickAggressive();
           } else {
             tickOldMiau();
@@ -502,7 +501,7 @@ public class LagRange extends Module {
     if (this.isEnabled()) {
       if (event.getType() != EventType.SEND) return;
 
-      if (this.aggressive.getValue()) {
+      if (this.mode.getValue() == 1) {
         Packet<?> packet = event.getPacket();
         if (this.shouldResetOnPacket(packet)) {
           if (isLagging) {
@@ -540,44 +539,6 @@ public class LagRange extends Module {
         }
         renderBox(event, color);
       }
-
-      if (this.aggressive.getValue()
-          && this.realPosIndicator.getValue()
-          && (mc.gameSettings.thirdPersonView != 0 || showFirstPerson.getValue())) {
-
-        Color color = miau.util.render.Themes.getCurrentTheme().getFirstColor();
-        double x =
-            RenderUtil.lerpDouble(
-                this.currentPosition.xCoord, this.lastPosition.xCoord, event.getPartialTicks());
-        double y =
-            RenderUtil.lerpDouble(
-                this.currentPosition.yCoord, this.lastPosition.yCoord, event.getPartialTicks());
-        double z =
-            RenderUtil.lerpDouble(
-                this.currentPosition.zCoord, this.lastPosition.zCoord, event.getPartialTicks());
-        float size = mc.thePlayer.getCollisionBorderSize();
-        AxisAlignedBB aabb =
-            new AxisAlignedBB(
-                    x - (double) mc.thePlayer.width / 2.0,
-                    y,
-                    z - (double) mc.thePlayer.width / 2.0,
-                    x + (double) mc.thePlayer.width / 2.0,
-                    y + (double) mc.thePlayer.height,
-                    z + (double) mc.thePlayer.width / 2.0)
-                .expand(size, size, size)
-                .offset(
-                    -((IAccessorRenderManager) mc.getRenderManager()).getRenderPosX(),
-                    -((IAccessorRenderManager) mc.getRenderManager()).getRenderPosY(),
-                    -((IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ());
-
-        RenderUtil.enableRenderState();
-        org.lwjgl.opengl.GL11.glLineWidth((float) indicatorLineWidth.getValue());
-        if (indicatorFilled.getValue()) {
-          RenderUtil.drawFilledBox(aabb, color.getRed(), color.getGreen(), color.getBlue());
-        }
-        net.minecraft.client.renderer.RenderGlobal.drawSelectionBoundingBox(aabb);
-        RenderUtil.disableRenderState();
-      }
     }
   }
 
@@ -612,9 +573,12 @@ public class LagRange extends Module {
 
   @Override
   public void onDisabled() {
-    if (this.aggressive.getValue()) {
+    if (this.mode.getValue() == 1) {
       flushLag();
       clearAggroState();
+    }
+    if (this.mode.getValue() == 2) {
+      Miau.blinkManager.setBlinkState(false, miau.enums.BlinkModules.BLINK);
     }
     Miau.lagManager.setDelay(0);
     this.tickIndex = -1;
@@ -626,6 +590,9 @@ public class LagRange extends Module {
 
   @Override
   public String[] getSuffix() {
+    if (this.mode.getValue() == 2) {
+      return new String[] {this.blinkTick.getValue().toString()};
+    }
     return new String[] {String.format("%dms", this.delay.getValue())};
   }
 }

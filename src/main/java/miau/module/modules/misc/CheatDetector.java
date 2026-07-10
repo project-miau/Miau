@@ -26,6 +26,7 @@ public class CheatDetector extends Module {
 
   public final ModeProperty alertMode =
       new ModeProperty("alert-mode", 0, new String[] {"Notification", "Chat"});
+  public final BooleanProperty verbose = new BooleanProperty("verbose", false);
 
   public final BooleanProperty checkAutoBlock = new BooleanProperty("auto-block", true);
   public final BooleanProperty checkNoSlow = new BooleanProperty("no-slow", true);

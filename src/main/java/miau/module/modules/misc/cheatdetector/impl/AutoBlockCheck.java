@@ -20,7 +20,7 @@ public class AutoBlockCheck extends Check {
     }
 
     if (this.autoBlockTicks > 10) {
-      flag(player, "");
+      flag(player, "ticks: " + this.autoBlockTicks);
       this.autoBlockTicks = 0;
     }
   }
