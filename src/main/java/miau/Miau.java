@@ -108,7 +108,6 @@ public class Miau {
     moduleManager.modules.put(AutoAuth.class, new AutoAuth());
     moduleManager.modules.put(AutoGG.class, new AutoGG());
     moduleManager.modules.put(AutoPlay.class, new AutoPlay());
-
     moduleManager.modules.put(BedDefender.class, new BedDefender());
     moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
     moduleManager.modules.put(AutoBuy.class, new AutoBuy());
@@ -158,7 +157,6 @@ public class Miau {
     moduleManager.modules.put(Indicators.class, new Indicators());
     moduleManager.modules.put(InvManager.class, new InvManager());
     moduleManager.modules.put(InvWalk.class, new InvWalk());
-    moduleManager.modules.put(InventoryClicker.class, new InventoryClicker());
     moduleManager.modules.put(ItemESP.class, new ItemESP());
     moduleManager.modules.put(ItemPhysics.class, new ItemPhysics());
     moduleManager.modules.put(Jesus.class, new Jesus());
@@ -204,8 +202,7 @@ public class Miau {
     moduleManager.modules.put(TargetHUD.class, new TargetHUD());
     moduleManager.modules.put(TargetStrafe.class, new TargetStrafe());
     moduleManager.modules.put(ThePitUtils.class, new ThePitUtils());
-    moduleManager.modules.put(
-        miau.module.modules.network.TickBase.class, new miau.module.modules.network.TickBase());
+    moduleManager.modules.put(TickBase.class, new TickBase());
     moduleManager.modules.put(Tracers.class, new Tracers());
     moduleManager.modules.put(Trajectories.class, new Trajectories());
     moduleManager.modules.put(Velocity.class, new Velocity());

@@ -29,8 +29,6 @@ import miau.util.player.RotationUtil;
 import miau.util.player.TeamUtil;
 import miau.util.time.TimerUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityOtherPlayerMP;
-import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.entity.Entity;
@@ -91,10 +89,6 @@ public class BackTrack extends Module {
           5.0F,
           () -> mode.getValue() == 0 && espMode.getValue() == 3);
   public final ColorProperty espColor = new ColorProperty("color", 0xFF00FF00);
-  public final IntProperty fakePlayerPulseDelay =
-      new IntProperty("fake-player-pulse-delay", 400, 50, 1000);
-  public final IntProperty fakePlayerIntavePackets =
-      new IntProperty("fake-player-intave-packets", 15, 1, 50);
   public final FloatProperty packetDistance =
       new FloatProperty("packet-distance", 4.0F, 5.0F, 0.0F, 7.0F, () -> mode.getValue() == 1);
   public final IntProperty packetTimer =
@@ -121,7 +115,6 @@ public class BackTrack extends Module {
   private final Map<UUID, List<BacktrackData>> backtrackedPlayer = new ConcurrentHashMap<>();
 
   private final TimerUtil globalTimer = new TimerUtil();
-  private final TimerUtil fakePulseTimer = new TimerUtil();
 
   public EntityLivingBase target;
   private boolean shouldRender = true;
@@ -130,9 +123,6 @@ public class BackTrack extends Module {
 
   private int modernDelayValue = 80;
   private boolean modernDelayBoolean = false;
-  private EntityOtherPlayerMP fakePlayer;
-  private EntityLivingBase currentTarget;
-  private boolean fakeShown;
   private EntityPlayer packetTarget;
   private double packetRealX;
   private double packetRealY;
@@ -155,7 +145,6 @@ public class BackTrack extends Module {
     clearPackets(true, true);
     clearPacketMode(true);
     backtrackedPlayer.clear();
-    removeFakePlayer();
     reset();
   }
 
@@ -171,7 +160,6 @@ public class BackTrack extends Module {
       target = null;
     }
     backtrackedPlayer.clear();
-    removeFakePlayer();
     clearPacketMode(true);
   }
 
@@ -883,57 +871,6 @@ public class BackTrack extends Module {
             true);
     GlStateManager.popMatrix();
     GlStateManager.resetColor();
-  }
-
-  private void createFakePlayer(EntityLivingBase target) {
-    if (mc.theWorld == null || mc.getNetHandler() == null || !(target instanceof EntityPlayer))
-      return;
-    NetworkPlayerInfo playerInfo = mc.getNetHandler().getPlayerInfo(target.getUniqueID());
-    if (playerInfo == null) return;
-
-    EntityOtherPlayerMP faker = new EntityOtherPlayerMP(mc.theWorld, playerInfo.getGameProfile());
-    faker.rotationYawHead = target.rotationYawHead;
-    faker.renderYawOffset = target.renderYawOffset;
-    faker.copyLocationAndAnglesFrom(target);
-    faker.setHealth(target.getHealth());
-    copyEquipment(target, faker);
-    mc.theWorld.addEntityToWorld(-1337, faker);
-    fakePlayer = faker;
-    fakeShown = true;
-  }
-
-  private void removeFakePlayer() {
-    if (fakePlayer != null && mc.theWorld != null) mc.theWorld.removeEntity(fakePlayer);
-    fakePlayer = null;
-    currentTarget = null;
-    fakeShown = false;
-  }
-
-  private void updateFakePlayer() {
-    if (currentTarget == null || fakePlayer == null) {
-      if (!fakeShown && currentTarget != null) createFakePlayer(currentTarget);
-      return;
-    }
-    if (currentTarget.isDead || !currentTarget.isEntityAlive() || !fakePlayer.isEntityAlive()) {
-      removeFakePlayer();
-      return;
-    }
-    fakePlayer.setHealth(currentTarget.getHealth());
-    copyEquipment(currentTarget, fakePlayer);
-
-    if (mc.thePlayer.ticksExisted % Math.max(fakePlayerIntavePackets.getValue(), 1) == 0
-        || fakePulseTimer.hasTimeElapsed(fakePlayerPulseDelay.getValue())) {
-      fakePlayer.rotationYawHead = currentTarget.rotationYawHead;
-      fakePlayer.renderYawOffset = currentTarget.renderYawOffset;
-      fakePlayer.copyLocationAndAnglesFrom(currentTarget);
-      fakePulseTimer.reset();
-    }
-  }
-
-  private void copyEquipment(EntityLivingBase src, EntityLivingBase dst) {
-    for (int i = 0; i <= 4; i++)
-      dst.setCurrentItemOrArmor(
-          i, src.getEquipmentInSlot(i) == null ? null : src.getEquipmentInSlot(i).copy());
   }
 
   private static int randomInt(int min, int max) {

@@ -109,6 +109,26 @@ public class KillAura extends Module {
   public final BooleanProperty targetSilverfish = new BooleanProperty("target-silverfish", false);
   public final BooleanProperty targetTeams = new BooleanProperty("target-teams", true);
 
+  // AutoBlock options (Predict)
+  public final ModeProperty unblockMode;
+  public final FloatProperty blockMaxRange;
+  public final BooleanProperty releaseAutoBlock;
+  public final BooleanProperty forceBlockRender;
+  public final BooleanProperty ignoreTickRule;
+  public final IntProperty blockRate;
+  public final BooleanProperty uncpAutoBlock;
+  public final BooleanProperty switchStartBlock;
+  public final BooleanProperty interactAutoBlock;
+  public final BooleanProperty blinkAutoBlock;
+  public final IntProperty blinkBlockTicks;
+  public final BooleanProperty smartAutoBlock;
+  public final BooleanProperty forceBlockWhenStill;
+  public final BooleanProperty checkWeapon;
+  public final FloatProperty blockRange;
+  public final IntProperty maxOwnHurtTime;
+  public final FloatProperty maxDirectionDiff;
+  public final IntProperty maxSwingProgress;
+
   private long getAttackDelay() {
     float min = this.cps.getValue();
     float max = this.cps.getSecondValue();
@@ -367,6 +387,7 @@ public class KillAura extends Module {
     this.autoBlockModes.add(new LegitAutoBlock(this));
     this.autoBlockModes.add(new FakeAutoBlock(this));
 
+    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LegitRotation(this));
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.SilentRotation(this));
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LockViewRotation(this));
 
@@ -389,12 +410,12 @@ public class KillAura extends Module {
             "auto-block",
             0,
             new String[] {
-              "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM"
+              "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM", "PREDICT"
             });
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
     this.autoBlockCps = new FloatProperty("autoblock-aps", 8.0F, 10.0F, 1.0F, 10.0F);
-    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "SILENT", "LOCK_VIEW"});
+    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "LEGIT", "SILENT", "LOCK_VIEW"});
     this.smoothing = new PercentProperty("smoothing", 0);
     this.angleStep = new IntProperty("angle-step", 90, 30, 180);
     this.moveFix = new ModeProperty("move-fix", 0, new String[] {"OFF", "Normal"});
@@ -407,6 +428,26 @@ public class KillAura extends Module {
     this.showTarget =
         new ModeProperty("show-target", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
     this.debugLog = new ModeProperty("debug-log", 0, new String[] {"NONE", "HEALTH"});
+
+    this.unblockMode =
+        new ModeProperty("unblock-mode", 0, new String[] {"STOP", "SWITCH", "EMPTY"});
+    this.blockMaxRange = new FloatProperty("block-max-range", 3.0F, 0.0F, 8.0F);
+    this.releaseAutoBlock = new BooleanProperty("release-auto-block", true);
+    this.forceBlockRender = new BooleanProperty("force-block-render", true);
+    this.ignoreTickRule = new BooleanProperty("ignore-tick-rule", false);
+    this.blockRate = new IntProperty("block-rate", 100, 1, 100);
+    this.uncpAutoBlock = new BooleanProperty("updated-ncp-auto-block", false);
+    this.switchStartBlock = new BooleanProperty("switch-start-block", false);
+    this.interactAutoBlock = new BooleanProperty("interact-auto-block", true);
+    this.blinkAutoBlock = new BooleanProperty("blink-auto-block", false);
+    this.blinkBlockTicks = new IntProperty("blink-block-ticks", 3, 2, 5);
+    this.smartAutoBlock = new BooleanProperty("smart-auto-block", false);
+    this.forceBlockWhenStill = new BooleanProperty("force-block-when-still", true);
+    this.checkWeapon = new BooleanProperty("check-enemy-weapon", true);
+    this.blockRange = new FloatProperty("block-range", 3.0F, 1.0F, 8.0F);
+    this.maxOwnHurtTime = new IntProperty("max-own-hurt-time", 3, 0, 10);
+    this.maxDirectionDiff = new FloatProperty("max-opponent-direction-diff", 60.0F, 30.0F, 180.0F);
+    this.maxSwingProgress = new IntProperty("max-opponent-swing-progress", 1, 0, 5);
   }
 
   public EntityLivingBase getTarget() {
