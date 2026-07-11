@@ -17,7 +17,18 @@ import net.minecraft.client.gui.GuiDownloadTerrain;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.client.*;
 import net.minecraft.network.play.server.*;
+import net.minecraft.util.Tuple;
 
+/**
+ * PingSpoofComponent — ported from Rise 6.2.4.
+ *
+ * <p>Delays selected packet categories for a configurable amount of time, then dispatches them all
+ * at once. Used by auto-blocking to create a legitimate block animation without the server flagging
+ * the player.
+ *
+ * <p>Matches Rise's "old style" tuple-based pattern with {@code Tuple<Class[], Boolean>} for each
+ * packet category instead of a custom wrapper class.
+ */
 public final class PingSpoofComponent {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
@@ -27,41 +38,31 @@ public final class PingSpoofComponent {
   public static boolean enabled;
   static long amount;
 
+  // ── Session management (Miau-specific, preserved from original) ──
   private static final Map<String, String> sessionOwners = new HashMap<>();
+  private static final Map<String, Boolean> activeSessions = new HashMap<>();
 
-  public static void registerSessionOwner(String sessionId, String owner) {
-    sessionOwners.put(sessionId, owner);
-  }
-
-  public static String getSessionOwner(String sessionId) {
-    return sessionOwners.get(sessionId);
-  }
-
-  public static void clearSessionOwners() {
-    sessionOwners.clear();
-  }
-
-  static PacketCategory regular =
-      new PacketCategory(
+  // ── Rise-style tuple categories (Tuple<Class[], Boolean>) ────────
+  static Tuple<Class[], Boolean> regular =
+      new Tuple<>(
           new Class[] {
             C0FPacketConfirmTransaction.class,
             C00PacketKeepAlive.class,
             S1CPacketEntityMetadata.class
           },
           false);
-  static PacketCategory velocity =
-      new PacketCategory(
-          new Class[] {S12PacketEntityVelocity.class, S27PacketExplosion.class}, false);
-  static PacketCategory teleports =
-      new PacketCategory(
+  static Tuple<Class[], Boolean> velocity =
+      new Tuple<>(new Class[] {S12PacketEntityVelocity.class, S27PacketExplosion.class}, false);
+  static Tuple<Class[], Boolean> teleports =
+      new Tuple<>(
           new Class[] {
             S08PacketPlayerPosLook.class,
             S39PacketPlayerAbilities.class,
             S09PacketHeldItemChange.class
           },
           false);
-  static PacketCategory players =
-      new PacketCategory(
+  static Tuple<Class[], Boolean> players =
+      new Tuple<>(
           new Class[] {
             S13PacketDestroyEntities.class,
             S14PacketEntity.class,
@@ -73,8 +74,8 @@ public final class PingSpoofComponent {
             S19PacketEntityHeadLook.class
           },
           false);
-  static PacketCategory blink =
-      new PacketCategory(
+  static Tuple<Class[], Boolean> blink =
+      new Tuple<>(
           new Class[] {
             C02PacketUseEntity.class,
             C0DPacketCloseWindow.class,
@@ -97,8 +98,8 @@ public final class PingSpoofComponent {
             C0APacketAnimation.class
           },
           false);
-  static PacketCategory movement =
-      new PacketCategory(
+  static Tuple<Class[], Boolean> movement =
+      new Tuple<>(
           new Class[] {
             C03PacketPlayer.class,
             C03PacketPlayer.C04PacketPlayerPosition.class,
@@ -107,8 +108,10 @@ public final class PingSpoofComponent {
           },
           false);
 
-  static PacketCategory[] types =
-      new PacketCategory[] {regular, velocity, teleports, players, blink, movement};
+  static Tuple<Class[], Boolean>[] types =
+      new Tuple[] {regular, velocity, teleports, players, blink, movement};
+
+  // ── Event handlers ───────────────────────────────────────────────────
 
   @EventTarget
   public void onPacket(PacketEvent event) {
@@ -116,14 +119,46 @@ public final class PingSpoofComponent {
         && enabled
         && Arrays.stream(types)
             .anyMatch(
-                category ->
-                    category.enabled
-                        && Arrays.stream(category.packetClasses)
+                tuple ->
+                    tuple.getSecond()
+                        && Arrays.stream(tuple.getFirst())
                             .anyMatch(clazz -> clazz == event.getPacket().getClass()))) {
       event.setCancelled(true);
       packets.add(new TimedPacket(event.getPacket()));
     }
   }
+
+  @EventTarget
+  public void onWorldLoad(LoadWorldEvent event) {
+    dispatch();
+  }
+
+  @EventTarget
+  public void onUpdate(UpdateEvent event) {
+    if (event.getType() != EventType.POST) return;
+
+    // Rise: if timer finished or in loading screen → dispatch all, else drain timed-out packets
+    if (!(enabled =
+        !enabledTimer.hasTimeElapsed(100) && !(mc.currentScreen instanceof GuiDownloadTerrain))) {
+      dispatch();
+    } else {
+      // Temporarily disable to prevent re-capture during flush
+      enabled = false;
+
+      Iterator<TimedPacket> iterator = packets.iterator();
+      while (iterator.hasNext()) {
+        TimedPacket timedPacket = iterator.next();
+        if (timedPacket.getTime() + amount < System.currentTimeMillis()) {
+          queuePacket(timedPacket.getPacket());
+          iterator.remove();
+        }
+      }
+
+      enabled = true;
+    }
+  }
+
+  // ── Dispatch & queue ──────────────────────────────────────────────────
 
   public static void dispatch() {
     if (!packets.isEmpty()) {
@@ -156,33 +191,7 @@ public final class PingSpoofComponent {
     enabledTimer.setTime(System.currentTimeMillis() - 999999999L);
   }
 
-  @EventTarget
-  public void onWorldLoad(LoadWorldEvent event) {
-    dispatch();
-  }
-
-  @EventTarget
-  public void onUpdate(UpdateEvent event) {
-    if (event.getType() != EventType.POST) return;
-
-    if (!(enabled =
-        !enabledTimer.hasTimeElapsed(100) && !(mc.currentScreen instanceof GuiDownloadTerrain))) {
-      dispatch();
-    } else {
-      enabled = false;
-
-      Iterator<TimedPacket> iterator = packets.iterator();
-      while (iterator.hasNext()) {
-        TimedPacket timedPacket = iterator.next();
-        if (timedPacket.getTime() + amount < System.currentTimeMillis()) {
-          queuePacket(timedPacket.getPacket());
-          iterator.remove();
-        }
-      }
-
-      enabled = true;
-    }
-  }
+  // ── Spoof overloads (matching Rise signatures) ────────────────────────
 
   public static void spoof(
       int amount, boolean regular, boolean velocity, boolean teleports, boolean players) {
@@ -208,13 +217,12 @@ public final class PingSpoofComponent {
       boolean blink,
       boolean movement) {
     enabledTimer.reset();
-
-    PingSpoofComponent.regular.enabled = regular;
-    PingSpoofComponent.velocity.enabled = velocity;
-    PingSpoofComponent.teleports.enabled = teleports;
-    PingSpoofComponent.players.enabled = players;
-    PingSpoofComponent.blink.enabled = blink;
-    PingSpoofComponent.movement.enabled = movement;
+    PingSpoofComponent.regular = new Tuple<>(PingSpoofComponent.regular.getFirst(), regular);
+    PingSpoofComponent.velocity = new Tuple<>(PingSpoofComponent.velocity.getFirst(), velocity);
+    PingSpoofComponent.teleports = new Tuple<>(PingSpoofComponent.teleports.getFirst(), teleports);
+    PingSpoofComponent.players = new Tuple<>(PingSpoofComponent.players.getFirst(), players);
+    PingSpoofComponent.blink = new Tuple<>(PingSpoofComponent.blink.getFirst(), blink);
+    PingSpoofComponent.movement = new Tuple<>(PingSpoofComponent.movement.getFirst(), movement);
     PingSpoofComponent.amount = amount;
   }
 
@@ -222,7 +230,19 @@ public final class PingSpoofComponent {
     spoof(9999999, true, false, false, false, true);
   }
 
-  private static final java.util.Map<String, Boolean> activeSessions = new java.util.HashMap<>();
+  // ── Session management (Miau-specific API, preserved) ─────────────────
+
+  public static void registerSessionOwner(String sessionId, String owner) {
+    sessionOwners.put(sessionId, owner);
+  }
+
+  public static String getSessionOwner(String sessionId) {
+    return sessionOwners.get(sessionId);
+  }
+
+  public static void clearSessionOwners() {
+    sessionOwners.clear();
+  }
 
   public static boolean isOwnedBy(String sessionId) {
     return activeSessions.containsKey(sessionId) && activeSessions.get(sessionId);
@@ -256,6 +276,8 @@ public final class PingSpoofComponent {
     disable();
   }
 
+  // ── Timed packet container ────────────────────────────────────────────
+
   public static class TimedPacket {
     private final Packet<?> packet;
     private final long time;
@@ -271,16 +293,6 @@ public final class PingSpoofComponent {
 
     public long getTime() {
       return time;
-    }
-  }
-
-  static class PacketCategory {
-    private final Class[] packetClasses;
-    private boolean enabled;
-
-    public PacketCategory(Class[] packetClasses, boolean enabled) {
-      this.packetClasses = packetClasses;
-      this.enabled = enabled;
     }
   }
 }

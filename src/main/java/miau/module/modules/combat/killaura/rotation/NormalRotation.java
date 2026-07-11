@@ -4,10 +4,10 @@ import miau.event.impl.UpdateEvent;
 import miau.module.modules.combat.KillAura;
 import miau.util.player.RotationUtil;
 
-public class SilentRotation extends RotationMode {
+public class NormalRotation extends RotationMode {
 
-  public SilentRotation(KillAura killAura) {
-    super(killAura, "SILENT");
+  public NormalRotation(KillAura killAura) {
+    super(killAura, "NORMAL");
   }
 
   @Override

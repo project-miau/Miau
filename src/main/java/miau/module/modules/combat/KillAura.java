@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.List;
 import java.util.Locale;
 import miau.Miau;
+import miau.component.PingSpoofComponent;
 import miau.enums.BlinkModules;
 import miau.event.EventManager;
 import miau.event.EventTarget;
@@ -39,8 +40,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.EnumCreatureAttribute;
 import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.item.*;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemSword;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.client.C02PacketUseEntity.Action;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
@@ -70,35 +71,43 @@ public class KillAura extends Module {
   public boolean fakeBlockState = false;
   public boolean blinkReset = false;
   public boolean rightHoldActive = false;
-  public long attackDelayMS = 0L;
-  public int blockTick = 0;
   public boolean cancelAttack = false;
-  public int ticksSinceVelocity = 0;
-  public double expandRange = 0.0;
+
+  public int blockTick = 0;
+  public int keepSprintBlinkTicks = 0;
+
+  // Rise 6.2.4 ordered settings
   public final ModeProperty mode;
   public final IntProperty switchDelay;
   public final ModeProperty autoBlock;
-  public final ModeProperty rotations;
-  public final ModeProperty debugLog;
-  public final ModeProperty moveFix;
-  public final BooleanProperty rayCast;
-  public final FloatProperty cps;
-  public final FloatProperty autoBlockCps;
-  public final FloatProperty swingRange;
-  public final PercentProperty smoothing;
-  public final IntProperty angleStep;
-  public int lastTickProcessed = 0;
-  public final List<AutoBlockMode> autoBlockModes = new ArrayList<>();
   public final BooleanProperty autoBlockRequirePress;
   public final BooleanProperty preventServersideBlocking;
   public final ModeProperty sort;
+  public final ModeProperty clickMode;
   public final FloatProperty attackRange;
+  public final FloatProperty swingRange;
+  public final FloatProperty cps;
+  public final FloatProperty autoBlockCps;
+  public final IntProperty angleStep;
+  public final PercentProperty smoothing;
+  public final ModeProperty moveFix;
+  public final BooleanProperty keepSprint;
+  public final ModeProperty showTarget;
+  public final BooleanProperty rayCast;
   public final BooleanProperty throughWalls;
+  public final BooleanProperty silentRotations;
+  public final ModeProperty rotations;
   public final BooleanProperty whileScaffold;
+  public final BooleanProperty badPacketsCheck;
   public final IntProperty fov;
   public final BooleanProperty requirePress;
   public final BooleanProperty allowMining;
-  public final ModeProperty showTarget;
+  public final BooleanProperty weaponsOnly;
+  public final BooleanProperty allowTools;
+  public final BooleanProperty inventoryCheck;
+  public final ModeProperty debugLog;
+
+  // Target filters
   public final BooleanProperty targetPlayers = new BooleanProperty("target-players", true);
   public final BooleanProperty targetInvisibles =
       new BooleanProperty("target-invisibles", false, this.targetPlayers::getValue);
@@ -109,34 +118,99 @@ public class KillAura extends Module {
   public final BooleanProperty targetSilverfish = new BooleanProperty("target-silverfish", false);
   public final BooleanProperty targetTeams = new BooleanProperty("target-teams", true);
 
-  // AutoBlock options (Predict)
-  public final ModeProperty unblockMode;
-  public final FloatProperty blockMaxRange;
-  public final BooleanProperty releaseAutoBlock;
-  public final BooleanProperty forceBlockRender;
-  public final BooleanProperty ignoreTickRule;
-  public final IntProperty blockRate;
-  public final BooleanProperty uncpAutoBlock;
-  public final BooleanProperty switchStartBlock;
-  public final BooleanProperty interactAutoBlock;
-  public final BooleanProperty blinkAutoBlock;
-  public final IntProperty blinkBlockTicks;
-  public final BooleanProperty smartAutoBlock;
-  public final BooleanProperty forceBlockWhenStill;
-  public final BooleanProperty checkWeapon;
-  public final FloatProperty blockRange;
-  public final IntProperty maxOwnHurtTime;
-  public final FloatProperty maxDirectionDiff;
-  public final IntProperty maxSwingProgress;
+  private final TimerUtil attackStopWatch = new TimerUtil();
+  private final TimerUtil clickStopWatch = new TimerUtil();
+  public long nextSwing = 0;
+  public boolean swing = false;
+  private int lastTickProcessed = 0;
+  public int ticksSinceVelocity = 0;
+  public double expandRange = 0.0;
 
-  private long getAttackDelay() {
-    float min = this.cps.getValue();
-    float max = this.cps.getSecondValue();
-    if (this.isBlocking) {
-      min = this.autoBlockCps.getValue();
-      max = this.autoBlockCps.getSecondValue();
+  public final List<AutoBlockMode> autoBlockModes = new ArrayList<>();
+
+  public double getClickDelay() {
+    double delay = -1;
+
+    switch (this.clickMode.getValue()) {
+      case 1: // Hit Select
+      case 0: // Normal
+      default:
+        break;
+
+      case 2: // 1.9+
+      case 3: // 1.9+ With 1.8 Animations
+        if (this.clickMode.getValue() == 3 && Math.random() > 0.2) {
+          mc.thePlayer.swingItem();
+        }
+
+        double speed = 4;
+        if (mc.thePlayer.getHeldItem() != null) {
+          Item item = mc.thePlayer.getHeldItem().getItem();
+
+          if (item instanceof ItemSword) {
+            speed = 1.6;
+          } else if (item instanceof ItemSpade) {
+            speed = 1;
+          } else if (item instanceof ItemPickaxe) {
+            speed = 1.2;
+          } else if (item instanceof ItemAxe) {
+            switch (((ItemAxe) item).getToolMaterial()) {
+              case WOOD:
+              case STONE:
+                speed = 0.8;
+                break;
+
+              case IRON:
+                speed = 0.9;
+                break;
+
+              default:
+                speed = 1;
+                break;
+            }
+          } else if (item instanceof ItemHoe) {
+            // 1.8.9 Forge: ItemHoe has no getToolMaterial(), use max durability as proxy
+            int maxDmg = item.getMaxDamage();
+            if (maxDmg <= 60) {
+              speed = 1; // WOOD or GOLD
+            } else if (maxDmg <= 135) {
+              speed = 2; // STONE
+            } else if (maxDmg <= 260) {
+              speed = 3; // IRON
+            }
+            // DIAMOND etc: keep speed = 4 (default)
+          }
+        }
+        delay = 1.0 / speed * 20.0 - 1.0;
+        break;
     }
-    return 1000L / miau.util.math.RandomUtil.nextLong((int) min, (int) max);
+
+    delay = clickDelayBlock(delay);
+
+    return delay;
+  }
+
+  public double clickDelayBlock(double delay) {
+    switch (this.autoBlock.getValue()) {
+      case 9: // corresponds to Rise's Universal (if Miau adds it later, or custom slot)
+        delay = this.blockTick >= 4 ? -1 : 500;
+        break;
+
+      case 8: // GRIM - placeholder for Watchdog mapping
+        if (mc.thePlayer.getHeldItem() != null
+            && mc.thePlayer.getHeldItem().getItem() instanceof ItemSword) {
+          delay = this.blockTick >= 2 ? -1 : 500;
+        } else if (this.target != null && mc.thePlayer.getHeldItem() != null) {
+          delay = 0;
+        }
+        break;
+
+      case 10: // placeholder for Watchdog 2
+        delay = this.blockTick >= 1 ? -1 : 500;
+        break;
+    }
+
+    return delay;
   }
 
   private boolean performAttack(float yaw, float pitch) {
@@ -147,9 +221,74 @@ public class KillAura extends Module {
         return false;
       } else if (this.shouldDelayHit()) {
         return false;
-      } else if (this.attackDelayMS > 0L) {
-        return false;
       } else {
+        // --- Rise 6.2.4 Click Pattern Timing ---
+        double clickDelay = this.getClickDelay();
+
+        if (!this.attackStopWatch.hasTimeElapsed(this.nextSwing)
+            || this.target == null
+            || !this.clickStopWatch.hasTimeElapsed((long) (clickDelay * 50))) {
+          return false;
+        }
+
+        final long clicks =
+            (long)
+                (miau.util.math.RandomUtil.nextLong(
+                        this.cps.getValue().intValue(), this.cps.getSecondValue().intValue())
+                    * 1.5);
+        this.nextSwing = 1000 / Math.max(clicks, 1);
+
+        if (!(Math.sin(this.nextSwing) + 1 > Math.random()
+            || this.attackStopWatch.hasTimeElapsed(this.nextSwing + 500)
+            || Math.random() > 0.5)) {
+          return false;
+        }
+
+        this.attackStopWatch.reset();
+        this.clickStopWatch.reset();
+
+        if (this.keepSprint.getValue()) {
+          miau.module.modules.movement.KeepSprint ks =
+              (miau.module.modules.movement.KeepSprint)
+                  Miau.moduleManager.modules.get(miau.module.modules.movement.KeepSprint.class);
+          boolean ksWillPreserveSprint =
+              ks != null && ks.isEnabled() && ks.shouldKeepSprint() && mc.thePlayer.isSprinting();
+
+          if (ksWillPreserveSprint && !PingSpoofComponent.isOwnedBy("KillAuraKeepSprint")) {
+            PingSpoofComponent.beginSession(
+                "KillAuraKeepSprint", 40, false, false, false, false, false, true);
+          }
+
+          mc.thePlayer.swingItem();
+
+          ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
+          PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.ATTACK));
+
+          if (mc.playerController.getCurrentGameType() != GameType.SPECTATOR) {
+            if (mc.thePlayer.fallDistance > 0.0F
+                && !mc.thePlayer.onGround
+                && !mc.thePlayer.isOnLadder()
+                && !mc.thePlayer.isInWater()
+                && !mc.thePlayer.isPotionActive(Potion.blindness)
+                && mc.thePlayer.ridingEntity == null) {
+              mc.thePlayer.onCriticalHit(this.target.getEntity());
+            }
+          }
+
+          LastAttackData lastAttack = this.targetMap.get(this.target.getEntity().getEntityId());
+          if (lastAttack == null) {
+            this.targetMap.put(
+                this.target.getEntity().getEntityId(),
+                new LastAttackData(this.getDamage(this.target.getEntity())));
+          } else {
+            lastAttack.reset(true, this.getDamage(this.target.getEntity()));
+          }
+
+          this.keepSprintBlinkTicks = ksWillPreserveSprint ? 1 : 0;
+          this.hitRegistered = true;
+          return true;
+        }
+
         mc.thePlayer.swingItem();
 
         net.minecraft.util.MovingObjectPosition rayCastPos = null;
@@ -388,10 +527,9 @@ public class KillAura extends Module {
     this.autoBlockModes.add(new FakeAutoBlock(this));
 
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LegitRotation(this));
-    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.SilentRotation(this));
-    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LockViewRotation(this));
 
-    this.lastTickProcessed = 0;
+    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.NormalRotation(this));
+
     this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
     this.switchDelay = new IntProperty("switch-delay", 150, 0, 1000);
 
@@ -399,12 +537,6 @@ public class KillAura extends Module {
         this.autoBlockModes.stream()
             .map(miau.module.modules.combat.killaura.autoblocks.AutoBlockMode::getName)
             .toArray(String[]::new);
-    this.sort =
-        new ModeProperty(
-            "sort", 0, new String[] {"DISTANCE", "HEALTH", "HURT-TIME", "FOV", "ARMOR"});
-    this.attackRange = new FloatProperty("attack-range", 3.0F, 3.0F, 6.0F);
-    this.swingRange = new FloatProperty("swing-range", 3.5F, 3.0F, 6.0F);
-    this.cps = new FloatProperty("aps", 14.0F, 14.0F, 1.0F, 20.0F);
     this.autoBlock =
         new ModeProperty(
             "auto-block",
@@ -414,40 +546,46 @@ public class KillAura extends Module {
             });
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
+
+    this.sort =
+        new ModeProperty(
+            "sort", 0, new String[] {"DISTANCE", "HEALTH", "HURT-TIME", "FOV", "ARMOR"});
+
+    this.clickMode =
+        new ModeProperty(
+            "click-delay-mode",
+            0,
+            new String[] {"Normal", "Hit Select", "1.9+", "1.9+ With 1.8 Animations"});
+
+    this.attackRange = new FloatProperty("attack-range", 3.0F, 3.0F, 6.0F);
+    this.swingRange = new FloatProperty("swing-range", 3.5F, 3.0F, 6.0F);
+    this.cps = new FloatProperty("aps", 14.0F, 14.0F, 1.0F, 20.0F);
     this.autoBlockCps = new FloatProperty("autoblock-aps", 8.0F, 10.0F, 1.0F, 10.0F);
-    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "LEGIT", "SILENT", "LOCK_VIEW"});
-    this.smoothing = new PercentProperty("smoothing", 0);
+
     this.angleStep = new IntProperty("angle-step", 90, 30, 180);
+    this.smoothing = new PercentProperty("smoothing", 0);
     this.moveFix = new ModeProperty("move-fix", 0, new String[] {"OFF", "Normal"});
+
+    this.keepSprint = new BooleanProperty("keep-sprint", false);
+
+    this.showTarget =
+        new ModeProperty("show-target", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
+
     this.rayCast = new BooleanProperty("ray-cast", false);
     this.throughWalls = new BooleanProperty("through-walls", true);
+
+    this.silentRotations = new BooleanProperty("silent-rotations", true);
+    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "LEGIT", "NORMAL"});
     this.whileScaffold = new BooleanProperty("while-scaffold", false);
+    this.badPacketsCheck = new BooleanProperty("bad-packets-check", true);
     this.fov = new IntProperty("fov", 360, 30, 360);
     this.requirePress = new BooleanProperty("require-press", false);
     this.allowMining = new BooleanProperty("allow-mining", true);
-    this.showTarget =
-        new ModeProperty("show-target", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
-    this.debugLog = new ModeProperty("debug-log", 0, new String[] {"NONE", "HEALTH"});
+    this.weaponsOnly = new BooleanProperty("weapons-only", true);
+    this.allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
+    this.inventoryCheck = new BooleanProperty("inventory-check", true);
 
-    this.unblockMode =
-        new ModeProperty("unblock-mode", 0, new String[] {"STOP", "SWITCH", "EMPTY"});
-    this.blockMaxRange = new FloatProperty("block-max-range", 3.0F, 0.0F, 8.0F);
-    this.releaseAutoBlock = new BooleanProperty("release-auto-block", true);
-    this.forceBlockRender = new BooleanProperty("force-block-render", true);
-    this.ignoreTickRule = new BooleanProperty("ignore-tick-rule", false);
-    this.blockRate = new IntProperty("block-rate", 100, 1, 100);
-    this.uncpAutoBlock = new BooleanProperty("updated-ncp-auto-block", false);
-    this.switchStartBlock = new BooleanProperty("switch-start-block", false);
-    this.interactAutoBlock = new BooleanProperty("interact-auto-block", true);
-    this.blinkAutoBlock = new BooleanProperty("blink-auto-block", false);
-    this.blinkBlockTicks = new IntProperty("blink-block-ticks", 3, 2, 5);
-    this.smartAutoBlock = new BooleanProperty("smart-auto-block", false);
-    this.forceBlockWhenStill = new BooleanProperty("force-block-when-still", true);
-    this.checkWeapon = new BooleanProperty("check-enemy-weapon", true);
-    this.blockRange = new FloatProperty("block-range", 3.0F, 1.0F, 8.0F);
-    this.maxOwnHurtTime = new IntProperty("max-own-hurt-time", 3, 0, 10);
-    this.maxDirectionDiff = new FloatProperty("max-opponent-direction-diff", 60.0F, 30.0F, 180.0F);
-    this.maxSwingProgress = new IntProperty("max-opponent-swing-progress", 1, 0, 5);
+    this.debugLog = new ModeProperty("debug-log", 0, new String[] {"NONE", "HEALTH"});
   }
 
   public EntityLivingBase getTarget() {
@@ -512,9 +650,7 @@ public class KillAura extends Module {
       if (mc.thePlayer.ticksExisted % 20 == 0) {
         this.expandRange = 3.0 + Math.random() * 0.5;
       }
-      if (this.attackDelayMS > 0L) {
-        this.attackDelayMS -= 50L;
-      }
+
       boolean attack = this.target != null && this.canAttack();
       boolean block = attack && this.canAutoBlock();
       if (!block) {
@@ -555,24 +691,50 @@ public class KillAura extends Module {
             float[] lastRots = new float[] {event.getYaw(), event.getPitch()};
 
             double rotSpeed = (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
-            float[] rotations = lastRots;
+            float[] rotations;
 
-            miau.module.modules.combat.killaura.rotation.RotationMode currentMode =
-                this.rotations.getValue() > 0
-                        && this.rotations.getValue() <= this.rotationModes.size()
-                    ? this.rotationModes.get(this.rotations.getValue() - 1)
-                    : null;
-
-            if (currentMode != null) {
-              rotations = currentMode.processRotations(targetRots, lastRots, rotSpeed, event);
+            if (this.silentRotations.getValue()) {
+              // Silent rotation — smooth via event (server-side only)
+              if (rotSpeed != 0) {
+                int ravenSpeed = Math.min(30, (int) (rotSpeed / 6.0));
+                float randomPct = (float) this.smoothing.getValue();
+                rotations =
+                    RotationUtil.smoothRotation(
+                        lastRots[0],
+                        lastRots[1],
+                        targetRots[0],
+                        targetRots[1],
+                        ravenSpeed,
+                        randomPct);
+              } else {
+                rotations = lastRots;
+              }
+            } else {
+              // Lock View — modify player's actual rotation directly
+              float[] lockViewRots =
+                  RotationUtil.getRotationsToBox(
+                      this.target.getBox(),
+                      event.getYaw(),
+                      event.getPitch(),
+                      (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
+                      (float) this.smoothing.getValue() / 100.0F);
+              if (lockViewRots != null) {
+                mc.thePlayer.rotationYaw = lockViewRots[0];
+                mc.thePlayer.rotationPitch = lockViewRots[1];
+                mc.thePlayer.rotationYawHead = lockViewRots[0];
+                mc.thePlayer.renderYawOffset = lockViewRots[0];
+                event.setPervRotation(lockViewRots[0], 1);
+                rotations = lockViewRots;
+              } else {
+                rotations = lastRots;
+              }
             }
 
             float[] quantized =
                 RotationUtil.flexRotation(rotations[0], rotations[1], lastRots[0], lastRots[1]);
 
-            // NORMAL MODE: Set rotation via event (changes server rotation)
             event.setRotation(quantized[0], quantized[1], 1);
-            if (this.rotations.getValue() != 2) {
+            if (this.silentRotations.getValue()) {
               event.setPervRotation(quantized[0], 1);
             }
           }
@@ -633,6 +795,11 @@ public class KillAura extends Module {
   @EventTarget(Priority.LOWEST)
   public void onPacket(PacketEvent event) {
     if (event.getType() == EventType.SEND) {
+      if (event.getPacket() instanceof net.minecraft.network.play.client.C0APacketAnimation) {
+        this.swing = true;
+      } else if (event.getPacket() instanceof net.minecraft.network.play.client.C03PacketPlayer) {
+        this.swing = false;
+      }
       if (event.getPacket() instanceof net.minecraft.network.play.client.C0BPacketEntityAction) {
         net.minecraft.network.play.client.C0BPacketEntityAction packet =
             (net.minecraft.network.play.client.C0BPacketEntityAction) event.getPacket();
@@ -825,7 +992,8 @@ public class KillAura extends Module {
     this.target = null;
     this.switchTick = 0;
     this.hitRegistered = false;
-    this.attackDelayMS = 0L;
+    this.nextSwing = 0;
+    this.swing = false;
     this.blockTick = 0;
     this.rightHoldActive = false;
   }

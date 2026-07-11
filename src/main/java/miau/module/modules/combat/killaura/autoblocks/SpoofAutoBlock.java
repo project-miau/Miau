@@ -24,7 +24,7 @@ public class SpoofAutoBlock extends AutoBlockMode {
           || Miau.playerStateManager.placing
           || mc.thePlayer.inventory.currentItem != item
           || parent.isPlayerBlocking() && parent.blockTick != 0
-          || parent.attackDelayMS > 0L && parent.attackDelayMS <= 50L) {
+          || parent.nextSwing > 0L && parent.nextSwing <= 50L) {
         parent.blockTick = 0;
       } else {
         int slot = parent.findEmptySlot(item);

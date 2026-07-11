@@ -14,14 +14,6 @@ import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.BlockPos;
 
-/**
- * Core logic ported from OpenRise AutoTool. Switches to the best tool when mining a block using
- * SlotUtil.findTool(BlockPos) (relies on vanilla getStrVsBlock — no double-counting of efficiency
- * enchantment).
- *
- * <p>Extra Miau features preserved: - spoofItem: visually shows the original item in first-person
- * while auto-tool is active - previousSlot tracking for spoofItem support in MixinItemRenderer
- */
 public class AutoTool extends Module {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
