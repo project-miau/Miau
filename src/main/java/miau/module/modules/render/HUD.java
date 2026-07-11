@@ -494,9 +494,28 @@ public class HUD extends Module {
       }
     }
     if (this.hudMode.getValue() == 0 && renderPass == 2) {
-      String userInfo = "Version: " + Miau.version + " Username: " + mc.getSession().getUsername();
       float yCoord = sr.getScaledHeight() - getFont().getFontHeight() - 2.0F;
-      getFont().drawWithShadow(userInfo, 2.0F, yCoord, this.getColor(l).getRGB());
+      int hudColor = this.getColor(l).getRGB();
+      int whiteColor = -1;
+      
+      float currentX = 2.0F;
+      getFont().drawWithShadow("Version: ", currentX, yCoord, whiteColor);
+      currentX += getFont().getStringWidth("Version: ");
+      
+      String ver = Miau.version;
+      if (ver != null && ver.length() > 0) {
+          String firstChar = ver.substring(0, 1);
+          String restVer = ver.substring(1);
+          getFont().drawWithShadow(firstChar, currentX, yCoord, hudColor);
+          currentX += getFont().getStringWidth(firstChar);
+          getFont().drawWithShadow(restVer, currentX, yCoord, whiteColor);
+          currentX += getFont().getStringWidth(restVer);
+      }
+      
+      getFont().drawWithShadow(" Username: ", currentX, yCoord, whiteColor);
+      currentX += getFont().getStringWidth(" Username: ");
+      
+      getFont().drawWithShadow(mc.getSession().getUsername(), currentX, yCoord, hudColor);
     }
 
 
