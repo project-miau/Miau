@@ -2,7 +2,6 @@ package miau.module.modules.combat.killaura.rotation;
 
 import miau.event.impl.UpdateEvent;
 import miau.module.modules.combat.KillAura;
-import miau.util.math.RandomUtil;
 import miau.util.player.RotationUtil;
 import net.minecraft.client.Minecraft;
 
@@ -16,21 +15,38 @@ public class LockViewRotation extends RotationMode {
   @Override
   public float[] processRotations(
       float[] targetRots, float[] lastRots, double rotSpeed, UpdateEvent event) {
-    float[] lockViewRots =
-        RotationUtil.getRotationsToBox(
-            this.killAura.getAttackData().getBox(),
-            event.getYaw(),
-            event.getPitch(),
-            (float) this.killAura.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
-            (float) this.killAura.smoothing.getValue() / 100.0F);
 
-    if (lockViewRots != null) {
-      mc.thePlayer.rotationYaw = lockViewRots[0];
-      mc.thePlayer.rotationPitch = lockViewRots[1];
-      mc.thePlayer.rotationYawHead = lockViewRots[0];
-      mc.thePlayer.renderYawOffset = lockViewRots[0];
-      event.setPervRotation(lockViewRots[0], 1);
-      return new float[] {lockViewRots[0], lockViewRots[1]};
+    if (this.killAura.getAttackData() == null || this.killAura.getAttackData().getEntity() == null) {
+      return lastRots;
+    }
+
+    float[] rot =
+        RotationUtil.getRotationsWithBackup(
+            this.killAura.getAttackData().getEntity(),
+            0.0F,
+            0.0F,
+            mc.thePlayer.rotationYaw,
+            mc.thePlayer.rotationPitch,
+            this.killAura.attackRange.getValue(),
+            true,
+            true);
+
+    if (rot != null) {
+      float[] smooth =
+          RotationUtil.smoothRotation(
+              mc.thePlayer.rotationYaw,
+              mc.thePlayer.rotationPitch,
+              rot[0],
+              rot[1],
+              30,
+              10.0F);
+
+      mc.thePlayer.rotationYaw = smooth[0];
+      mc.thePlayer.rotationPitch = smooth[1];
+      mc.thePlayer.rotationYawHead = smooth[0];
+      mc.thePlayer.renderYawOffset = smooth[0];
+      event.setPervRotation(smooth[0], 1);
+      return new float[] {smooth[0], smooth[1]};
     }
     return lastRots;
   }
