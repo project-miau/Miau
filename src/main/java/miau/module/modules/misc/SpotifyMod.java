@@ -43,10 +43,10 @@ public class SpotifyMod extends Module {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  private final TextProperty lastFmUser = new TextProperty("User", "");
-  private final TextProperty lastFmApiKey = new TextProperty("API Key", "");
+  private final TextProperty lastFmUser = new TextProperty("Username", "");
+  private final TextProperty lastFmApiKey = new TextProperty("LASTFM API Key", "");
   private final ModeProperty backgroundColor =
-      new ModeProperty("Background", 0, new String[] {"Average", "Spotify Grey", "Sync"});
+      new ModeProperty("Background", 0, new String[] {"Miau", "Average", "Spotify Grey", "Sync"});
 
   private final DragProperty drag = new DragProperty("Spotify", new Vector2d(5, 150));
 
@@ -95,6 +95,14 @@ public class SpotifyMod extends Module {
       if (user.equals("") || key.equals("")) {
         Miau.notificationManager.pop(
             "Error", "Please input Last.fm User and API Key in settings", NotificationType.WARN);
+        try {
+          if (java.awt.Desktop.isDesktopSupported()) {
+            java.awt.Desktop.getDesktop()
+                .browse(new java.net.URI("https://idle.e-z.tools/p/b8tsrcndhv"));
+          }
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
         this.toggle();
         return;
       }
@@ -122,9 +130,19 @@ public class SpotifyMod extends Module {
 
     float x = (float) drag.position.x;
     float y = (float) drag.position.y;
-    drag.scale.x = width;
-    drag.scale.y = height;
 
+    if (backgroundColor.getModeString().equals("Miau")) {
+      drag.scale.x = 170;
+      drag.scale.y = 205;
+      renderMiauMode(x, y);
+    } else {
+      drag.scale.x = width;
+      drag.scale.y = height;
+      renderClassicMode(x, y);
+    }
+  }
+
+  private void renderClassicMode(float x, float y) {
     Color color2 = ColorUtil.darker(imageColor, 0.65f);
 
     switch (backgroundColor.getModeString()) {
@@ -182,6 +200,55 @@ public class SpotifyMod extends Module {
 
     GL11.glDisable(GL11.GL_SCISSOR_TEST);
 
+    downloadAlbumArt();
+
+    if (currentAlbumCover != null && downloadedCover) {
+      RenderUtil.resetColor();
+      mc.getTextureManager().bindTexture(currentAlbumCover);
+      GlStateManager.color(1, 1, 1);
+      GL11.glEnable(GL11.GL_BLEND);
+      RoundedUtils.drawRoundTextured(x, y, albumCoverSize, albumCoverSize, 6, 1);
+    }
+  }
+
+  private void renderMiauMode(float x, float y) {
+    float width = 170;
+    float height = 205;
+
+    Color colorTop = new Color(130, 28, 46, 140);
+    Color colorBottom = new Color(8, 3, 5, 216);
+    RoundedUtils.drawGradientRound(
+        x, y, width, height, 15, colorBottom, colorTop, colorBottom, colorTop);
+
+    float padding = 9;
+    float artSize = width - (padding * 2);
+    float artX = x + padding;
+    float artY = y + padding;
+
+    downloadAlbumArt();
+
+    if (currentAlbumCover != null && downloadedCover) {
+      RenderUtil.resetColor();
+      mc.getTextureManager().bindTexture(currentAlbumCover);
+      GlStateManager.color(1, 1, 1);
+      GL11.glEnable(GL11.GL_BLEND);
+      RoundedUtils.drawRoundTextured(artX, artY, artSize, artSize, 11, 1);
+    } else {
+      RoundedUtils.drawRound(artX, artY, artSize, artSize, 11, new Color(255, 128, 149, 255));
+    }
+
+    float infoY = artY + artSize + 10;
+    Font font19 = FontRepository.getFont("inter-bold", 19f);
+    Font font13 = FontRepository.getFont("inter-medium", 13.5f);
+
+    String title = api.trackName != null ? api.trackName : "Unknown";
+    String artist = api.artistName != null ? api.artistName : "Unknown";
+
+    font19.draw(title, artX, infoY, Color.WHITE.getRGB());
+    font13.draw(artist, artX, infoY + 11, new Color(255, 255, 255, 147).getRGB());
+  }
+
+  private void downloadAlbumArt() {
     if (api.currentMbid != null && !api.currentMbid.equals(lastDownloadedId)) {
       downloadedCover = false;
       lastDownloadedId = api.currentMbid;
@@ -209,14 +276,6 @@ public class SpotifyMod extends Module {
                     new ResourceLocation("lastfmAlbums/" + System.currentTimeMillis()),
                 albumCover);
       }
-    }
-
-    if (currentAlbumCover != null && downloadedCover) {
-      RenderUtil.resetColor();
-      mc.getTextureManager().bindTexture(currentAlbumCover);
-      GlStateManager.color(1, 1, 1);
-      GL11.glEnable(GL11.GL_BLEND);
-      RoundedUtils.drawRoundTextured(x, y, albumCoverSize, albumCoverSize, 6, 1);
     }
   }
 

@@ -10,15 +10,9 @@ import miau.module.Module;
 import miau.module.modules.render.Keystrokes;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.FloatProperty;
-import miau.util.animation.*;
-import miau.util.client.*;
-import miau.util.math.*;
-import miau.util.misc.*;
-import miau.util.network.*;
-import miau.util.player.*;
-import miau.util.render.*;
-import miau.util.time.*;
-import miau.util.world.*;
+import miau.util.client.KeyBindUtil;
+import miau.util.math.RandomUtil;
+import miau.util.player.ItemUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
@@ -28,30 +22,15 @@ public class AutoClicker extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
   private boolean clickPending = false;
   private long clickDelay = 0L;
-  private boolean blockHitPending = false;
-  private long blockHitDelay = 0L;
+
   public final FloatProperty cps = new FloatProperty("cps", 8.0F, 12.0F, 1.0F, 20.0F);
-  public final BooleanProperty blockHit = new BooleanProperty("block-hit", false);
-  public final FloatProperty blockHitTicks =
-      new FloatProperty("block-hit-ticks", 1.5F, 1.0F, 20.0F, this.blockHit::getValue);
   public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
-  public final BooleanProperty allowTools =
-      new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
   public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
-  public final FloatProperty range =
-      new FloatProperty("range", 3.0F, 3.0F, 8.0F, this.breakBlocks::getValue);
-  public final FloatProperty hitBoxVertical =
-      new FloatProperty("hit-box-vertical", 0.1F, 0.0F, 1.0F, this.breakBlocks::getValue);
-  public final FloatProperty hitBoxHorizontal =
-      new FloatProperty("hit-box-horizontal", 0.2F, 0.0F, 1.0F, this.breakBlocks::getValue);
+  public final BooleanProperty inventory = new BooleanProperty("inventory", false);
 
   private long getNextClickDelay() {
     return 1000L
         / RandomUtil.nextLong(this.cps.getValue().intValue(), this.cps.getSecondValue().intValue());
-  }
-
-  private long getBlockHitDelay() {
-    return (long) (50.0F * this.blockHitTicks.getValue());
   }
 
   private boolean isBreakingBlock() {
@@ -61,7 +40,7 @@ public class AutoClicker extends Module {
   private boolean canClick() {
     if (!this.weaponsOnly.getValue()
         || ItemUtil.hasRawUnbreakingEnchant()
-        || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
+        || ItemUtil.isHoldingSword()) {
       if (this.breakBlocks.getValue() && this.isBreakingBlock() && !this.hasValidTarget()) {
         GameType gameType12 = mc.playerController.getCurrentGameType();
         return gameType12 != GameType.SURVIVAL && gameType12 != GameType.CREATIVE;
@@ -81,14 +60,7 @@ public class AutoClicker extends Module {
       } else if (entityPlayer.deathTime > 0) {
         return false;
       } else {
-        net.minecraft.util.MovingObjectPosition mop =
-            miau.util.player.RayCastUtil.rayCast(
-                mc.thePlayer.rotationYaw,
-                mc.thePlayer.rotationPitch,
-                this.range.getValue(),
-                Math.max(this.hitBoxHorizontal.getValue(), this.hitBoxVertical.getValue()),
-                entityPlayer);
-        return mop != null && mop.entityHit == entityPlayer;
+        return mc.objectMouseOver != null && mc.objectMouseOver.entityHit == entityPlayer;
       }
     } else {
       return false;
@@ -112,40 +84,45 @@ public class AutoClicker extends Module {
       if (this.clickDelay > 0L) {
         this.clickDelay -= 50L;
       }
-      if (this.blockHitDelay > 0L) {
-        this.blockHitDelay -= 50L;
-      }
-      if (mc.currentScreen != null) {
+      if (mc.currentScreen != null && !this.inventory.getValue()) {
         this.clickPending = false;
-        this.blockHitPending = false;
       } else {
         if (this.clickPending) {
           this.clickPending = false;
-          KeyBindUtil.updateKeyState(mc.gameSettings.keyBindAttack.getKeyCode());
+          if (mc.currentScreen == null) {
+            KeyBindUtil.updateKeyState(mc.gameSettings.keyBindAttack.getKeyCode());
+          }
         }
-        if (this.blockHitPending) {
-          this.blockHitPending = false;
-          KeyBindUtil.updateKeyState(mc.gameSettings.keyBindUseItem.getKeyCode());
-        }
-        if (this.isEnabled() && this.canClick() && mc.gameSettings.keyBindAttack.isKeyDown()) {
+        boolean isMouseDown = org.lwjgl.input.Mouse.isButtonDown(0);
+        if (this.isEnabled() && this.canClick() && isMouseDown) {
           if (!mc.thePlayer.isUsingItem()) {
             while (this.clickDelay <= 0L) {
               this.clickPending = true;
               this.clickDelay = this.clickDelay + this.getNextClickDelay();
-              KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
-              KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
-              Keystrokes.recordLeftClick();
-            }
-          }
-          if (this.blockHit.getValue()
-              && this.blockHitDelay <= 0L
-              && mc.gameSettings.keyBindUseItem.isKeyDown()
-              && ItemUtil.isHoldingSword()) {
-            this.blockHitPending = true;
-            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
-            if (!mc.thePlayer.isUsingItem()) {
-              this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
-              KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
+
+              if (mc.currentScreen != null) {
+                long time = System.currentTimeMillis();
+                try {
+                  java.lang.reflect.Method m =
+                      net.minecraft.client.gui.GuiScreen.class.getDeclaredMethod(
+                          "mouseClicked", int.class, int.class, int.class);
+                  m.setAccessible(true);
+                  int mouseX =
+                      org.lwjgl.input.Mouse.getEventX() * mc.currentScreen.width / mc.displayWidth;
+                  int mouseY =
+                      mc.currentScreen.height
+                          - org.lwjgl.input.Mouse.getEventY()
+                              * mc.currentScreen.height
+                              / mc.displayHeight
+                          - 1;
+                  m.invoke(mc.currentScreen, mouseX, mouseY, 0);
+                } catch (Exception e) {
+                }
+              } else {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
+                KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
+                Keystrokes.recordLeftClick();
+              }
             }
           }
         }
@@ -165,7 +142,6 @@ public class AutoClicker extends Module {
   @Override
   public void onEnabled() {
     this.clickDelay = 0L;
-    this.blockHitDelay = 0L;
   }
 
   @Override

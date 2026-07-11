@@ -41,8 +41,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.EnumCreatureAttribute;
 import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.item.ItemStack;
 import net.minecraft.item.*;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.client.C02PacketUseEntity.Action;
 import net.minecraft.network.play.client.C03PacketPlayer;
@@ -544,8 +544,9 @@ public class KillAura extends Module {
     this.autoBlockModes.add(new LegitAutoBlock(this));
     this.autoBlockModes.add(new FakeAutoBlock(this));
 
-    this.rotationModes.add(
-        new miau.module.modules.combat.killaura.rotation.NormalRotation(this));
+    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LegitRotation(this));
+
+    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.NormalRotation(this));
 
     this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
     this.switchDelay = new IntProperty("switch-delay", 150, 0, 1000);
@@ -559,7 +560,7 @@ public class KillAura extends Module {
             "auto-block",
             0,
             new String[] {
-              "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM"
+              "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM", "PREDICT"
             });
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
@@ -592,7 +593,7 @@ public class KillAura extends Module {
     this.throughWalls = new BooleanProperty("through-walls", true);
 
     this.silentRotations = new BooleanProperty("silent-rotations", true);
-    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "NORMAL"});
+    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "LEGIT", "NORMAL"});
     this.whileScaffold = new BooleanProperty("while-scaffold", false);
     this.badPacketsCheck = new BooleanProperty("bad-packets-check", true);
     this.fov = new IntProperty("fov", 360, 30, 360);
@@ -721,8 +722,12 @@ public class KillAura extends Module {
                 float randomPct = (float) this.smoothing.getValue();
                 rotations =
                     RotationUtil.smoothRotation(
-                        lastRots[0], lastRots[1], targetRots[0], targetRots[1],
-                        ravenSpeed, randomPct);
+                        lastRots[0],
+                        lastRots[1],
+                        targetRots[0],
+                        targetRots[1],
+                        ravenSpeed,
+                        randomPct);
               } else {
                 rotations = lastRots;
               }

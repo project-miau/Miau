@@ -616,8 +616,7 @@ public class Scaffold extends Module {
 
     if (shaders) {
       // Bloom pass — glow border (matches old client style)
-      RoundedUtils.drawRound(
-          x - 1, y - 1, width + 2, height + 2, 4f, new Color(81, 99, 149, 80));
+      RoundedUtils.drawRound(x - 1, y - 1, width + 2, height + 2, 4f, new Color(81, 99, 149, 80));
 
       // Blur pass — blur background behind widget
       BlurUtils.prepareBlur();
