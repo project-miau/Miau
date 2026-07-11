@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.List;
 import java.util.Locale;
 import miau.Miau;
+import miau.component.BadPacketsComponent;
 import miau.component.PingSpoofComponent;
 import miau.enums.BlinkModules;
 import miau.event.EventManager;
@@ -44,9 +45,14 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.*;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.client.C02PacketUseEntity.Action;
+import net.minecraft.network.play.client.C03PacketPlayer;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
+import net.minecraft.network.play.client.C0APacketAnimation;
+import net.minecraft.network.play.client.C0DPacketCloseWindow;
+import net.minecraft.network.play.client.C0EPacketClickWindow;
+import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.server.S06PacketUpdateHealth;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.*;
@@ -75,6 +81,10 @@ public class KillAura extends Module {
 
   public int blockTick = 0;
   public int keepSprintBlinkTicks = 0;
+
+  // Rise 6.2.4 click pattern fields
+  public boolean allowAttack = true;
+  public int hitTicks = 0;
 
   // Rise 6.2.4 ordered settings
   public final ModeProperty mode;
@@ -128,8 +138,9 @@ public class KillAura extends Module {
 
   public final List<AutoBlockMode> autoBlockModes = new ArrayList<>();
 
-  public double getClickDelay() {
+  public Tuple<Boolean, Double> getClickDelay() {
     double delay = -1;
+    boolean flag = false;
 
     switch (this.clickMode.getValue()) {
       case 1: // Hit Select
@@ -186,17 +197,20 @@ public class KillAura extends Module {
     }
 
     delay = clickDelayBlock(delay);
+    if (this.clickMode.getValue() == 1) {
+      flag = this.target != null && this.target.getEntity().hurtTime > 0;
+    }
 
-    return delay;
+    return new Tuple<>(flag, delay);
   }
 
   public double clickDelayBlock(double delay) {
     switch (this.autoBlock.getValue()) {
-      case 9: // corresponds to Rise's Universal (if Miau adds it later, or custom slot)
+      case 9:
         delay = this.blockTick >= 4 ? -1 : 500;
         break;
 
-      case 8: // GRIM - placeholder for Watchdog mapping
+      case 8:
         if (mc.thePlayer.getHeldItem() != null
             && mc.thePlayer.getHeldItem().getItem() instanceof ItemSword) {
           delay = this.blockTick >= 2 ? -1 : 500;
@@ -205,7 +219,7 @@ public class KillAura extends Module {
         }
         break;
 
-      case 10: // placeholder for Watchdog 2
+      case 10:
         delay = this.blockTick >= 1 ? -1 : 500;
         break;
     }
@@ -222,12 +236,14 @@ public class KillAura extends Module {
       } else if (this.shouldDelayHit()) {
         return false;
       } else {
-        // --- Rise 6.2.4 Click Pattern Timing ---
-        double clickDelay = this.getClickDelay();
+        // --- Rise 6.2.4 Click Pattern Timing (exact) ---
+        Tuple<Boolean, Double> tuple = this.getClickDelay();
+        final double delay = tuple.getSecond();
+        final boolean flag = tuple.getFirst();
 
         if (!this.attackStopWatch.hasTimeElapsed(this.nextSwing)
             || this.target == null
-            || !this.clickStopWatch.hasTimeElapsed((long) (clickDelay * 50))) {
+            || (!this.clickStopWatch.hasTimeElapsed((long) (delay * 50)) && !flag)) {
           return false;
         }
 
@@ -244,8 +260,9 @@ public class KillAura extends Module {
           return false;
         }
 
-        this.attackStopWatch.reset();
-        this.clickStopWatch.reset();
+        if (!this.allowAttack && this.badPacketsCheck.getValue()) {
+          return false;
+        }
 
         if (this.keepSprint.getValue()) {
           miau.module.modules.movement.KeepSprint ks =
@@ -286,6 +303,9 @@ public class KillAura extends Module {
 
           this.keepSprintBlinkTicks = ksWillPreserveSprint ? 1 : 0;
           this.hitRegistered = true;
+          this.attackStopWatch.reset();
+          this.clickStopWatch.reset();
+          this.hitTicks = 0;
           return true;
         }
 
@@ -297,9 +317,6 @@ public class KillAura extends Module {
         boolean useRaycast = this.rayCast.getValue();
 
         if (this.rotations.getValue() != 0) {
-          // Validate the actual quantized rotation against the target's bounding box
-          // before allowing attack. This prevents Grim Hitboxes flags when rotation
-          // smoothing during target switches causes interim rotations to miss.
           if (this.throughWalls.getValue()) {
             rayCastPos =
                 miau.util.player.RayCastUtil.getEntityIntercept(
@@ -322,12 +339,10 @@ public class KillAura extends Module {
           }
         } else if (useRaycast) {
           if (this.throughWalls.getValue()) {
-            // Rise getEntityIntercept: ignores blocks, uses proper collision border size
             rayCastPos =
                 miau.util.player.RayCastUtil.getEntityIntercept(
                     this.target.getEntity(), yaw, pitch, this.attackRange.getValue());
           } else {
-            // Rise full raycast: checks blocks then entities
             rayCastPos =
                 miau.util.player.RayCastUtil.rayCast(yaw, pitch, this.attackRange.getValue());
           }
@@ -370,6 +385,9 @@ public class KillAura extends Module {
             lastAttack.reset(true, this.getDamage(this.target.getEntity()));
           }
           this.hitRegistered = true;
+          this.attackStopWatch.reset();
+          this.clickStopWatch.reset();
+          this.hitTicks = 0;
           return true;
         }
       }
@@ -646,6 +664,10 @@ public class KillAura extends Module {
     }
     if (this.isEnabled() && event.getType() == EventType.PRE) {
       this.ticksSinceVelocity++;
+      this.hitTicks++;
+
+      // Rise: allowAttack = !BadPacketsComponent.bad(false, false, false, true, true)
+      this.allowAttack = !BadPacketsComponent.bad(false, false, false, true, true);
       if (mc.thePlayer.ticksExisted % 20 == 0) {
         this.expandRange = 3.0 + Math.random() * 0.5;
       }
@@ -790,9 +812,9 @@ public class KillAura extends Module {
   @EventTarget(Priority.LOWEST)
   public void onPacket(PacketEvent event) {
     if (event.getType() == EventType.SEND) {
-      if (event.getPacket() instanceof net.minecraft.network.play.client.C0APacketAnimation) {
+      if (event.getPacket() instanceof C0APacketAnimation) {
         this.swing = true;
-      } else if (event.getPacket() instanceof net.minecraft.network.play.client.C03PacketPlayer) {
+      } else if (event.getPacket() instanceof C03PacketPlayer) {
         this.swing = false;
       }
       if (event.getPacket() instanceof net.minecraft.network.play.client.C0BPacketEntityAction) {
@@ -991,6 +1013,8 @@ public class KillAura extends Module {
     this.swing = false;
     this.blockTick = 0;
     this.rightHoldActive = false;
+    this.allowAttack = true;
+    this.hitTicks = 0;
   }
 
   @Override
