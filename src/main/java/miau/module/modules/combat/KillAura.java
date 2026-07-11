@@ -109,8 +109,6 @@ public class KillAura extends Module {
   public final BooleanProperty targetSilverfish = new BooleanProperty("target-silverfish", false);
   public final BooleanProperty targetTeams = new BooleanProperty("target-teams", true);
 
-
-
   private long getAttackDelay() {
     float min = this.cps.getValue();
     float max = this.cps.getSecondValue();
@@ -373,24 +371,17 @@ public class KillAura extends Module {
     this.lastTickProcessed = 0;
     this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
     this.switchDelay = new IntProperty("switch-delay", 150, 0, 1000);
-
-    String[] autoBlockNames =
-        this.autoBlockModes.stream()
-            .map(miau.module.modules.combat.killaura.autoblocks.AutoBlockMode::getName)
-            .toArray(String[]::new);
-    this.sort =
-        new ModeProperty(
-            "sort", 0, new String[] {"DISTANCE", "HEALTH", "HURT-TIME", "FOV", "ARMOR"});
+    this.sort = new ModeProperty("sort", 0, new String[] {"DISTANCE", "HEALTH", "HURT-TIME", "FOV", "ARMOR"});
     this.attackRange = new FloatProperty("attack-range", 3.0F, 3.0F, 6.0F);
     this.swingRange = new FloatProperty("swing-range", 3.5F, 3.0F, 6.0F);
     this.cps = new FloatProperty("aps", 14.0F, 14.0F, 1.0F, 20.0F);
-    this.autoBlock =
-        new ModeProperty(
-            "auto-block",
-            0,
-            new String[] {
-              "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE"
-            });
+    this.fov = new IntProperty("fov", 360, 30, 360);
+    this.rayCast = new BooleanProperty("ray-cast", false);
+    this.throughWalls = new BooleanProperty("through-walls", true);
+    this.whileScaffold = new BooleanProperty("while-scaffold", false);
+    this.requirePress = new BooleanProperty("require-press", false);
+    this.allowMining = new BooleanProperty("allow-mining", true);
+    this.autoBlock = new ModeProperty("auto-block", 0, new String[] {"NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE"});
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
     this.autoBlockCps = new FloatProperty("autoblock-aps", 8.0F, 10.0F, 1.0F, 10.0F);
@@ -398,17 +389,8 @@ public class KillAura extends Module {
     this.smoothing = new PercentProperty("smoothing", 0);
     this.angleStep = new IntProperty("angle-step", 90, 30, 180);
     this.moveFix = new ModeProperty("move-fix", 0, new String[] {"OFF", "Normal"});
-    this.rayCast = new BooleanProperty("ray-cast", false);
-    this.throughWalls = new BooleanProperty("through-walls", true);
-    this.whileScaffold = new BooleanProperty("while-scaffold", false);
-    this.fov = new IntProperty("fov", 360, 30, 360);
-    this.requirePress = new BooleanProperty("require-press", false);
-    this.allowMining = new BooleanProperty("allow-mining", true);
-    this.showTarget =
-        new ModeProperty("show-target", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
+    this.showTarget = new ModeProperty("show-target", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
     this.debugLog = new ModeProperty("debug-log", 0, new String[] {"NONE", "HEALTH"});
-
-
   }
 
   public EntityLivingBase getTarget() {

@@ -5,7 +5,7 @@ plugins {
     id("gg.essential.loom") version "0.10.0.+"
     id("dev.architectury.architectury-pack200") version "0.1.3"
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("com.diffplug.spotless") version "6.25.0"
+
 }
 //Constants:
 val baseGroup: String by project
@@ -182,11 +182,4 @@ tasks.shadowJar {
 }
 tasks.assemble.get().dependsOn(tasks.remapJar)
 
-spotless {
-    java {
-        googleJavaFormat()
-        lineEndings = com.diffplug.spotless.LineEnding.UNIX
-        target("src/*/java/**/*.java")
-        targetExclude("src/*/java/me/accountmanager/**/*.java", "src/*/java/de/viaversion/**/*.java")
-    }
-}
+

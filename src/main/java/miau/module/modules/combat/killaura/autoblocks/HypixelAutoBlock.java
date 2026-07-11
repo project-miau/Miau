@@ -43,7 +43,7 @@ public class HypixelAutoBlock extends AutoBlockMode {
               parent.stopBlock();
               parent.cancelAttack = true;
             }
-            if (parent.nextSwing <= 50L) {
+            if (parent.attackDelayMS <= 50L) {
               parent.blockTick = 0;
             }
             break;

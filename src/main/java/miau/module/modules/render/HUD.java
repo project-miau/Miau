@@ -493,6 +493,12 @@ public class HUD extends Module {
         }
       }
     }
+    if (this.hudMode.getValue() == 0 && renderPass == 2) {
+      String userInfo = "Version: " + Miau.version + " Username: " + mc.getSession().getUsername();
+      float yCoord = sr.getScaledHeight() - getFont().getFontHeight() - 2.0F;
+      getFont().drawWithShadow(userInfo, 2.0F, yCoord, this.getColor(l).getRGB());
+    }
+
 
     if (this.hudMode.getValue() == 1) {
       if (this.showCoordinates.getValue() && mc.thePlayer != null) {
