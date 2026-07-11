@@ -151,9 +151,9 @@ public class Miau {
     moduleManager.modules.put(Freeze.class, new Freeze());
     moduleManager.modules.put(FullBright.class, new FullBright());
     moduleManager.modules.put(GhostHand.class, new GhostHand());
+    moduleManager.modules.put(JumpReset.class, new JumpReset());
     moduleManager.modules.put(HUD.class, new HUD());
     moduleManager.modules.put(HitBox.class, new HitBox());
-    moduleManager.modules.put(HitSelect.class, new HitSelect());
     moduleManager.modules.put(Indicators.class, new Indicators());
     moduleManager.modules.put(InvManager.class, new InvManager());
     moduleManager.modules.put(InvWalk.class, new InvWalk());

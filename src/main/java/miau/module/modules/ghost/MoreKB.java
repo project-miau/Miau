@@ -1,31 +1,36 @@
 package miau.module.modules.ghost;
 
+import com.google.common.base.CaseFormat;
 import miau.event.EventTarget;
 import miau.event.impl.AttackEvent;
-import miau.event.impl.TickEvent;
+import miau.event.impl.MoveInputEvent;
+import miau.event.impl.UpdateEvent;
 import miau.event.types.EventType;
 import miau.module.Module;
 import miau.property.properties.BooleanProperty;
+import miau.property.properties.IntProperty;
 import miau.property.properties.ModeProperty;
+import miau.util.time.TimerUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.network.play.client.C0BPacketEntityAction;
-import net.minecraft.util.MathHelper;
-import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.potion.Potion;
 
 public class MoreKB extends Module {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
-  public final ModeProperty mode =
-      new ModeProperty(
-          "mode",
-          0,
-          new String[] {"LEGIT", "LEGIT_FAST", "LESS_PACKET", "PACKET", "DOUBLE_PACKET"});
-  public final BooleanProperty intelligent = new BooleanProperty("intelligent", false);
-  public final BooleanProperty onlyGround = new BooleanProperty("only-ground", true);
+  public final ModeProperty mode = new ModeProperty("mode", 0, new String[] {"WTAP"});
+  public final IntProperty reSprintDelay = new IntProperty("resprint-delay", 0, 0, 9);
+  public final BooleanProperty notWhenHurt = new BooleanProperty("not-when-hurt", false);
+  public final IntProperty minTargetTicksFromGround =
+      new IntProperty("min-target-ticks-from-ground", 5, 0, 12);
 
+  private final TimerUtil attackTimer = new TimerUtil();
   private EntityLivingBase target;
-  private boolean shouldSprintReset;
+  private final TimerUtil reSprintTimer = new TimerUtil();
+  private boolean resyncNeeded;
+  private int nextSprintTime;
+  private int selfHurtTimeOnAttack;
+  private int targetOffGroundTicks;
 
   public MoreKB() {
     super("MoreKB", false);
@@ -33,109 +38,121 @@ public class MoreKB extends Module {
 
   @Override
   public void onEnabled() {
-    shouldSprintReset = false;
     target = null;
+    resyncNeeded = false;
+    targetOffGroundTicks = 0;
   }
 
   @Override
   public void onDisabled() {
-    shouldSprintReset = false;
     target = null;
+    resyncNeeded = false;
   }
 
   @EventTarget
-  public void onAttack(AttackEvent event) {
+  public void onAttack(AttackEvent e) {
     if (!isEnabled()) return;
-    if (event.getTarget() instanceof EntityLivingBase) {
-      this.target = (EntityLivingBase) event.getTarget();
+    if (e.getTarget() instanceof EntityLivingBase) {
+      if (e.getTarget() == target) {
+        attackTimer.reset();
+      } else {
+        target = (EntityLivingBase) e.getTarget();
+        attackTimer.reset();
+      }
     }
   }
 
   @EventTarget
-  public void onTick(TickEvent event) {
+  public void onUpdate(UpdateEvent e) {
     if (!isEnabled()) return;
-    if (event.getType() != EventType.PRE) return;
-    if (mc.thePlayer == null || mc.theWorld == null) return;
+    if (e.getType() == EventType.PRE) {
+      if (target == null || mc.thePlayer.getDistanceToEntity(target) > 4.5) {
+        target = getTarget(4.5);
+      }
 
-    int currentMode = mode.getValue();
-
-    if (currentMode == 1) {
-      if (this.target != null && isMoving()) {
-        if ((onlyGround.getValue() && mc.thePlayer.onGround) || !onlyGround.getValue()) {
-          mc.thePlayer.sprintingTicksLeft = 0;
+      if (target != null) {
+        if (target.onGround) {
+          targetOffGroundTicks = 0;
+        } else {
+          targetOffGroundTicks++;
         }
-        this.target = null;
-      }
-      return;
-    }
 
-    EntityLivingBase entity = null;
-    if (mc.objectMouseOver != null
-        && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY
-        && mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
-      entity = (EntityLivingBase) mc.objectMouseOver.entityHit;
-    }
-
-    if (entity == null) return;
-
-    if (intelligent.getValue()) {
-      float calcYaw =
-          (float)
-                  (Math.atan2(entity.posZ - mc.thePlayer.posZ, entity.posX - mc.thePlayer.posX)
-                      * 180.0D
-                      / Math.PI)
-              - 90.0F;
-      float diffY = Math.abs(MathHelper.wrapAngleTo180_float(calcYaw - entity.rotationYawHead));
-      if (diffY > 120.0F) return;
-    }
-
-    if (entity.hurtTime == 10) {
-      switch (currentMode) {
-        case 0:
-          shouldSprintReset = true;
-          if (mc.thePlayer.isSprinting()) {
-            mc.thePlayer.setSprinting(false);
-            mc.thePlayer.setSprinting(true);
-          }
-          shouldSprintReset = false;
-          break;
-        case 2:
-          if (mc.thePlayer.isSprinting()) {
-            mc.thePlayer.setSprinting(false);
-          }
-          mc.getNetHandler()
-              .addToSendQueue(
-                  new C0BPacketEntityAction(
-                      mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-          mc.thePlayer.setSprinting(true);
-          break;
-        case 3:
-          mc.thePlayer.sendQueue.addToSendQueue(
-              new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-          mc.thePlayer.sendQueue.addToSendQueue(
-              new C0BPacketEntityAction(
-                  mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-          mc.thePlayer.setSprinting(true);
-          break;
-        case 4:
-          mc.thePlayer.sendQueue.addToSendQueue(
-              new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-          mc.thePlayer.sendQueue.addToSendQueue(
-              new C0BPacketEntityAction(
-                  mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-          mc.thePlayer.sendQueue.addToSendQueue(
-              new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-          mc.thePlayer.sendQueue.addToSendQueue(
-              new C0BPacketEntityAction(
-                  mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-          mc.thePlayer.setSprinting(true);
-          break;
+        if (target.hurtTime == 10
+            && !attackTimer.hasTimeElapsed(200L + getPing())
+            && mc.thePlayer.isSprinting()) {
+          selfHurtTimeOnAttack = mc.thePlayer.hurtTime;
+          resyncNeeded = true;
+          nextSprintTime = reSprintDelay.getValue();
+          reSprintTimer.reset();
+        }
       }
     }
   }
 
-  private boolean isMoving() {
-    return mc.thePlayer.movementInput.moveForward != 0.0F
-        || mc.thePlayer.movementInput.moveStrafe != 0.0F;
+  @EventTarget
+  public void onMoveInput(MoveInputEvent e) {
+    if (!isEnabled()) return;
+    if (shouldReset()) {
+      mc.thePlayer.movementInput.moveForward = 0.0f;
+      mc.thePlayer.movementInput.moveStrafe = 0.0f;
+    }
   }
+
+  private boolean shouldReset() {
+    if (resyncNeeded && reSprintTimer.hasTimeElapsed(nextSprintTime * 50L)) {
+      resyncNeeded = false;
+
+      boolean hurtTime = selfHurtTimeOnAttack != 0 && mc.thePlayer.hurtTime <= 2;
+      boolean crit =
+          mc.thePlayer.fallDistance > 0.0F
+              && !mc.thePlayer.onGround
+              && !mc.thePlayer.isOnLadder()
+              && !mc.thePlayer.isInWater()
+              && !mc.thePlayer.isPotionActive(Potion.blindness)
+              && mc.thePlayer.ridingEntity == null;
+      boolean strictHurtTime = mc.thePlayer.hurtTime != 0 && notWhenHurt.getValue();
+      boolean targetAir =
+          mc.thePlayer.hurtTime != 0 && targetOffGroundTicks < minTargetTicksFromGround.getValue();
+
+      if (hurtTime || crit || strictHurtTime || targetAir) {
+        return false;
+      }
+
+      return true;
+    }
+
+    return false;
+  }
+
+  private int getPing() {
+    if (mc.isSingleplayer() || mc.getNetHandler() == null || mc.thePlayer == null) return 0;
+    net.minecraft.client.network.NetworkPlayerInfo info =
+        mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID());
+    return info != null ? info.getResponseTime() : 0;
+  }
+
+  private EntityLivingBase getTarget(double range) {
+    EntityLivingBase bestTarget = null;
+    double bestDistance = range;
+    for (net.minecraft.entity.Entity entity : mc.theWorld.loadedEntityList) {
+      if (entity instanceof EntityLivingBase && entity != mc.thePlayer) {
+        double dist = mc.thePlayer.getDistanceToEntity(entity);
+        if (dist <= bestDistance) {
+          bestDistance = dist;
+          bestTarget = (EntityLivingBase) entity;
+        }
+      }
+    }
+    return bestTarget;
+  }
+
+  @Override
+  public String[] getSuffix() {
+    return new String[] {
+      CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, this.mode.getModeString())
+    };
+  }
+
+  @Override
+  public void verifyValue(String value) {}
 }

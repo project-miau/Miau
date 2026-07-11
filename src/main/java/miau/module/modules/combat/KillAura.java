@@ -50,9 +50,6 @@ import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
 import net.minecraft.network.play.client.C0APacketAnimation;
-import net.minecraft.network.play.client.C0DPacketCloseWindow;
-import net.minecraft.network.play.client.C0EPacketClickWindow;
-import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.server.S06PacketUpdateHealth;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.*;
@@ -138,7 +135,7 @@ public class KillAura extends Module {
 
   public final List<AutoBlockMode> autoBlockModes = new ArrayList<>();
 
-  public Tuple<Boolean, Double> getClickDelay() {
+  public miau.util.math.Tuple<Boolean, Double> getClickDelay() {
     double delay = -1;
     boolean flag = false;
 
@@ -201,29 +198,10 @@ public class KillAura extends Module {
       flag = this.target != null && this.target.getEntity().hurtTime > 0;
     }
 
-    return new Tuple<>(flag, delay);
+    return new miau.util.math.Tuple<>(flag, delay);
   }
 
   public double clickDelayBlock(double delay) {
-    switch (this.autoBlock.getValue()) {
-      case 9:
-        delay = this.blockTick >= 4 ? -1 : 500;
-        break;
-
-      case 8:
-        if (mc.thePlayer.getHeldItem() != null
-            && mc.thePlayer.getHeldItem().getItem() instanceof ItemSword) {
-          delay = this.blockTick >= 2 ? -1 : 500;
-        } else if (this.target != null && mc.thePlayer.getHeldItem() != null) {
-          delay = 0;
-        }
-        break;
-
-      case 10:
-        delay = this.blockTick >= 1 ? -1 : 500;
-        break;
-    }
-
     return delay;
   }
 
@@ -237,7 +215,7 @@ public class KillAura extends Module {
         return false;
       } else {
         // --- Rise 6.2.4 Click Pattern Timing (exact) ---
-        Tuple<Boolean, Double> tuple = this.getClickDelay();
+        miau.util.math.Tuple<Boolean, Double> tuple = this.getClickDelay();
         final double delay = tuple.getSecond();
         final boolean flag = tuple.getFirst();
 
@@ -559,9 +537,7 @@ public class KillAura extends Module {
         new ModeProperty(
             "auto-block",
             0,
-            new String[] {
-              "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM", "PREDICT"
-            });
+            new String[] {"NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE"});
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
 

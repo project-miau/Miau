@@ -45,9 +45,7 @@ public class Velocity extends Module {
             register(new StandardVelocity("Standard", this)),
             register(new LegitVelocity("Legit", this)),
             register(new IntaveVelocity("Intave", this)),
-            register(new JumpResetVelocity("JumpReset", this)),
-            register(new WatchdogPredictionVelocity("WatchdogPrediction", this)),
-            register(new GrimReduceVelocity("GrimReduce", this))
+            register(new DelayVelocity("Delay", this))
           });
 
   private String register(VelocityMode m) {

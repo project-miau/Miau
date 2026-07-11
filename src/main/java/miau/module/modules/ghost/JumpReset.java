@@ -1,19 +1,22 @@
-package miau.module.modules.combat.velocity;
+package miau.module.modules.ghost;
 
+import miau.event.EventTarget;
 import miau.event.impl.PacketEvent;
 import miau.event.impl.UpdateEvent;
 import miau.event.types.EventType;
-import miau.module.modules.combat.Velocity;
+import miau.module.Module;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.PercentProperty;
 import miau.util.client.KeyBindUtil;
 import miau.util.player.RayCastUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.network.play.client.C03PacketPlayer;
 import net.minecraft.potion.Potion;
 
-public class JumpResetVelocity extends VelocityMode {
+public class JumpReset extends Module {
 
+  private static final Minecraft mc = Minecraft.getMinecraft();
   private boolean setJump;
   private boolean ignoreNext;
   private boolean aiming;
@@ -25,22 +28,20 @@ public class JumpResetVelocity extends VelocityMode {
   public final BooleanProperty movingForward = new BooleanProperty("moving-forward", true);
   public final BooleanProperty aimingOnPlayer = new BooleanProperty("aiming-on-player", true);
 
-  public JumpResetVelocity(String name, Velocity parent) {
-    super(name, parent);
+  public JumpReset() {
+    super("JumpReset", false);
   }
 
-  @Override
+  @EventTarget
   public void onUpdate(UpdateEvent event) {
     if (event.getType() == EventType.PRE) {
       int hurtTime = mc.thePlayer.hurtTime;
       boolean onGround = mc.thePlayer.onGround;
 
-      // Landed from a big fall → ignore next hit (prevents fall-damage double-jump)
       if (onGround && lastFallDistance > 3.0 && !mc.thePlayer.capabilities.allowFlying) {
         ignoreNext = true;
       }
 
-      // On taking damage (hurtTime increased this tick)
       if (hurtTime > lastHurtTime) {
         boolean mouseDownCheck = KeyBindUtil.isKeyDown(-100) || !mouseDown.getValue();
         boolean aimingCheck = aiming || !aimingOnPlayer.getValue();
@@ -66,7 +67,6 @@ public class JumpResetVelocity extends VelocityMode {
       lastFallDistance = mc.thePlayer.fallDistance;
 
     } else if (event.getType() == EventType.POST) {
-      // Release jump key if we faked it and the user isn't physically holding jump
       if (setJump && !KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode())) {
         setJump = false;
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
@@ -74,15 +74,13 @@ public class JumpResetVelocity extends VelocityMode {
     }
   }
 
-  @Override
+  @EventTarget
   public void onPacket(PacketEvent event) {
     if (event.getType() != EventType.SEND) return;
     if (!(event.getPacket() instanceof C03PacketPlayer)) return;
 
     C03PacketPlayer packet = (C03PacketPlayer) event.getPacket();
 
-    // C05 = C03PacketPlayer.C05PacketPlayerLook (yaw/pitch only)
-    // C06 = C03PacketPlayer.C06PacketPlayerPosLook (position + yaw/pitch)
     float yaw;
     float pitch;
 
@@ -96,7 +94,6 @@ public class JumpResetVelocity extends VelocityMode {
       return;
     }
 
-    // Raycast from this look rotation to check if we're aiming at another player
     net.minecraft.util.MovingObjectPosition mop =
         RayCastUtil.rayCast(yaw, pitch, 5.0, 0.0f, mc.thePlayer);
 
