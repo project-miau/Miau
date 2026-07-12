@@ -395,27 +395,6 @@ public class Scaffold extends Module {
       }
     }
 
-    // Beta non-telly: apply godbridge rotation for automatic godbridging
-    if (betaMode && !betaFeature.isBetaTellyMode() && this.canRotate && blockData != null) {
-      if (MoveUtil.isForwardPressed()) {
-        float forward = mc.thePlayer.movementInput.moveForward;
-        float strafe = mc.thePlayer.movementInput.moveStrafe;
-        float gYaw = getGodbridgeYaw(forward, strafe, mc.thePlayer.rotationYaw);
-        float styleYaw = RotationUtil.quantizeAngle(gYaw);
-        float stylePitch = RotationUtil.quantizeAngle(75.0F);
-        PlacementAim betaAim =
-            ScaffoldPlacementUtil.resolveAim(blockData, styleYaw, stylePitch, placeOffsets);
-        if (betaAim != null) {
-          this.yaw = betaAim.yaw;
-          this.pitch = betaAim.pitch;
-          hitVec = betaAim.hitVec;
-        } else {
-          this.yaw = styleYaw;
-          this.pitch = stylePitch;
-        }
-      }
-    }
-
     boolean willPlaceThisTick =
         blockData != null
             && hitVec != null
@@ -755,27 +734,4 @@ public class Scaffold extends Module {
     }
   }
 
-  private float getGodbridgeYaw(float forward, float strafe, float playerYaw) {
-    if (forward == 0 && strafe == 0) {
-      float axisMovement = (float) Math.floor(playerYaw / 90.0f) * 90.0f;
-      return RotationUtil.quantizeAngle(axisMovement + 45.0f);
-    }
-    float direction = getMovementDirection(forward, strafe, playerYaw) + 180.0f;
-    float movingYaw = Math.round(direction / 45.0f) * 45.0f;
-    boolean isMovingStraight = (movingYaw % 90.0f) == 0.0f;
-    if (!isMovingStraight) return movingYaw;
-
-    float finalYaw = movingYaw + 45.0f;
-    return RotationUtil.quantizeAngle(finalYaw);
-  }
-
-  private float getMovementDirection(float forward, float strafe, float yaw) {
-    if (forward == 0 && strafe == 0) return yaw;
-    boolean reversed = forward < 0.0f;
-    float strafingYaw = 90.0f * (forward > 0.0f ? 0.5f : reversed ? -0.5f : 1.0f);
-    if (reversed) yaw += 180.0f;
-    if (strafe > 0.0f) yaw -= strafingYaw;
-    else if (strafe < 0.0f) yaw += strafingYaw;
-    return yaw;
-  }
 }
