@@ -28,6 +28,7 @@ public class NoSlow extends Module {
             "Watchdog",
             "Intave",
             "Grim 1.9",
+            "New Grim",
             "Verus",
             "AAC",
             "Spartan",
@@ -49,6 +50,7 @@ public class NoSlow extends Module {
     modes.add(new OMWatchdogNoSlow("Watchdog", this));
     modes.add(new OMIntaveNoSlow("Intave", this));
     modes.add(new OMGrimNoSlow("Grim", this));
+    modes.add(new OMNewGrimNoSlow("New Grim", this));
     modes.add(new OMVerusNoSlow("Verus", this));
     modes.add(new OMAACNoSlow("AAC", this));
     modes.add(new OMSpartanNoSlow("Spartan", this));
@@ -102,6 +104,15 @@ public class NoSlow extends Module {
   public boolean isAnyActive() {
     return mc.thePlayer.isUsingItem()
         && (isSwordActive() || isFoodActive() || isBowActive() || isPotionActive());
+  }
+
+  public boolean shouldCancelSlowdown() {
+    if (!this.isEnabled()) return false;
+    NoSlowMode activeMode = getActiveMode();
+    if (activeMode instanceof OMNewGrimNoSlow) {
+      return ((OMNewGrimNoSlow) activeMode).shouldCancelSlowdown();
+    }
+    return true;
   }
 
   public boolean canSprint() {
