@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class MiauAPI {
 
-  public static final String APIBASE = "https://api.rinbounce.wtf/";
+  public static final String APIBASE = "https://api.getmiau.today/";
   public static final String BRANCH = "myau";
 
   private static final String API_V1 = APIBASE + "api/v1";
@@ -41,6 +41,10 @@ public class MiauAPI {
 
   public static String getClientVersion() throws Exception {
     return get(API_V1 + "/client/version", "Miau/Version");
+  }
+
+  public static String getClientNotification() throws Exception {
+    return get(API_V1 + "/client/notification", "Miau/Notification");
   }
 
   public static boolean isOutdated(String current, String latest) {
