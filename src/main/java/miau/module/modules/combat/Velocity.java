@@ -46,7 +46,8 @@ public class Velocity extends Module {
             register(new LegitVelocity("Legit", this)),
             register(new IntaveVelocity("Intave", this)),
             register(new DelayVelocity("Delay", this)),
-            register(new PolarVelocity("Polar", this))
+            register(new PolarVelocity("Polar", this)),
+            register(new AttackReduceVelocity("AttackReduce", this))
           });
 
   private String register(VelocityMode m) {
