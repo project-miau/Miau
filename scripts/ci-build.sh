@@ -23,8 +23,6 @@ print_failure_digest() {
 }
 
 {
-  echo "=== spotlessApply (before compile) ==="
-  ./gradlew spotlessApply --no-daemon
   echo "=== build ==="
   ./gradlew build --no-daemon
 } >"$LOG" 2>&1 || {
