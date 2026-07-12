@@ -192,12 +192,21 @@ public class KillAura extends Module {
             && !rayCastHit) {
           return false;
         } else {
+          boolean wasBlockingBefore = this.isPlayerBlocking();
+          if (wasBlockingBefore) {
+            this.stopBlock();
+          }
+
           AttackEvent event = new AttackEvent(this.target.getEntity());
           EventManager.call(event);
           ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
           PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.ATTACK));
           if (mc.playerController.getCurrentGameType() != GameType.SPECTATOR) {
             PlayerUtil.attackEntity(this.target.getEntity());
+          }
+
+          if (wasBlockingBefore) {
+            this.sendUseItem();
           }
           LastAttackData lastAttack = this.targetMap.get(this.target.getEntity().getEntityId());
           if (lastAttack == null) {
@@ -367,6 +376,7 @@ public class KillAura extends Module {
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LegitRotation(this));
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.SilentRotation(this));
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.LockViewRotation(this));
+    this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.PolarRotation(this));
 
     this.lastTickProcessed = 0;
     this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
@@ -385,7 +395,7 @@ public class KillAura extends Module {
     this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
     this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
     this.autoBlockCps = new FloatProperty("autoblock-aps", 8.0F, 10.0F, 1.0F, 10.0F);
-    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "LEGIT", "SILENT", "LOCK_VIEW"});
+    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "LEGIT", "SILENT", "LOCK_VIEW", "POLAR"});
     this.smoothing = new PercentProperty("smoothing", 0);
     this.angleStep = new IntProperty("angle-step", 90, 30, 180);
     this.moveFix = new ModeProperty("move-fix", 0, new String[] {"OFF", "Normal"});

@@ -2,6 +2,7 @@ package miau.module.modules.combat.velocity;
 
 import miau.event.impl.PacketEvent;
 import miau.event.impl.UpdateEvent;
+import miau.mixin.IAccessorMinecraft;
 import miau.module.modules.combat.Velocity;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.IntProperty;
@@ -64,7 +65,7 @@ public class LegitVelocity extends VelocityMode {
                 == net.minecraft.util.MovingObjectPosition.MovingObjectType.ENTITY
             && !mc.thePlayer.isUsingItem()) {
           for (int i = 0; i < nextAttacks; i++) {
-            mc.clickMouse();
+            ((IAccessorMinecraft) mc).callClickMouse();
           }
         }
       }

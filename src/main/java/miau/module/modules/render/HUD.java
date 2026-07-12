@@ -57,6 +57,8 @@ public class HUD extends Module {
       new BooleanProperty("show-ping", true, this.showWatermark::getValue);
   public final BooleanProperty showBps =
       new BooleanProperty("show-bps", true, this.showWatermark::getValue);
+  public final BooleanProperty showBalance =
+      new BooleanProperty("show-balance", false, this.showWatermark::getValue);
 
   public final ModeProperty colorAnimation =
       new ModeProperty("color-animation", 1, new String[] {"STATIC", "FADE", "RAINBOW"});
@@ -229,6 +231,7 @@ public class HUD extends Module {
     if (this.showFps.getValue()) text += " [§f" + Minecraft.getDebugFPS() + " FPS§7]";
     if (this.showPing.getValue()) text += " [§f" + ping + "ms§7]";
     if (this.showBps.getValue()) text += " [§f" + bpsString + " BPS§7]";
+    if (this.showBalance.getValue()) text += " [§f" + miau.module.modules.misc.Balance.balance + " Balance§7]";
     return text;
   }
 

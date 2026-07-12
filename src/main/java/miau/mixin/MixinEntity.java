@@ -4,10 +4,12 @@ import miau.Miau;
 import miau.event.EventManager;
 import miau.event.impl.KnockbackEvent;
 import miau.event.impl.SafeWalkEvent;
+import miau.event.impl.WebSlowDownEvent;
 import miau.module.modules.render.Chams;
 import miau.module.modules.render.ESP;
 import miau.module.modules.render.FreeLook;
 import miau.module.modules.render.NameTags;
+import miau.mixin.IAccessorEntity;
 import miau.util.misc.ITruePosition;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
@@ -22,6 +24,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -233,6 +236,41 @@ public abstract class MixinEntity implements ITruePosition {
       return event.isSafeWalk();
     } else {
       return boolean1;
+    }
+  }
+
+  @Unique
+  private WebSlowDownEvent pendingWebSlowDownEvent;
+
+  @Redirect(
+      method = "moveEntity",
+      at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;isInWeb:Z"))
+  private boolean redirectIsInWeb(Entity entity) {
+    if (entity instanceof EntityPlayerSP) {
+      EntityPlayerSP player = (EntityPlayerSP) entity;
+      IAccessorEntity accessor = (IAccessorEntity) player;
+      if (accessor.getIsInWeb()) {
+        WebSlowDownEvent event = new WebSlowDownEvent(0.0D, 0.0D, 0.0D);
+        EventManager.call(event);
+        if (event.isCancelled()) {
+          accessor.setIsInWeb(false);
+          return false;
+        }
+        this.pendingWebSlowDownEvent = event;
+      }
+    }
+    return ((IAccessorEntity) entity).getIsInWeb();
+  }
+
+  @Inject(
+      method = "moveEntity",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;isSneaking()Z", ordinal = 0))
+  private void afterWebSlowDown(double x, double y, double z, CallbackInfo ci) {
+    if ((Entity) ((Object) this) instanceof EntityPlayerSP && this.pendingWebSlowDownEvent != null) {
+      this.motionX = this.pendingWebSlowDownEvent.getMotionX();
+      this.motionY = this.pendingWebSlowDownEvent.getMotionY();
+      this.motionZ = this.pendingWebSlowDownEvent.getMotionZ();
+      this.pendingWebSlowDownEvent = null;
     }
   }
 }

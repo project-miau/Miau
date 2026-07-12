@@ -16,11 +16,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.MathHelper;
 import org.lwjgl.input.Mouse;
 
 public class BlockHit extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
+  public final ModeProperty mode = new ModeProperty("Mode", 0, new String[] {"STANDARD", "POLAR"});
   public final FloatProperty range = new FloatProperty("Range", 4.0F, 2.0F, 6.0F);
   public final FloatProperty maxHurtTimeMs = new FloatProperty("Max Hurt Time", 200F, 50F, 500F);
   public final FloatProperty maxHoldMs = new FloatProperty("Max Hold Time", 150F, 50F, 500F);
@@ -98,8 +100,24 @@ public class BlockHit extends Module {
     boolean hurtAgain = selfHurtTime > lastSelfHurtTime;
     lastSelfHurtTime = selfHurtTime;
 
+    if (mc.thePlayer.hurtTime > 0) {
+      lastTimePlayerHurt = System.currentTimeMillis();
+    }
+
     // Find target
     currentTarget = findTarget(range.getValue() * range.getValue(), ignoreTeammates.getValue());
+
+    if (this.mode.getValue() == 1 /* POLAR */) {
+      boolean shouldPolarBlock = calculatePolarBlock(currentTarget);
+      if (shouldPolarBlock) {
+        if (!isBlocking) {
+          startBlocking(currentTick);
+        }
+      } else {
+        stopBlocking(true);
+      }
+      return;
+    }
     boolean killAuraAttacking = isKillAuraAttacking();
     boolean rmbDown = Mouse.isButtonDown(1);
     boolean lmbDown = Mouse.isButtonDown(0) || killAuraAttacking;
@@ -302,6 +320,57 @@ public class BlockHit extends Module {
     }
     currentTarget = null;
     lastSelfHurtTime = 0;
+  }
+
+  private long lastTimePlayerHurt = 0L;
+
+  private boolean calculatePolarBlock(EntityPlayer target) {
+    if (target == null) return false;
+    if (!ItemUtil.isHoldingSword()) return false;
+
+    double blockRangeVal = 2.5;
+    double dist = mc.thePlayer.getDistanceToEntity(target);
+    if (dist > blockRangeVal) return false;
+
+    double playerDeltaX = mc.thePlayer.posX - mc.thePlayer.lastTickPosX;
+    double playerDeltaY = mc.thePlayer.posY - mc.thePlayer.lastTickPosY;
+    double playerDeltaZ = mc.thePlayer.posZ - mc.thePlayer.lastTickPosZ;
+    
+    double targetDeltaX = target.posX - target.lastTickPosX;
+    double targetDeltaY = target.posY - target.lastTickPosY;
+    double targetDeltaZ = target.posZ - target.lastTickPosZ;
+
+    double predPlayerX = mc.thePlayer.posX + playerDeltaX;
+    double predPlayerY = mc.thePlayer.posY + playerDeltaY;
+    double predPlayerZ = mc.thePlayer.posZ + playerDeltaZ;
+
+    double predTargetX = target.posX + targetDeltaX;
+    double predTargetY = target.posY + targetDeltaY;
+    double predTargetZ = target.posZ + targetDeltaZ;
+
+    double d1 = Math.sqrt(Math.pow(predPlayerX - target.posX, 2) + Math.pow(predPlayerY - target.posY, 2) + Math.pow(predPlayerZ - target.posZ, 2));
+    double d2 = Math.sqrt(Math.pow(mc.thePlayer.posX - predTargetX, 2) + Math.pow(mc.thePlayer.posY - predTargetY, 2) + Math.pow(mc.thePlayer.posZ - predTargetZ, 2));
+
+    if (d1 >= 3.0 || d2 >= 3.0) return false;
+
+    long timeSinceHurt = System.currentTimeMillis() - lastTimePlayerHurt;
+    if (timeSinceHurt > 750L) return false;
+
+    double dx = mc.thePlayer.posX - target.posX;
+    double dz = mc.thePlayer.posZ - target.posZ;
+    double yawToPlayer = Math.toDegrees(Math.atan2(dz, dx)) - 90.0;
+    double diff = Math.abs(MathHelper.wrapAngleTo180_float(target.rotationYaw - (float)yawToPlayer));
+    if (diff > 90.0) return false;
+
+    int ping = 0;
+    if (mc.getNetHandler() != null) {
+      net.minecraft.client.network.NetworkPlayerInfo info = mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID());
+      if (info != null) ping = info.getResponseTime();
+    }
+    int pingTicks = ping / 50;
+    if (mc.thePlayer.hurtTime > (pingTicks + 1)) return false;
+
+    return true;
   }
 
   /** Simple target finding: mouse‑over first, then closest player. */

@@ -14,6 +14,9 @@ public interface IAccessorEntity {
   @Accessor
   boolean getIsInWeb();
 
+  @Accessor("isInWeb")
+  void setIsInWeb(boolean isInWeb);
+
   @Accessor
   int getFire();
 

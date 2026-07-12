@@ -6,6 +6,7 @@ import miau.event.impl.*;
 import miau.event.types.EventType;
 import miau.init.Initializer;
 import miau.module.modules.ghost.NoClickDelay;
+import miau.module.modules.misc.BalanceFix;
 import miau.ui.menu.MiauMainMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -163,5 +164,22 @@ public abstract class MixinMinecraft {
       return new MiauMainMenu();
     }
     return guiScreenIn;
+  }
+
+  @Inject(
+      method = "runGameLoop",
+      at =
+          @At(
+              value = "INVOKE",
+              target = "Lnet/minecraft/util/Timer;updateTimer()V",
+              shift = At.Shift.AFTER))
+  private void afterUpdateTimer(CallbackInfo ci) {
+    if (Miau.moduleManager != null) {
+      BalanceFix balanceFix = (BalanceFix) Miau.moduleManager.modules.get(BalanceFix.class);
+      if (balanceFix != null && balanceFix.isEnabled()) {
+        ((IAccessorMinecraft) this).getTimer().elapsedTicks =
+            Math.min(((IAccessorMinecraft) this).getTimer().elapsedTicks, 10);
+      }
+    }
   }
 }

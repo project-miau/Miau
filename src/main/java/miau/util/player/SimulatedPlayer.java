@@ -171,6 +171,10 @@ public class SimulatedPlayer {
     return new Vec3(posX, posY, posZ);
   }
 
+  public boolean isInWeb() {
+    return this.isInWeb;
+  }
+
   private float moveForward = 0f;
   private float moveStrafing = 0f;
   private boolean isJumping = false;

@@ -45,7 +45,8 @@ public class Velocity extends Module {
             register(new StandardVelocity("Standard", this)),
             register(new LegitVelocity("Legit", this)),
             register(new IntaveVelocity("Intave", this)),
-            register(new DelayVelocity("Delay", this))
+            register(new DelayVelocity("Delay", this)),
+            register(new PolarVelocity("Polar", this))
           });
 
   private String register(VelocityMode m) {
@@ -162,6 +163,13 @@ public class Velocity extends Module {
   public void onPacket(PacketEvent event) {
     if (this.isEnabled()) {
       getActiveMode().onPacket(event);
+    }
+  }
+
+  @EventTarget
+  public void onHitSlowDown(HitSlowDownEvent event) {
+    if (this.isEnabled()) {
+      getActiveMode().onHitSlowDown(event);
     }
   }
 

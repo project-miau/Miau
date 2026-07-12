@@ -2,6 +2,7 @@ package miau.module.modules.movement;
 
 import miau.component.PingSpoofComponent;
 import miau.event.EventTarget;
+import miau.event.impl.HitSlowDownEvent;
 import miau.event.impl.TickEvent;
 import miau.event.types.EventType;
 import miau.module.Module;
@@ -46,6 +47,15 @@ public class KeepSprint extends Module {
       // This makes sprint state transitions harder to detect
       PingSpoofComponent.spoof(this.delay.getValue(), true, false, false, false, false, false);
       PingSpoofComponent.enabled = true;
+    }
+  }
+
+  @EventTarget
+  public void onHitSlowDown(HitSlowDownEvent event) {
+    if (this.isEnabled() && this.shouldKeepSprint()) {
+      event.setSprint(true);
+      double multiplier = 1.0 - this.slowdown.getValue().doubleValue() / 100.0;
+      event.setSlowDown(0.6 + 0.4 * multiplier);
     }
   }
 

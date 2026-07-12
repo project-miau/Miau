@@ -198,6 +198,11 @@ public class Miau {
     moduleManager.modules.put(SpeedMine.class, new SpeedMine());
     moduleManager.modules.put(Sprint.class, new Sprint());
     moduleManager.modules.put(StaffDetector.class, new StaffDetector());
+    moduleManager.modules.put(BalanceFix.class, new BalanceFix());
+    moduleManager.modules.put(NoWeb.class, new NoWeb());
+    moduleManager.modules.put(Balance.class, new Balance());
+    moduleManager.modules.put(SprintReset.class, new SprintReset());
+    moduleManager.modules.put(SmartClicking.class, new SmartClicking());
     moduleManager.modules.put(Statistics.class, new Statistics());
     moduleManager.modules.put(TargetHUD.class, new TargetHUD());
     moduleManager.modules.put(TargetStrafe.class, new TargetStrafe());
