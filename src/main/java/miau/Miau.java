@@ -110,6 +110,7 @@ public class Miau {
     moduleManager.modules.put(AutoPlay.class, new AutoPlay());
     moduleManager.modules.put(BedDefender.class, new BedDefender());
     moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
+    moduleManager.modules.put(AutoBlock.class, new AutoBlock());
     moduleManager.modules.put(AutoBuy.class, new AutoBuy());
     moduleManager.modules.put(AutoChest.class, new AutoChest());
     moduleManager.modules.put(AutoClicker.class, new AutoClicker());
