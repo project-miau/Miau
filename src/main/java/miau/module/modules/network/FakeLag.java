@@ -44,10 +44,14 @@ import net.minecraft.network.status.server.S01PacketPong;
 import net.minecraft.util.Vec3;
 import org.lwjgl.opengl.GL11;
 
+import java.util.ArrayList;
+import java.util.List;
+import miau.event.impl.AttackEvent;
+
 public class FakeLag extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  public final ModeProperty mode = new ModeProperty("mode", 0, new String[] {"Latence", "Dynamic"});
+  public final ModeProperty mode = new ModeProperty("mode", 0, new String[] {"Latence", "Dynamic", "Adaptive"});
 
   public final IntProperty delay =
       new IntProperty("delay", 550, 0, 1000, () -> mode.getValue() == 0);
@@ -90,6 +94,17 @@ public class FakeLag extends Module {
   public final FloatProperty dynamicMaxTargetRange =
       new FloatProperty("dynamic-max-target-range", 15.0F, 6.0F, 20.0F, () -> mode.getValue() == 1);
 
+  public final FloatProperty adaptiveEnableRange =
+      new FloatProperty("adaptive-enable-range", 20.0F, 4.0F, 64.0F, () -> mode.getValue() == 2);
+  public final FloatProperty adaptiveSafeRange =
+      new FloatProperty("adaptive-safe-range", 5.0F, 1.0F, 20.0F, () -> mode.getValue() == 2);
+  public final FloatProperty adaptiveDelay =
+      new FloatProperty("adaptive-delay", 100.0F, 200.0F, 0.0F, 2000.0F, () -> mode.getValue() == 2);
+  public final FloatProperty adaptiveBuildupDuration =
+      new FloatProperty("adaptive-buildup-duration", 600.0F, 0.0F, 3000.0F, () -> mode.getValue() == 2);
+  public final FloatProperty adaptiveBuildupDelay =
+      new FloatProperty("adaptive-cooldown", 500.0F, 0.0F, 5000.0F, () -> mode.getValue() == 2);
+
   private final LinkedList<QueueData> packetQueue = new LinkedList<>();
   private final LinkedList<PositionData> positions = new LinkedList<>();
   private final LinkedList<PositionData> renderPositions = new LinkedList<>();
@@ -103,6 +118,14 @@ public class FakeLag extends Module {
   private long dynamicLastStopBlinkTime = -1L;
   private boolean dynamicLastHurt;
   private long dynamicLastStartBlinkTime = -1L;
+
+  private final List<Vec3> positionHistory = new ArrayList<>();
+  private boolean lagging;
+  private double currentDelay = 0;
+  private double targetDelay = 0;
+  private long lastReleaseTime = 0;
+  private EntityPlayer closestPlayer;
+  private double closestDistance = Double.MAX_VALUE;
 
   public FakeLag() {
     super("FakeLag", false);
@@ -119,16 +142,28 @@ public class FakeLag extends Module {
     this.dynamicLastStopBlinkTime = -1L;
     this.dynamicLastHurt = false;
     this.dynamicLastStartBlinkTime = -1L;
+
+    this.lagging = false;
+    this.currentDelay = 0;
+    this.targetDelay = 0;
+    this.lastReleaseTime = 0;
+    this.closestPlayer = null;
+    this.closestDistance = Double.MAX_VALUE;
+    this.positionHistory.clear();
   }
 
   @Override
   public void onDisabled() {
     stopDynamicBlink();
+    if (this.lagging) {
+      this.stopLag(true);
+    }
     if (mc.thePlayer != null) {
       this.blink(true);
     } else {
       this.clearPackets();
     }
+    this.positionHistory.clear();
   }
 
   @EventTarget
@@ -137,6 +172,16 @@ public class FakeLag extends Module {
       return;
 
     Packet<?> packet = event.getPacket();
+
+    if (this.mode.getValue() == 2) {
+      if (event.getType() == EventType.SEND) {
+        if (this.lagging) {
+          event.setCancelled(true);
+          this.packetQueue.add(new QueueData(packet, System.currentTimeMillis() + (long) currentDelay));
+        }
+      }
+      return;
+    }
 
     if (this.mode.getValue() == 1) {
       if (event.getType() == EventType.SEND) {
@@ -201,8 +246,20 @@ public class FakeLag extends Module {
   }
 
   @EventTarget
+  public void onAttack(AttackEvent event) {
+    if (this.isEnabled() && this.mode.getValue() == 2) {
+      if (event.getTarget() instanceof EntityPlayer) {
+        stopLag(false);
+      }
+    }
+  }
+
+  @EventTarget
   public void onWorldLoad(LoadWorldEvent event) {
     stopDynamicBlink();
+    if (this.lagging) {
+      stopLag(true);
+    }
     this.blink(false);
   }
 
@@ -212,6 +269,11 @@ public class FakeLag extends Module {
         || event.getType() != EventType.PRE
         || mc.thePlayer == null
         || mc.theWorld == null) return;
+
+    if (this.mode.getValue() == 2) {
+      handleAdaptive();
+      return;
+    }
 
     if (this.mode.getValue() == 1) {
       handleDynamic();
@@ -273,6 +335,111 @@ public class FakeLag extends Module {
     GL11.glDisable(GL11.GL_BLEND);
     GL11.glEnable(GL11.GL_TEXTURE_2D);
     GL11.glPopMatrix();
+  }
+
+  private void handleAdaptive() {
+    recordPosition();
+    findClosestPlayer();
+
+    if (closestDistance <= adaptiveSafeRange.getValue()) {
+      if (lagging) {
+        stopLag(true);
+      }
+      handlePackets(false);
+      return;
+    }
+
+    if (closestDistance > adaptiveEnableRange.getValue()) {
+      if (lagging) {
+        stopLag(false);
+      }
+      handlePackets(false);
+      return;
+    }
+
+    if (lagging) {
+      if (serverSidedPositionIsCloser()) {
+        stopLag(false);
+      } else {
+        buildUp();
+      }
+    } else if (System.currentTimeMillis() - lastReleaseTime >= adaptiveBuildupDelay.getValue()) {
+      startLag();
+    }
+
+    handlePackets(false);
+  }
+
+  private void recordPosition() {
+    positionHistory.add(0, new Vec3(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ));
+    while (positionHistory.size() > 400) {
+      positionHistory.remove(positionHistory.size() - 1);
+    }
+  }
+
+  private void findClosestPlayer() {
+    closestPlayer = null;
+    closestDistance = Double.MAX_VALUE;
+    if (mc.theWorld == null || mc.thePlayer == null) return;
+
+    double maxDistance = Math.ceil(adaptiveEnableRange.getValue());
+    for (EntityPlayer player : mc.theWorld.playerEntities) {
+      if (player == mc.thePlayer || player.isDead) continue;
+      double distance = mc.thePlayer.getDistanceToEntity(player);
+      if (distance <= maxDistance && distance < closestDistance) {
+        closestDistance = distance;
+        closestPlayer = player;
+      }
+    }
+  }
+
+  private boolean serverSidedPositionIsCloser() {
+    if (closestPlayer == null || positionHistory.isEmpty())
+      return false;
+
+    int ticksAgo = (int) ((getPing() / 50) + currentDelay / 20);
+    ticksAgo = Math.max(0, Math.min(ticksAgo, positionHistory.size() - 1));
+
+    Vec3 serverSided = positionHistory.get(ticksAgo);
+    Vec3 enemyPos = new Vec3(closestPlayer.posX, closestPlayer.posY, closestPlayer.posZ);
+
+    double serverSidedDistance = serverSided.distanceTo(enemyPos);
+    return serverSidedDistance < closestDistance;
+  }
+
+  private int getPing() {
+    if (mc.thePlayer == null || mc.getNetHandler() == null) return 0;
+    net.minecraft.client.network.NetworkPlayerInfo playerInfo = mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID());
+    return playerInfo != null ? playerInfo.getResponseTime() : 0;
+  }
+
+  private void startLag() {
+    if (closestDistance <= adaptiveSafeRange.getValue()) return;
+
+    lagging = true;
+    currentDelay = 0;
+    float min = adaptiveDelay.getValue();
+    float max = adaptiveDelay.getSecondValue();
+    targetDelay = min + Math.random() * (max - min);
+  }
+
+  private void buildUp() {
+    if (currentDelay >= targetDelay) return;
+
+    double increment =
+        adaptiveBuildupDuration.getValue() <= 0
+            ? targetDelay
+            : (targetDelay * 50.0) / adaptiveBuildupDuration.getValue();
+
+    currentDelay = Math.min(targetDelay, currentDelay + increment);
+  }
+
+  private void stopLag(boolean emergency) {
+    if (!lagging) return;
+
+    lagging = false;
+    lastReleaseTime = System.currentTimeMillis();
+    this.handlePackets(true);
   }
 
   private void handleDynamicAttackTarget(Packet<?> packet) {
@@ -443,7 +610,17 @@ public class FakeLag extends Module {
     Iterator<QueueData> packetIterator = this.packetQueue.iterator();
     while (packetIterator.hasNext()) {
       QueueData data = packetIterator.next();
-      if (clear || data.time <= now - this.delay.getValue()) {
+      boolean shouldRelease = false;
+      if (clear) {
+        shouldRelease = true;
+      } else {
+        if (this.mode.getValue() == 2) {
+          shouldRelease = data.time <= now;
+        } else {
+          shouldRelease = data.time <= now - this.delay.getValue();
+        }
+      }
+      if (shouldRelease) {
         PacketUtil.sendPacketNoEvent(data.packet);
         packetIterator.remove();
       }
@@ -452,7 +629,17 @@ public class FakeLag extends Module {
     Iterator<PositionData> positionIterator = this.positions.iterator();
     while (positionIterator.hasNext()) {
       PositionData data = positionIterator.next();
-      if (clear || data.time <= now - this.delay.getValue()) {
+      boolean shouldRelease = false;
+      if (clear) {
+        shouldRelease = true;
+      } else {
+        if (this.mode.getValue() == 2) {
+          shouldRelease = data.time <= now;
+        } else {
+          shouldRelease = data.time <= now - this.delay.getValue();
+        }
+      }
+      if (shouldRelease) {
         positionIterator.remove();
       }
     }
