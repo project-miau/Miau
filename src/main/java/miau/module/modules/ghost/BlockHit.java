@@ -52,9 +52,6 @@ public class BlockHit extends Module {
     if (mc.thePlayer == null) {
       return;
     }
-    if (target != null && (target.isDead || target.deathTime > 0 || mc.thePlayer.getDistanceToEntity(target) > 6.0)) {
-      target = null;
-    }
     if (!isPlayerHoldingSword()) {
       return;
     }
