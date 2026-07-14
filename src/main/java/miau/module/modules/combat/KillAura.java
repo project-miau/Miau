@@ -461,6 +461,7 @@ public class KillAura extends Module {
       Miau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
     }
     if (this.isEnabled() && event.getType() == EventType.PRE) {
+      this.hitRegistered = false;
       this.ticksSinceVelocity++;
       if (mc.thePlayer.ticksExisted % 20 == 0) {
         this.expandRange = 3.0 + Math.random() * 0.5;
