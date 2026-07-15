@@ -584,7 +584,7 @@ public class KillAura extends Module {
               "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM", "PREDICT"
             });
     this.autoBlockRequirePress = new BooleanProperty("Require Press", false);
-    this.preventServersideBlocking = new BooleanProperty("Prevent SS", false);
+    this.preventServersideBlocking = new BooleanProperty("Prevent Server Side", false);
 
     this.sort =
         new ModeProperty(

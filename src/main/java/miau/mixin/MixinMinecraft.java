@@ -158,10 +158,42 @@ public abstract class MixinMinecraft {
     }
   }
 
+  @Inject(method = "displayGuiScreen(Lnet/minecraft/client/gui/GuiScreen;)V", at = @At("HEAD"), cancellable = true)
+  private void onDisplayGuiScreen(GuiScreen guiScreenIn, CallbackInfo ci) {
+    if (Miau.moduleManager == null) return;
+
+    GuiScreen gui = guiScreenIn;
+
+    // Main menu replacement
+    if (gui instanceof GuiMainMenu || (gui == null && this.theWorld == null)) {
+      gui = new MiauMainMenu();
+    }
+
+    if (gui != null) {
+      GuiOpenEvent event = new GuiOpenEvent(gui);
+      EventManager.call(event);
+
+      if (event.isCancelled()) {
+        ci.cancel();
+        return;
+      }
+
+      if (event.getGui() != gui) {
+        modifiedGui = event.getGui();
+      } else if (gui != guiScreenIn) {
+        modifiedGui = gui;
+      }
+    }
+  }
+
+  private GuiScreen modifiedGui = null;
+
   @ModifyVariable(method = "displayGuiScreen", at = @At("HEAD"), argsOnly = true)
   private GuiScreen modifyGuiScreen(GuiScreen guiScreenIn) {
-    if (guiScreenIn instanceof GuiMainMenu || (guiScreenIn == null && this.theWorld == null)) {
-      return new MiauMainMenu();
+    if (modifiedGui != null) {
+      GuiScreen ret = modifiedGui;
+      modifiedGui = null;
+      return ret;
     }
     return guiScreenIn;
   }
