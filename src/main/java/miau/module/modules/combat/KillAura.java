@@ -99,13 +99,13 @@ public class KillAura extends Module {
   public final FloatProperty swingRange;
   public final FloatProperty cps;
   public final FloatProperty autoBlockCps;
-  public final IntProperty angleStep;
-  public final PercentProperty smoothing;
+  public final FloatProperty rotationSpeed;
   public final ModeProperty moveFix;
   public final BooleanProperty keepSprint;
   public final ModeProperty showTarget;
   public final BooleanProperty rayCast;
   public final BooleanProperty throughWalls;
+  public final FloatProperty rotationRange;
   public final BooleanProperty silentRotations;
   public final ModeProperty rotations;
   public final BooleanProperty vulcanBypass;
@@ -569,8 +569,8 @@ public class KillAura extends Module {
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.IntaveRotation(this));
     this.rotationModes.add(new miau.module.modules.combat.killaura.rotation.PolarRotation(this));
 
-    this.mode = new ModeProperty("Mode", 0, new String[] {"SINGLE", "SWITCH"});
-    this.switchDelay = new IntProperty("switch-delay", 150, 0, 1000);
+    this.mode = new ModeProperty("Attack Mode", 0, new String[] {"SINGLE", "SWITCH"});
+    this.switchDelay = new IntProperty("Switch Delay", 150, 0, 1000);
 
     String[] autoBlockNames =
         this.autoBlockModes.stream()
@@ -578,56 +578,56 @@ public class KillAura extends Module {
             .toArray(String[]::new);
     this.autoBlock =
         new ModeProperty(
-            "auto-block",
+            "Auto Block",
             0,
             new String[] {
               "NONE", "VANILLA", "SPOOF", "BLINK", "INTERACT", "LEGIT", "FAKE", "GRIM", "PREDICT"
             });
-    this.autoBlockRequirePress = new BooleanProperty("autoblock-require-press", false);
-    this.preventServersideBlocking = new BooleanProperty("prevent-serverside-blocking", false);
+    this.autoBlockRequirePress = new BooleanProperty("Require Press", false);
+    this.preventServersideBlocking = new BooleanProperty("Prevent SS", false);
 
     this.sort =
         new ModeProperty(
-            "sorting", 0, new String[] {"DISTANCE", "HEALTH", "HURT-TIME", "FOV", "ARMOR"});
+            "Sorting", 0, new String[] {"DISTANCE", "HEALTH", "HURT-TIME", "FOV", "ARMOR"});
 
     this.clickMode =
         new ModeProperty(
-            "click-delay-mode",
+            "Click Delay",
             0,
             new String[] {"Normal", "Hit Select", "1.9+", "1.9+ With 1.8 Animations"});
 
-    this.attackRange = new FloatProperty("attack-range", 3.0F, 3.0F, 6.0F);
-    this.swingRange = new FloatProperty("swing-range", 3.5F, 3.0F, 6.0F);
-    this.cps = new FloatProperty("aps", 14.0F, 14.0F, 1.0F, 20.0F);
-    this.autoBlockCps = new FloatProperty("autoblock-aps", 8.0F, 10.0F, 1.0F, 10.0F);
+    this.attackRange = new FloatProperty("Range", 3.0F, 3.0F, 6.0F);
+    this.swingRange = new FloatProperty("Swing Range", 3.5F, 3.0F, 6.0F);
+    this.rotationRange = new FloatProperty("Rotation Range", 0.0F, 0.0F, 6.0F);
+    this.cps = new FloatProperty("CPS", 14.0F, 14.0F, 1.0F, 20.0F);
+    this.autoBlockCps = new FloatProperty("AutoBlock CPS", 8.0F, 10.0F, 1.0F, 10.0F);
 
-    this.angleStep = new IntProperty("angle-step", 90, 30, 180);
-    this.smoothing = new PercentProperty("smoothing", 0);
+    this.rotationSpeed = new FloatProperty("Rotation Speed", 5.0F, 10.0F, 0.0F, 10.0F);
     this.moveFix =
         new ModeProperty(
-            "move-fix", 0, new String[] {"OFF", "Normal", "Traditional", "Backwards Sprint"});
+            "Motion Fix", 0, new String[] {"OFF", "Normal", "Traditional", "Backwards Sprint"});
 
-    this.keepSprint = new BooleanProperty("keep-sprint", false);
+    this.keepSprint = new BooleanProperty("Keep Sprint", false);
 
     this.showTarget =
-        new ModeProperty("show-target", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
+        new ModeProperty("Target ESP Mode", 0, new String[] {"NONE", "BOX", "SIGMA_RING"});
 
-    this.rayCast = new BooleanProperty("ray-cast", false);
-    this.throughWalls = new BooleanProperty("through-walls", true);
+    this.rayCast = new BooleanProperty("Ray Cast", false);
+    this.throughWalls = new BooleanProperty("Through Walls", true);
 
-    this.silentRotations = new BooleanProperty("silent-rotations", true);
-    this.rotations = new ModeProperty("rotations", 1, new String[] {"NONE", "NORMAL", "INTAVE", "POLAR"});
+    this.silentRotations = new BooleanProperty("Silent Rotations", true);
+    this.rotations = new ModeProperty("Rotation Mode", 1, new String[] {"NONE", "NORMAL", "INTAVE", "POLAR"});
     this.vulcanBypass = new BooleanProperty("Vulcan Bypass", false);
-    this.whileScaffold = new BooleanProperty("while-scaffold", false);
-    this.badPacketsCheck = new BooleanProperty("bad-packets-check", true);
-    this.fov = new IntProperty("fov", 360, 30, 360);
-    this.requirePress = new BooleanProperty("require-press", false);
-    this.allowMining = new BooleanProperty("allow-mining", true);
-    this.weaponsOnly = new BooleanProperty("weapons-only", true);
-    this.allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
-    this.inventoryCheck = new BooleanProperty("inventory-check", true);
+    this.whileScaffold = new BooleanProperty("While Scaffolding", false);
+    this.badPacketsCheck = new BooleanProperty("Bad Packets", true);
+    this.fov = new IntProperty("FOV", 360, 30, 360);
+    this.requirePress = new BooleanProperty("Right Click Only", false);
+    this.allowMining = new BooleanProperty("Allow Mining", true);
+    this.weaponsOnly = new BooleanProperty("Weapons Only", true);
+    this.allowTools = new BooleanProperty("Allow Tools", false, this.weaponsOnly::getValue);
+    this.inventoryCheck = new BooleanProperty("Inv Check", true);
 
-    this.debugLog = new ModeProperty("debug-log", 0, new String[] {"NONE", "HEALTH"});
+    this.debugLog = new ModeProperty("Debug Log", 0, new String[] {"NONE", "HEALTH"});
   }
 
   public EntityLivingBase getTarget() {
@@ -750,22 +750,34 @@ public class KillAura extends Module {
 
           float[] lastRots = new float[] {event.getYaw(), event.getPitch()};
 
-          double rotSpeed = (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
+          float speedMin = this.rotationSpeed.getValue();
+          float speedMax = this.rotationSpeed.getSecondValue();
+          double rotSpeed = speedMin + (speedMax > speedMin ? Math.random() * (speedMax - speedMin) : 0);
+
+          if (this.rotationRange.getValue() > 0 && this.target != null) {
+            double dist = mc.thePlayer.getDistanceToEntity(this.target.getEntity());
+            double maxRange = this.rotationRange.getValue();
+            double factor = Math.min(1.0, Math.max(0.1, dist / maxRange));
+            rotSpeed *= factor;
+          }
+
+          // Scale 0-10 range to Miau's smooth() angleStep-like range (default 5 → ~90)
+          double smoothSpeed = rotSpeed * 18.0 + RandomUtil.nextFloat(-5.0F, 5.0F);
           float[] rotations;
 
           if (this.silentRotations.getValue()) {
             rotations =
                 this.rotationModes
                     .get(this.rotations.getValue() - 1)
-                    .processRotations(targetRots, lastRots, rotSpeed, event);
+                    .processRotations(targetRots, lastRots, smoothSpeed, event);
           } else {
             float[] lockViewRots =
                 RotationUtil.getRotationsToBox(
                     this.target.getBox(),
                     event.getYaw(),
                     event.getPitch(),
-                    (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
-                    (float) this.smoothing.getValue() / 100.0F);
+                    (float) smoothSpeed,
+                    1.0F);
             if (lockViewRots != null) {
               mc.thePlayer.rotationYaw = lockViewRots[0];
               mc.thePlayer.rotationPitch = lockViewRots[1];
