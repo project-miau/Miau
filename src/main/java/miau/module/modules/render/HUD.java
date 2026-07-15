@@ -79,9 +79,7 @@ public class HUD extends Module {
   public final BooleanProperty toggleSound = new BooleanProperty("toggle-sounds", true);
   public final BooleanProperty toggleAlerts = new BooleanProperty("toggle-alerts", false);
   public final BooleanProperty notifications = new BooleanProperty("notifications", true);
-  public final BooleanProperty blur = new BooleanProperty("Blur", false);
-  public final IntProperty blurIterations = new IntProperty("Blur Iterations", 2, 1, 8);
-  public final IntProperty blurOffset = new IntProperty("Blur Offset", 3, 1, 10);
+  public final BooleanProperty shaders = new BooleanProperty("Shaders", false);
 
   public final IntProperty backgroundAlpha = new IntProperty("Background Alpha", 110, 0, 255);
   public final FloatProperty roundingRadius =
@@ -89,10 +87,6 @@ public class HUD extends Module {
   public final ModeProperty menuBackground =
       new ModeProperty("Menu Background", 0, MenuBackground.NAMES);
 
-  /**
-   * Returns the total height of the visible module array for autofit calculations. Only meaningful
-   * when posX == 1 (right side).
-   */
   public float getModuleListHeight() {
     float itemHeight = hudMode.getValue() == 1 ? 12.0f : 10.0f;
     int count = 0;
@@ -232,22 +226,6 @@ public class HUD extends Module {
     return text;
   }
 
-  /**
-   * When Blur is enabled on HUD, draws backgrounds into blur framebuffers inline (like ravenbS)
-   * before rendering the final text.
-   */
-  private void renderBlurBloom(
-      long l,
-      float delta,
-      java.util.List<InterfaceComponent> animatingComponents,
-      ScaledResolution sr) {
-    // Blur pass (like RavenbS)
-    BlurUtils.prepareBlur();
-    renderElements(l, delta, animatingComponents, sr, 1, false);
-    renderPotions(sr, 1);
-    BlurUtils.blurEnd(blurIterations.getValue(), blurOffset.getValue());
-  }
-
   @EventTarget
   public void onRender2D(Render2DEvent event) {
     long currentMS = System.currentTimeMillis();
@@ -354,16 +332,23 @@ public class HUD extends Module {
     if (this.isEnabled() && !mc.gameSettings.showDebugInfo) {
       long l = System.currentTimeMillis();
 
-      if (this.blur.getValue()) {
-        renderBlurBloom(l, delta, animatingComponents, sr);
+      // ── Shaders pass: bloom + blur for watermark + arraylist backgrounds ──
+      if (this.shaders.getValue()) {
+        BlurUtils.prepareBloom();
+        renderElements(l, delta, animatingComponents, sr, true, true);
+        BlurUtils.bloomEnd(3, 2f);
+
+        BlurUtils.prepareBlur();
+        renderElements(l, delta, animatingComponents, sr, true, true);
+        BlurUtils.blurEnd(2, 3f);
       }
 
-      renderElements(l, delta, animatingComponents, sr, 2, true);
-      renderPotions(sr, 2);
+      renderElements(l, delta, animatingComponents, sr, true, false);
+      renderPotions(sr);
     }
   }
 
-  private void renderPotions(ScaledResolution sr, int renderPass) {
+  private void renderPotions(ScaledResolution sr) {
     if (mc.thePlayer != null) {
       java.util.Collection<net.minecraft.potion.PotionEffect> effects =
           mc.thePlayer.getActivePotionEffects();
@@ -411,40 +396,33 @@ public class HUD extends Module {
           float pW = textWidth + 14 + 4;
           float pH = font.height() + 1.5f;
 
-          if (renderPass == 0) {
+          if (this.backgroundAlpha.getValue() > 0) {
             RoundedUtils.drawRound(
-                pX - 1f, pY - 1f, pW + 2f, pH + 2f, 4f, new Color(81, 99, 149, 80));
-          } else if (renderPass == 1) {
-            RoundedUtils.drawRound(pX, pY, pW, pH, 4f, new Color(0, 0, 0, 150));
-          } else {
-            if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
-              RoundedUtils.drawRound(
-                  pX, pY, pW, pH, 4f, new Color(0, 0, 0, this.backgroundAlpha.getValue()));
-            }
-            int effectColor = potion.getLiquidColor() | 0xFF000000;
-            font.drawWithShadow(text, drawX - textWidth - 1, drawY, effectColor);
+                pX, pY, pW, pH, 4f, new Color(0, 0, 0, this.backgroundAlpha.getValue()));
+          }
+          int effectColor = potion.getLiquidColor() | 0xFF000000;
+          font.drawWithShadow(text, drawX - textWidth - 1, drawY, effectColor);
 
-            if (potion.hasStatusIcon()) {
-              GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-              GlStateManager.enableBlend();
-              mc.getTextureManager()
-                  .bindTexture(
-                      new net.minecraft.util.ResourceLocation(
-                          "textures/gui/container/inventory.png"));
-              int iconIndex = potion.getStatusIconIndex();
-              net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(
-                  (int) (drawX - textWidth - 14),
-                  (int) drawY,
-                  (iconIndex % 8) * 18,
-                  198 + (iconIndex / 8) * 18,
-                  18,
-                  18,
-                  9,
-                  9,
-                  256,
-                  256);
-              GlStateManager.disableBlend();
-            }
+          if (potion.hasStatusIcon()) {
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            GlStateManager.enableBlend();
+            mc.getTextureManager()
+                .bindTexture(
+                    new net.minecraft.util.ResourceLocation(
+                        "textures/gui/container/inventory.png"));
+            int iconIndex = potion.getStatusIconIndex();
+            net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(
+                (int) (drawX - textWidth - 14),
+                (int) drawY,
+                (iconIndex % 8) * 18,
+                198 + (iconIndex / 8) * 18,
+                18,
+                18,
+                9,
+                9,
+                256,
+                256);
+            GlStateManager.disableBlend();
           }
         }
       }
@@ -456,8 +434,8 @@ public class HUD extends Module {
       float delta,
       java.util.List<InterfaceComponent> animatingComponents,
       ScaledResolution sr,
-      int renderPass,
-      boolean updateState) {
+      boolean updateState,
+      boolean backgroundsOnly) {
     boolean isMcFont = FontRepository.isMinecraftSelected();
     float heightExhibition = 9.0f + 3.0f;
     float heightNormal = 9.0f + 1.0f;
@@ -470,22 +448,16 @@ public class HUD extends Module {
           float wW = mc.fontRendererObj.getStringWidth(watermark);
           float wH = mc.fontRendererObj.FONT_HEIGHT;
 
-          if (renderPass == 0) {
+          if (this.backgroundAlpha.getValue() > 0) {
             RoundedUtils.drawRound(
-                wX - 2.0f, wY - 2.0f, wW + 4.0f, wH + 4.0f, 4f, new Color(81, 99, 149, 80));
-          } else if (renderPass == 1) {
-            RoundedUtils.drawRound(
-                wX - 1.0f, wY - 1.0f, wW + 2.0f, wH + 2.0f, 4f, new Color(0, 0, 0, 150));
-          } else {
-            if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
-              RoundedUtils.drawRound(
-                  wX - 1.0f,
-                  wY - 1.0f,
-                  wW + 2.0f,
-                  wH + 2.0f,
-                  4f,
-                  new Color(0, 0, 0, this.backgroundAlpha.getValue()));
-            }
+                wX - 1.0f,
+                wY - 1.0f,
+                wW + 2.0f,
+                wH + 2.0f,
+                4f,
+                new Color(0, 0, 0, this.backgroundAlpha.getValue()));
+          }
+          if (!backgroundsOnly) {
             mc.fontRendererObj.drawStringWithShadow(watermark, wX, wY, this.getColor(l).getRGB());
           }
         } catch (Exception e) {
@@ -554,32 +526,16 @@ public class HUD extends Module {
         int color = (alpha << 24) | (this.getColor(l, finalY).getRGB() & 0x00FFFFFF);
         int bgAlphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
 
-        if (renderPass == 0) {
-          RoundedUtils.drawRound(
-              drawX - 3.0F,
-              drawY - 3.0F,
-              totalWidth + 6.0F,
-              height + 4.0F,
-              4f,
-              new Color(81, 99, 149, 80));
-        } else if (renderPass == 1) {
+        if (this.backgroundAlpha.getValue() > 0) {
           RoundedUtils.drawRound(
               drawX - 2.0F,
               drawY - 2.0F,
               totalWidth + 4.0F,
               height + 2.0F,
               4f,
-              new Color(0, 0, 0, 150));
-        } else {
-          if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
-            RoundedUtils.drawRound(
-                drawX - 2.0F,
-                drawY - 2.0F,
-                totalWidth + 4.0F,
-                height + 2.0F,
-                4f,
-                new Color(0, 0, 0, bgAlphaVal));
-          }
+              new Color(0, 0, 0, bgAlphaVal));
+        }
+        if (!backgroundsOnly) {
           if (this.showBar.getValue()) {
             RenderUtil.enableRenderState();
             if (this.posX.getValue() == 0)
@@ -660,33 +616,17 @@ public class HUD extends Module {
         int color = (alpha << 24) | (this.getColor(l, finalY).getRGB() & 0x00FFFFFF);
         int bgAlphaVal = (int) (this.backgroundAlpha.getValue() * animProgress);
 
-        if (renderPass == 0) {
-          RoundedUtils.drawRound(
-              drawX - 2.0F,
-              drawY - 2.0F,
-              totalWidth + 4.0F,
-              height + 4.0F,
-              4f,
-              new Color(81, 99, 149, 80));
-        } else if (renderPass == 1) {
+        if (this.backgroundAlpha.getValue() > 0) {
           RoundedUtils.drawRound(
               drawX - 1.0F,
               drawY - 1.0F,
               totalWidth + 2.0F,
               height + 2.0F,
               4f,
-              new Color(0, 0, 0, 150));
-        } else {
-          if (!this.blur.getValue() && this.backgroundAlpha.getValue() > 0) {
-            RoundedUtils.drawRound(
-                drawX - 1.0F,
-                drawY - 1.0F,
-                totalWidth + 2.0F,
-                height + 2.0F,
-                4f,
-                new Color(0, 0, 0, bgAlphaVal));
-          }
+              new Color(0, 0, 0, bgAlphaVal));
+        }
 
+        if (!backgroundsOnly) {
           if (this.showBar.getValue()) {
             RenderUtil.enableRenderState();
             if (this.shadow.getValue()) {
@@ -744,7 +684,7 @@ public class HUD extends Module {
         }
       }
 
-      if (this.blinkTimer.getValue() && renderPass == 2) {
+      if (this.blinkTimer.getValue() && !backgroundsOnly) {
         BlinkModules blinkingModule = Miau.blinkManager.getBlinkingModule();
         if (blinkingModule != BlinkModules.NONE && blinkingModule != BlinkModules.AUTO_BLOCK) {
           long movementPacketSize = Miau.blinkManager.countMovement();

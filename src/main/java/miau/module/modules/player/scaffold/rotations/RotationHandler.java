@@ -12,7 +12,18 @@ import miau.util.math.RandomUtil;
 import miau.util.player.RotationUtil;
 import net.minecraft.util.MathHelper;
 
+/**
+ * Routes rotation updates to the selected rotation logic implementation.
+ *
+ * <p>Beta mode (index 4) is fully delegated to {@link BetaRotation}, which owns its entire
+ * pipeline: target computation, delta conditioning (BadPacketsA bypass), GCD fix, noise injection,
+ * and quotient management.
+ *
+ * <p>Non-beta modes use the legacy pipeline with {@link RotationUtil#flexRotation} for GCD and
+ * per-tick state handled inline.
+ */
 public class RotationHandler {
+
   private final Scaffold scaffold;
   private final Map<Integer, IRotationLogic> rotationLogics = new HashMap<>();
 
@@ -46,126 +57,145 @@ public class RotationHandler {
       float diagonalYaw,
       boolean towerRotating,
       boolean willPlaceThisTick) {
+
     int mode = rotationMode.getValue();
-    boolean betaMode = mode == 5;
+    boolean betaMode = mode == 4;
     boolean betaTelly = scaffold.betaFeature.isBetaTellyMode();
 
-    if (mode != 0) {
-      float targetYaw = scaffold.yaw;
-      float targetPitch = scaffold.pitch;
+    if (mode == 0) return; // NONE
 
-      if ((!betaMode || betaTelly)
-          && scaffold.towering
-          && (Scaffold.mc.thePlayer.motionY > 0.0
-              || Scaffold.mc.thePlayer.posY > (double) (scaffold.startY + 1))) {
-        float yawDiff = MathHelper.wrapAngleTo180_float(scaffold.yaw - event.getYaw());
-        float tolerance =
-            scaffold.rotationTick >= 2
-                ? RandomUtil.nextFloat(
-                    scaffold.options.tellystartrotationminspeed.getValue(),
-                    scaffold.options.tellystartrotationmaxspeed.getValue())
-                : RandomUtil.nextFloat(
-                    scaffold.options.tellynormalrotationminspeed.getValue(),
-                    scaffold.options.tellynormalrotationmaxspeed.getValue());
-        if (Math.abs(yawDiff) > tolerance) {
-          float clampedYaw = RotationUtil.clampAngle(yawDiff, tolerance);
-          targetYaw = RotationUtil.quantizeAngle(event.getYaw() + clampedYaw);
-          scaffold.rotationTick = Math.max(scaffold.rotationTick, 1);
-        }
-      }
+    float targetYaw = scaffold.yaw;
+    float targetPitch = scaffold.pitch;
 
-      if (towerRotating && scaffold.isTowering()) {
-        if (!betaMode || betaTelly) {
-          float yawDelta =
-              MathHelper.wrapAngleTo180_float(Scaffold.mc.thePlayer.rotationYaw - event.getYaw());
-          targetYaw =
-              RotationUtil.quantizeAngle(
-                  event.getYaw() + yawDelta * RandomUtil.nextFloat(0.98F, 0.99F));
-          targetPitch = RotationUtil.quantizeAngle(RandomUtil.nextFloat(30.0F, 80.0F));
-        }
-        scaffold.rotationTick = 3;
-        scaffold.towering = true;
-      }
+    // ── Tower rotation ──
+    // Only applied when NOT in active beta-scaffold mode.
+    // In beta mode, tower/telly is handled entirely by BetaRotation.computeTellyRotation().
+    if (!betaMode
+        && scaffold.towering
+        && (Scaffold.mc.thePlayer.motionY > 0.0
+            || Scaffold.mc.thePlayer.posY > (double) (scaffold.startY + 1))) {
+      handleTowerRotation(event, towerRotating);
+      targetYaw = scaffold.yaw;
+      targetPitch = scaffold.pitch;
+    }
 
-      float[] placeGcd;
-      if (betaMode) {
-        placeGcd = new float[] {targetYaw, targetPitch};
-      } else {
-        placeGcd =
-            RotationUtil.flexRotation(targetYaw, targetPitch, event.getYaw(), event.getPitch());
-      }
-      scaffold.placeYaw = placeGcd[0];
-      scaffold.placePitch = placeGcd[1];
-
-      boolean moveFix = false || scaffold.options.movementCorrection.getValue();
-      float packetYaw = placeGcd[0];
-      float packetPitch = placeGcd[1];
-      if (moveFix && mode == 2 && !Float.isNaN(scaffold.bridgeYaw) && !willPlaceThisTick) {
-        float bridgePitch = !Float.isNaN(scaffold.placePitch) ? scaffold.placePitch : targetPitch;
-        float[] bridgeGcd =
-            RotationUtil.flexRotation(
-                scaffold.bridgeYaw, bridgePitch, event.getYaw(), event.getPitch());
-        packetYaw = bridgeGcd[0];
-        packetPitch = bridgeGcd[1];
-      }
-
-      targetYaw = packetYaw;
-      targetPitch = packetPitch;
-
-      if (betaMode) {
-        if (!Float.isNaN(scaffold.betaFeature.lastBetaSentYaw)) {
-          boolean clampE = scaffold.betaFeature.betaPlaceTicks < 3;
-          float[] corrected =
-              RotationUtil.antiDetectionRotation(
-                  targetYaw,
-                  targetPitch,
-                  scaffold.betaFeature.lastBetaSentYaw,
-                  scaffold.betaFeature.lastBetaSentPitch,
-                  scaffold.betaFeature.lastBetaPitchQuotient,
-                  clampE);
-          targetYaw = corrected[0];
-          targetPitch = corrected[1];
-          scaffold.placeYaw = corrected[0];
-          scaffold.placePitch = corrected[1];
-          float mcpSens =
-              (float)
-                  (Scaffold.mc.gameSettings.mouseSensitivity
-                          * (1.0 + Math.random() / 10000000.0)
-                          * 0.6F
-                      + 0.2F);
-          double m = mcpSens * mcpSens * mcpSens * 8.0F * 0.15D;
-          scaffold.betaFeature.lastBetaPitchQuotient =
-              Math.round((corrected[1] - scaffold.betaFeature.lastBetaSentPitch) / m);
-          if (scaffold.betaFeature.lastBetaPitchQuotient == 0L) {
-            scaffold.betaFeature.lastBetaPitchQuotient =
-                corrected[1] > scaffold.betaFeature.lastBetaSentPitch ? 1L : -1L;
-          }
-        }
-        scaffold.betaFeature.lastBetaSentYaw = targetYaw;
-        scaffold.betaFeature.lastBetaSentPitch = targetPitch;
-        scaffold.betaFeature.betaPlaceTicks++;
-      }
-
-      if (willPlaceThisTick) {
-        float deltaX = Math.abs(MathHelper.wrapAngleTo180_float(targetYaw - event.getYaw()));
-        if (deltaX > 2.0F
-            && !Float.isNaN(scaffold.lastPlacedAbsPacketYawDelta)
-            && Math.abs(deltaX - scaffold.lastPlacedAbsPacketYawDelta) < 0.0001F) {
-          double gcdStep = RotationUtil.mouseGcdStepMultiplier();
-          if (gcdStep >= 0.01) {
-            targetYaw += (float) (scaffold.duplicatePlaceRotNudgeSign * gcdStep);
-            scaffold.duplicatePlaceRotNudgeSign = -scaffold.duplicatePlaceRotNudgeSign;
-            deltaX = Math.abs(MathHelper.wrapAngleTo180_float(targetYaw - event.getYaw()));
-          }
-        }
-        scaffold.lastPlacedAbsPacketYawDelta = deltaX;
-      }
-
-      event.setRotation(targetYaw, targetPitch, 3);
-      scaffold.lastMoveFixPacketYaw = targetYaw;
-      if (moveFix) {
-        event.setPervRotation(targetYaw, 3);
+    // ── Tower rotation (beta telly only) ──
+    // When beta telly is actively jumping, BetaRotation handles the full rotation pipeline.
+    // But if the player is towering within telly mode, apply the yaw rotation overshoot.
+    if (betaTelly
+        && scaffold.towering
+        && (Scaffold.mc.thePlayer.motionY > 0.0
+            || Scaffold.mc.thePlayer.posY > (double) (scaffold.startY + 1))) {
+      // In telly mode, only apply tower yaw rotation if we need to overshoot
+      float yawDiff = MathHelper.wrapAngleTo180_float(scaffold.yaw - event.getYaw());
+      float tolerance =
+          scaffold.rotationTick >= 2
+              ? RandomUtil.nextFloat(
+                  scaffold.options.tellystartrotationminspeed.getValue(),
+                  scaffold.options.tellystartrotationmaxspeed.getValue())
+              : RandomUtil.nextFloat(
+                  scaffold.options.tellynormalrotationminspeed.getValue(),
+                  scaffold.options.tellynormalrotationmaxspeed.getValue());
+      if (Math.abs(yawDiff) > tolerance) {
+        float clampedYaw = RotationUtil.clampAngle(yawDiff, tolerance);
+        scaffold.yaw = RotationUtil.quantizeAngle(event.getYaw() + clampedYaw);
+        scaffold.rotationTick = Math.max(scaffold.rotationTick, 1);
       }
     }
+
+    // ── Compute final placement rotations ──
+    float placeYaw, placePitch;
+
+    if (betaMode) {
+      // ── Delegate fully to BetaRotation ──
+      // BetaRotation handles: target computation (diagonal, telly, tower),
+      // delta conditioning (BadPacketsA), GCD fix with K-value noise,
+      // and all state management (lastBetaSent*, lastBetaPitchQuotient).
+      // Results are stored directly into scaffold.*
+      float[] pipelineResult =
+          ((BetaRotation) rotationLogics.get(4))
+              .handleBetaUpdate(
+                  scaffold, event, yawDiffTo180, diagonalYaw, towerRotating, willPlaceThisTick);
+      placeYaw = pipelineResult[0];
+      placePitch = pipelineResult[1];
+      scaffold.placeYaw = placeYaw;
+      scaffold.placePitch = placePitch;
+
+      // BetaRotation already stores lastBetaSentYaw/Pitch and quotients inside handleBetaUpdate
+    } else {
+      float[] placeGcd =
+          RotationUtil.flexRotation(targetYaw, targetPitch, event.getYaw(), event.getPitch());
+      placeYaw = placeGcd[0];
+      placePitch = placeGcd[1];
+      scaffold.placeYaw = placeYaw;
+      scaffold.placePitch = placePitch;
+    }
+
+    // ── Movement correction (backwards mode only) ──
+    boolean moveFix = scaffold.options.movementCorrection.getValue();
+    float packetYaw = placeYaw;
+    float packetPitch = placePitch;
+    if (moveFix && mode == 2 && !Float.isNaN(scaffold.bridgeYaw) && !willPlaceThisTick) {
+      float bridgePitch = !Float.isNaN(scaffold.placePitch) ? scaffold.placePitch : targetPitch;
+      float[] bridgeGcd =
+          RotationUtil.flexRotation(
+              scaffold.bridgeYaw, bridgePitch, event.getYaw(), event.getPitch());
+      packetYaw = bridgeGcd[0];
+      packetPitch = bridgeGcd[1];
+    }
+
+    targetYaw = packetYaw;
+    targetPitch = packetPitch;
+
+    // ── Beta mode: lastBetaSent* already updated inside handleBetaUpdate ──
+    // ── Non-beta: duplicate rotation nudge ──
+    if (!betaMode && willPlaceThisTick) {
+      float deltaX = Math.abs(MathHelper.wrapAngleTo180_float(targetYaw - event.getYaw()));
+      if (deltaX > 2.0F
+          && !Float.isNaN(scaffold.lastPlacedAbsPacketYawDelta)
+          && Math.abs(deltaX - scaffold.lastPlacedAbsPacketYawDelta) < 0.0001F) {
+        double gcdStep = RotationUtil.mouseGcdStepMultiplier();
+        if (gcdStep >= 0.01) {
+          targetYaw += (float) (scaffold.duplicatePlaceRotNudgeSign * gcdStep);
+          scaffold.duplicatePlaceRotNudgeSign = -scaffold.duplicatePlaceRotNudgeSign;
+        }
+      }
+      scaffold.lastPlacedAbsPacketYawDelta = deltaX;
+    }
+
+    event.setRotation(targetYaw, targetPitch, 3);
+    scaffold.lastMoveFixPacketYaw = targetYaw;
+    if (moveFix) {
+      event.setPervRotation(targetYaw, 3);
+    }
+  }
+
+  /** Handles tower rotation for non-beta mode. */
+  private void handleTowerRotation(UpdateEvent event, boolean towerRotating) {
+    float yawDiff = MathHelper.wrapAngleTo180_float(scaffold.yaw - event.getYaw());
+    float tolerance =
+        scaffold.rotationTick >= 2
+            ? RandomUtil.nextFloat(
+                scaffold.options.tellystartrotationminspeed.getValue(),
+                scaffold.options.tellystartrotationmaxspeed.getValue())
+            : RandomUtil.nextFloat(
+                scaffold.options.tellynormalrotationminspeed.getValue(),
+                scaffold.options.tellynormalrotationmaxspeed.getValue());
+    if (Math.abs(yawDiff) > tolerance) {
+      float clampedYaw = RotationUtil.clampAngle(yawDiff, tolerance);
+      scaffold.yaw = RotationUtil.quantizeAngle(event.getYaw() + clampedYaw);
+      scaffold.rotationTick = Math.max(scaffold.rotationTick, 1);
+    }
+
+    if (towerRotating && scaffold.isTowering()) {
+      float yawDelta =
+          MathHelper.wrapAngleTo180_float(Scaffold.mc.thePlayer.rotationYaw - event.getYaw());
+      scaffold.yaw =
+          RotationUtil.quantizeAngle(
+              event.getYaw() + yawDelta * RandomUtil.nextFloat(0.98F, 0.99F));
+      scaffold.pitch = RotationUtil.quantizeAngle(RandomUtil.nextFloat(30.0F, 80.0F));
+    }
+    scaffold.rotationTick = 3;
+    scaffold.towering = true;
   }
 }

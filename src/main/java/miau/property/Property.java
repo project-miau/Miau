@@ -69,6 +69,10 @@ public abstract class Property<T> {
     this.owner = module;
   }
 
+  public Module getOwner() {
+    return this.owner;
+  }
+
   public abstract boolean parseString(String string);
 
   public abstract boolean read(JsonObject jsonObject);

@@ -32,6 +32,7 @@ public class Scoreboard extends Module {
   public final BooleanProperty customFont = new BooleanProperty("Custom Font", false);
   public final BooleanProperty textShadow = new BooleanProperty("Text Shadow", true);
   public final BooleanProperty redNumbers = new BooleanProperty("Red Numbers", false);
+  public final BooleanProperty shaders = new BooleanProperty("Shaders", false);
 
   private final Animation autofitAnimation = new Animation(Easing.EASE_OUT_EXPO, 300);
 

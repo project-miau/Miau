@@ -893,4 +893,16 @@ public class RotationUtil {
     if (mop == null || mop.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) return null;
     return mop;
   }
+
+  /**
+   * Resets rotation to current player yaw while preserving pitch, wrapping the angle difference
+   * correctly (port from Rise 6.2.4).
+   */
+  public static float[] resetRotation(float[] rotation) {
+    if (rotation == null) return null;
+    float yaw =
+        rotation[0] + MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw - rotation[0]);
+    float pitch = mc.thePlayer.rotationPitch;
+    return new float[] {yaw, pitch};
+  }
 }

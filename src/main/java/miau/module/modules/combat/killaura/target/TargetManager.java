@@ -49,13 +49,7 @@ public class TargetManager {
           int sortBase = 0;
           switch (this.killAura.sort.getValue()) {
             case 2:
-              boolean e1JustHit = e1.hurtTime > 0;
-              boolean e2JustHit = e2.hurtTime > 0;
-              if (e1JustHit != e2JustHit) {
-                sortBase = e1JustHit ? 1 : -1;
-              } else {
-                sortBase = Integer.compare(e1.hurtResistantTime / 5, e2.hurtResistantTime / 5);
-              }
+              sortBase = Integer.compare(e1.hurtTime, e2.hurtTime);
               break;
             case 1:
               sortBase = Float.compare(TeamUtil.getHealthScore(e1), TeamUtil.getHealthScore(e2));

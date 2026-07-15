@@ -91,6 +91,7 @@ public class Miau {
     EventManager.register(slotComponent);
     EventManager.register(new miau.component.PingSpoofComponent());
     EventManager.register(new miau.component.BlinkComponent());
+    EventManager.register(new miau.component.RotationComponent());
     playerTracker = new miau.util.player.PlayerTracker();
     EventManager.register(playerTracker);
     moduleManager.modules.put(AimAssist.class, new AimAssist());

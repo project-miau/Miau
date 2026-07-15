@@ -19,4 +19,32 @@ public class BetaRotation implements IRotationLogic {
       scaffold.betaFeature.lastBetaSentPitch = event.getPitch();
     }
   }
+
+  /**
+   * Full beta rotation pipeline: target computation, delta conditioning, GCD fix, noise injection.
+   * Returns [placeYaw, placePitch] — result is also stored into scaffold.* fields.
+   */
+  public float[] handleBetaUpdate(
+      Scaffold scaffold,
+      UpdateEvent event,
+      float yawDiffTo180,
+      float diagonalYaw,
+      boolean towerRotating,
+      boolean willPlaceThisTick) {
+    // Default implementation: just use current yaw/pitch as-is
+    float targetYaw = scaffold.yaw;
+    float targetPitch = scaffold.pitch;
+
+    float[] gcd =
+        RotationUtil.flexRotation(targetYaw, targetPitch, event.getYaw(), event.getPitch());
+    float placeYaw = gcd[0];
+    float placePitch = gcd[1];
+
+    scaffold.placeYaw = placeYaw;
+    scaffold.placePitch = placePitch;
+    scaffold.betaFeature.lastBetaSentYaw = placeYaw;
+    scaffold.betaFeature.lastBetaSentPitch = placePitch;
+
+    return new float[] {placeYaw, placePitch};
+  }
 }

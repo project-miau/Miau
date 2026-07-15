@@ -5,7 +5,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import miau.Miau;
+import miau.module.modules.render.HUD;
 import miau.module.modules.render.Scoreboard;
+import miau.util.shader.BlurUtils;
 import miau.util.shader.RoundedUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiIngame;
@@ -38,6 +40,37 @@ public abstract class MixinGuiIngameScoreboard {
 
     // Recalculate bounds every frame
     scoreboardMod.updateBounds(scaledRes);
+
+    // Render shaders (bloom + blur) when enabled
+    if (scoreboardMod.shaders.getValue()) {
+      float cardX = scoreboardMod.defaultX;
+      float cardY = scoreboardMod.defaultY;
+      float cardWidth = (float) scoreboardMod.drag.scale.x;
+      float cardHeight = (float) scoreboardMod.drag.scale.y;
+
+      HUD hud = (HUD) Miau.moduleManager.getModule(HUD.class);
+      boolean hudShaders = hud != null && hud.isEnabled() && hud.shaders.getValue();
+
+      if (hudShaders) {
+        // Bloom pass — glow border
+        BlurUtils.prepareBloom();
+        RoundedUtils.drawRound(
+            cardX - 1,
+            cardY - 1,
+            cardWidth + 2,
+            cardHeight + 2,
+            2f,
+            true,
+            new Color(81, 99, 149, 80));
+        BlurUtils.bloomEnd(3, 2f);
+
+        // Blur pass — blur background
+        BlurUtils.prepareBlur();
+        RoundedUtils.drawRound(
+            cardX, cardY, cardWidth, cardHeight, 2f, true, new Color(0, 0, 0, 150));
+        BlurUtils.blurEnd(2, 3f);
+      }
+    }
 
     renderOpalScoreboard(objective, scaledRes, scoreboardMod, false);
     ci.cancel();
