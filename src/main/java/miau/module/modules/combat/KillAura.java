@@ -75,6 +75,7 @@ public class KillAura extends Module {
   public boolean blinkReset = false;
   public boolean rightHoldActive = false;
   public boolean cancelAttack = false;
+  public long attackDelayMS = 0L;
 
   public int blockTick = 0;
   public int keepSprintBlinkTicks = 0;

@@ -9,6 +9,7 @@ import miau.event.impl.PacketEvent;
 import miau.event.impl.Render3DEvent;
 import miau.event.impl.StrafeEvent;
 import miau.event.impl.UpdateEvent;
+import miau.event.impl.HitSlowDownEvent;
 import miau.module.modules.combat.Velocity;
 import net.minecraft.client.Minecraft;
 
@@ -51,4 +52,6 @@ public abstract class VelocityMode {
   public void onJump(JumpEvent event) {}
 
   public void onRender3D(Render3DEvent event) {}
+
+  public void onHitSlowDown(HitSlowDownEvent event) {}
 }

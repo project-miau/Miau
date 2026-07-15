@@ -111,6 +111,7 @@ public class Miau {
     moduleManager.modules.put(AutoPlay.class, new AutoPlay());
     moduleManager.modules.put(BedDefender.class, new BedDefender());
     moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
+    moduleManager.modules.put(AutoBlock.class, new AutoBlock());
     moduleManager.modules.put(AutoBuy.class, new AutoBuy());
     moduleManager.modules.put(AutoChest.class, new AutoChest());
     moduleManager.modules.put(AutoClicker.class, new AutoClicker());
@@ -152,9 +153,9 @@ public class Miau {
     moduleManager.modules.put(Freeze.class, new Freeze());
     moduleManager.modules.put(FullBright.class, new FullBright());
     moduleManager.modules.put(GhostHand.class, new GhostHand());
+    moduleManager.modules.put(JumpReset.class, new JumpReset());
     moduleManager.modules.put(HUD.class, new HUD());
     moduleManager.modules.put(HitBox.class, new HitBox());
-    moduleManager.modules.put(HitSelect.class, new HitSelect());
     moduleManager.modules.put(Indicators.class, new Indicators());
     moduleManager.modules.put(InvManager.class, new InvManager());
     moduleManager.modules.put(InvWalk.class, new InvWalk());
@@ -193,12 +194,18 @@ public class Miau {
     moduleManager.modules.put(Refill.class, new Refill());
     moduleManager.modules.put(SafeWalk.class, new SafeWalk());
     moduleManager.modules.put(Scaffold.class, new Scaffold());
+    moduleManager.modules.put(GrimTestScaffold.class, new GrimTestScaffold());
     moduleManager.modules.put(Scoreboard.class, new Scoreboard());
     moduleManager.modules.put(Spammer.class, new Spammer());
     moduleManager.modules.put(Speed.class, new Speed());
     moduleManager.modules.put(SpeedMine.class, new SpeedMine());
     moduleManager.modules.put(Sprint.class, new Sprint());
     moduleManager.modules.put(StaffDetector.class, new StaffDetector());
+    moduleManager.modules.put(BalanceFix.class, new BalanceFix());
+    moduleManager.modules.put(NoWeb.class, new NoWeb());
+    moduleManager.modules.put(Balance.class, new Balance());
+    moduleManager.modules.put(SprintReset.class, new SprintReset());
+    moduleManager.modules.put(SmartClicking.class, new SmartClicking());
     moduleManager.modules.put(Statistics.class, new Statistics());
     moduleManager.modules.put(TargetHUD.class, new TargetHUD());
     moduleManager.modules.put(TargetStrafe.class, new TargetStrafe());

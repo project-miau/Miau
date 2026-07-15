@@ -16,9 +16,12 @@ public final class ClientInfo {
 
     public static String getDisplayVersion() {
         if (GITHUB_BUILD) {
-            return NAME + " (dev) " + getGitVersion() + " | MC " + MC_VERSION;
+            String commit = GIT_COMMIT != null && !GIT_COMMIT.isEmpty() && !"unknown".equalsIgnoreCase(GIT_COMMIT)
+                    ? GIT_COMMIT
+                    : "unknown";
+            return NAME + " " + VERSION + " beta +" + commit;
         }
-        return NAME + " (main) " + VERSION + " | MC " + MC_VERSION;
+        return NAME + " " + VERSION + " Stable";
     }
 
     public static String getClickGuiVersion() {

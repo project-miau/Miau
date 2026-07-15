@@ -32,4 +32,7 @@ public interface IAccessorMinecraft {
 
   @Invoker("rightClickMouse")
   void callRightClickMouse();
+
+  @Invoker("clickMouse")
+  void callClickMouse();
 }

@@ -58,10 +58,10 @@ public class MiauMainMenu extends GuiScreen {
   }
 
   private void loadFonts() {
-    fontLogo = FontRepository.getHudFont(56);
-    fontSubtitle = FontRepository.getHudFont(18);
-    fontBtn = FontRepository.getHudFont(18);
-    fontMeta = FontRepository.getHudFont(14);
+    fontLogo = FontRepository.getMinecraftFont();
+    fontSubtitle = FontRepository.getMinecraftFont();
+    fontBtn = FontRepository.getMinecraftFont();
+    fontMeta = FontRepository.getMinecraftFont();
   }
 
   @Override
@@ -94,7 +94,30 @@ public class MiauMainMenu extends GuiScreen {
                                       .displayGuiScreen(
                                           new GuiUpdateClient(
                                               this, ClientInfo.VERSION, latest, url)));
+                      return; // Don't show both update and noti at same time
                     }
+                  }
+                  
+                  String notiResp = MiauAPI.getClientNotification();
+                  JsonObject notiJson = new JsonParser().parse(notiResp).getAsJsonObject();
+                  if (notiJson.has("status") && notiJson.get("status").getAsString().equals("success") && notiJson.has("hasNotification") && notiJson.get("hasNotification").getAsBoolean()) {
+                      JsonObject noti = notiJson.get("notification").getAsJsonObject();
+                      String title = noti.has("title") ? noti.get("title").getAsString() : "Notification";
+                      String desc = noti.has("desc") ? noti.get("desc").getAsString() : "";
+                      String btn1Text = noti.has("btn1Text") ? noti.get("btn1Text").getAsString() : "OK";
+                      String btn1Link = noti.has("btn1Link") ? noti.get("btn1Link").getAsString() : "";
+                      String btn2Text = noti.has("btn2Text") ? noti.get("btn2Text").getAsString() : "";
+                      String btn2Link = noti.has("btn2Link") ? noti.get("btn2Link").getAsString() : "";
+                      int durationDays = noti.has("durationDays") ? noti.get("durationDays").getAsInt() : 0;
+                      long updatedAt = noti.has("updatedAt") ? noti.get("updatedAt").getAsLong() : 0;
+                      
+                      long now = System.currentTimeMillis();
+                      if (durationDays <= 0 || updatedAt == 0 || (now - updatedAt) <= (durationDays * 24L * 60 * 60 * 1000L)) {
+                          Minecraft.getMinecraft().addScheduledTask(() -> {
+                              Minecraft.getMinecraft().displayGuiScreen(
+                                  new miau.ui.GuiNotificationClient(this, title, desc, btn1Text, btn1Link, btn2Text, btn2Link));
+                          });
+                      }
                   }
                 } catch (Exception ignored) {
                 }

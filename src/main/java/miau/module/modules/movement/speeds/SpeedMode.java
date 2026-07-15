@@ -6,6 +6,7 @@ import miau.event.impl.JumpEvent;
 import miau.event.impl.LivingUpdateEvent;
 import miau.event.impl.PacketEvent;
 import miau.event.impl.StrafeEvent;
+import miau.event.impl.MoveInputEvent;
 import miau.module.modules.movement.Speed;
 import miau.property.Property;
 import net.minecraft.client.Minecraft;
@@ -39,4 +40,6 @@ public abstract class SpeedMode {
   public void onPacket(PacketEvent event) {}
 
   public void onJump(JumpEvent event) {}
+
+  public void onMoveInput(MoveInputEvent event) {}
 }

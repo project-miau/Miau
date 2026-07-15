@@ -15,12 +15,14 @@ public class Disabler extends Module {
 
   // -- Mode instances --
   public final TransactionDisabler transaction = new TransactionDisabler("Transaction", this);
+  public final GrimAutoclickDisabler grimAutoclick = new GrimAutoclickDisabler("Grim AutoClick", this);
 
-  public final ModeProperty mode = new ModeProperty("Mode", 0, new String[] {"Transaction"});
+  public final ModeProperty mode = new ModeProperty("Mode", 0, new String[] {"Transaction", "Grim AutoClick"});
 
   public Disabler() {
     super("Disabler", false);
     modes.add(transaction);
+    modes.add(grimAutoclick);
   }
 
   public DisablerMode getActiveMode() {

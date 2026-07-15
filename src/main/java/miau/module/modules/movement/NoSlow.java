@@ -10,6 +10,7 @@ import miau.module.Module;
 import miau.module.modules.movement.noslow.*;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.ModeProperty;
+import miau.property.properties.IntProperty;
 import miau.util.player.ItemUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemPotion;
@@ -28,11 +29,15 @@ public class NoSlow extends Module {
             "Watchdog",
             "Intave",
             "Grim 1.9",
+            "New Grim",
             "Verus",
             "AAC",
             "Spartan",
-            "Test"
+            "Test",
+            "Grim Test"
           });
+  public final IntProperty grimTestMaxTicks =
+      new IntProperty("grim-test-max-ticks", 5, 1, 20, () -> this.mode.getValue() == 11);
   public final BooleanProperty swordValue = new BooleanProperty("sword", true);
   public final BooleanProperty foodValue = new BooleanProperty("food", true);
   public final BooleanProperty potionValue = new BooleanProperty("potion", true);
@@ -49,10 +54,12 @@ public class NoSlow extends Module {
     modes.add(new OMWatchdogNoSlow("Watchdog", this));
     modes.add(new OMIntaveNoSlow("Intave", this));
     modes.add(new OMGrimNoSlow("Grim", this));
+    modes.add(new OMNewGrimNoSlow("New Grim", this));
     modes.add(new OMVerusNoSlow("Verus", this));
     modes.add(new OMAACNoSlow("AAC", this));
     modes.add(new OMSpartanNoSlow("Spartan", this));
     modes.add(new OMOpalWatchdogNoSlow("Test", this));
+    modes.add(new OMGrimTestNoSlow("Grim Test", this));
   }
 
   private NoSlowMode getActiveMode() {
@@ -102,6 +109,18 @@ public class NoSlow extends Module {
   public boolean isAnyActive() {
     return mc.thePlayer.isUsingItem()
         && (isSwordActive() || isFoodActive() || isBowActive() || isPotionActive());
+  }
+
+  public boolean shouldCancelSlowdown() {
+    if (!this.isEnabled()) return false;
+    NoSlowMode activeMode = getActiveMode();
+    if (activeMode instanceof OMNewGrimNoSlow) {
+      return ((OMNewGrimNoSlow) activeMode).shouldCancelSlowdown();
+    }
+    if (activeMode instanceof OMGrimTestNoSlow) {
+      return ((OMGrimTestNoSlow) activeMode).shouldCancelSlowdown();
+    }
+    return true;
   }
 
   public boolean canSprint() {

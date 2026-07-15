@@ -46,7 +46,10 @@ public final class BlinkComponent {
         || mc.isSingleplayer()
         || !((miau.mixin.IAccessorNetHandlerPlayClient) mc.getNetHandler())
             .isDoneLoadingTerrain()) {
-      packets.forEach(PacketUtil::sendPacketNoEvent);
+      packets.forEach(p -> {
+        miau.module.modules.misc.Balance.onRelease(p);
+        PacketUtil.sendPacketNoEvent(p);
+      });
       packets.clear();
       blinking = false;
       exemptedPackets.clear();
@@ -75,7 +78,10 @@ public final class BlinkComponent {
         event.setCancelled(true);
       }
     } else if (packet instanceof C03PacketPlayer) {
-      packets.forEach(PacketUtil::sendPacketNoEvent);
+      packets.forEach(p -> {
+        miau.module.modules.misc.Balance.onRelease(p);
+        PacketUtil.sendPacketNoEvent(p);
+      });
       packets.clear();
       dispatch = false;
     }

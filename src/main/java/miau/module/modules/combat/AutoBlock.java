@@ -1,4 +1,4 @@
-package miau.module.modules.ghost;
+package miau.module.modules.combat;
 
 import miau.event.EventTarget;
 import miau.event.impl.AttackEvent;
@@ -11,9 +11,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemSword;
-import org.lwjgl.input.Mouse;
 
-public class BlockHit extends Module {
+public class AutoBlock extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
   public final ModeProperty mode = new ModeProperty("Mode", 0, new String[] {"Legit"});
@@ -23,8 +22,8 @@ public class BlockHit extends Module {
   public EntityLivingBase target;
   public boolean down;
 
-  public BlockHit() {
-    super("BlockHit", false, false);
+  public AutoBlock() {
+    super("Block", false, false);
   }
 
   @Override
@@ -53,12 +52,6 @@ public class BlockHit extends Module {
       return;
     }
     if (!isPlayerHoldingSword()) {
-      return;
-    }
-    if (rmb.getValue() && !Mouse.isButtonDown(1)) {
-      if (down) {
-        release();
-      }
       return;
     }
     if (target == null) {

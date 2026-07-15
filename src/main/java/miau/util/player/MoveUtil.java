@@ -36,6 +36,12 @@ public class MoveUtil {
             || mc.thePlayer.movementInput.moveStrafe != 0.0f);
   }
 
+  public static boolean isMovingStraight() {
+    return isMoving()
+        && mc.thePlayer.movementInput.moveForward != 0.0F
+        && mc.thePlayer.movementInput.moveStrafe == 0.0F;
+  }
+
   public static int getForwardValue() {
     int forwardValue = 0;
     if (MoveUtil.mc.gameSettings.keyBindForward.isKeyDown()) {
@@ -492,7 +498,20 @@ public class MoveUtil {
       float yawSin = MathHelper.sin((float) ((double) yaw * Math.PI / 180.0));
       float yawCos = MathHelper.cos((float) ((double) yaw * Math.PI / 180.0));
       mc.thePlayer.motionX += (double) (calcStrafe * yawCos - calcForward * yawSin);
-      mc.thePlayer.motionZ += (double) (calcForward * yawCos + calcStrafe * yawSin);
     }
+  }
+
+  public static double findGround(net.minecraft.entity.Entity entity) {
+    for (double y = entity.posY; y > 0; y--) {
+      BlockPos pos = new BlockPos(entity.posX, y, entity.posZ);
+      if (!mc.theWorld.isAirBlock(pos)) {
+        return pos.getY() + 1.0;
+      }
+    }
+    return 0.0;
+  }
+
+  public static boolean isMovingMotion(net.minecraft.entity.Entity entity) {
+    return Math.abs(entity.motionX) > 0.005 || Math.abs(entity.motionZ) > 0.005;
   }
 }

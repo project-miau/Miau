@@ -6,6 +6,7 @@ import miau.Miau;
 import miau.event.EventTarget;
 import miau.event.impl.JumpEvent;
 import miau.event.impl.LivingUpdateEvent;
+import miau.event.impl.MoveInputEvent;
 import miau.event.impl.PacketEvent;
 import miau.event.impl.StrafeEvent;
 import miau.event.types.Priority;
@@ -16,6 +17,7 @@ import miau.module.modules.movement.speeds.LegitSpeed;
 import miau.module.modules.movement.speeds.LowHopSpeed;
 import miau.module.modules.movement.speeds.SpeedMode;
 import miau.module.modules.movement.speeds.VulcanSpeed;
+import miau.module.modules.movement.speeds.PolarSpeed;
 import miau.module.modules.player.Scaffold;
 import miau.property.Property;
 import miau.property.properties.ModeProperty;
@@ -25,14 +27,15 @@ import net.minecraft.client.Minecraft;
 public class Speed extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
   public final ModeProperty mode =
-      new ModeProperty("mode", 0, new String[] {"DEFAULT", "LEGIT", "LowHop", "VULCAN"});
+      new ModeProperty("mode", 0, new String[] {"DEFAULT", "LEGIT", "LowHop", "VULCAN", "POLAR"});
 
   private final SpeedMode[] modes =
       new SpeedMode[] {
         new DefaultSpeed("DEFAULT", this),
         new LegitSpeed("LEGIT", this),
         new LowHopSpeed("LowHop", this),
-        new VulcanSpeed("VULCAN", this)
+        new VulcanSpeed("VULCAN", this),
+        new PolarSpeed("POLAR", this)
       };
 
   private int lastMode = -1;
@@ -104,6 +107,12 @@ public class Speed extends Module {
   public void onJump(JumpEvent event) {
     if (!this.isEnabled()) return;
     modes[this.mode.getValue()].onJump(event);
+  }
+
+  @EventTarget(Priority.LOW)
+  public void onMoveInput(MoveInputEvent event) {
+    if (!this.isEnabled()) return;
+    modes[this.mode.getValue()].onMoveInput(event);
   }
 
   @Override

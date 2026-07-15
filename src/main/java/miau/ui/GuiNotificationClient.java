@@ -1,7 +1,6 @@
 package miau.ui;
 
 import java.awt.Desktop;
-import java.io.IOException;
 import java.net.URI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -9,7 +8,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.opengl.GL11;
 
-public class GuiUpdateClient extends GuiScreen {
+public class GuiNotificationClient extends GuiScreen {
 
   private static final int BG_OVERLAY   = 0xB0000000;
   private static final int PANEL_BG     = 0xE8161620;
@@ -24,30 +23,27 @@ public class GuiUpdateClient extends GuiScreen {
   private static final int PINK      = 0xFFF6548A;
   private static final int PINK_SOFT = 0xFFE23F79;
   private static final int PINK_GLOW = 0x40F6548A;
-  private static final int CORAL     = 0xFFFB8A63;
 
   private static final int PANEL_RADIUS  = 12;
   private static final int BUTTON_RADIUS = 7;
 
   private final GuiScreen parent;
-  private final String currentVersion;
-  private final String latestVersion;
-  private final String updateUrl;
+  private final String title;
+  private final String desc;
+  private final String btn1Text;
+  private final String btn1Link;
+  private final String btn2Text;
+  private final String btn2Link;
 
-  public GuiUpdateClient(
-      GuiScreen parent, String currentVersion, String latestVersion, String updateUrl) {
+  public GuiNotificationClient(
+      GuiScreen parent, String title, String desc, String btn1Text, String btn1Link, String btn2Text, String btn2Link) {
     this.parent = parent;
-    this.currentVersion = currentVersion;
-    this.latestVersion = latestVersion;
-    this.updateUrl = updateUrl;
-  }
-
-  @Override
-  public void setWorldAndResolution(Minecraft mc, int width, int height) {
-    if (this.parent != null) {
-      this.parent.setWorldAndResolution(mc, width, height);
-    }
-    super.setWorldAndResolution(mc, width, height);
+    this.title = title;
+    this.desc = desc;
+    this.btn1Text = btn1Text;
+    this.btn1Link = btn1Link;
+    this.btn2Text = btn2Text;
+    this.btn2Link = btn2Link;
   }
 
   @Override
@@ -56,20 +52,31 @@ public class GuiUpdateClient extends GuiScreen {
     int centerX = this.width / 2;
     int centerY = this.height / 2;
 
-    this.buttonList.add(
-        new StyledButton(0, centerX - 121, centerY + 52, 116, 24, "Update", true));
-    this.buttonList.add(
-        new StyledButton(1, centerX + 5, centerY + 52, 116, 24, "Dismiss", false));
+    int y = centerY + 52;
+
+    if (btn2Text != null && !btn2Text.isEmpty()) {
+      this.buttonList.add(new StyledButton(0, centerX - 121, y, 116, 24, btn1Text, true));
+      this.buttonList.add(new StyledButton(1, centerX + 5, y, 116, 24, btn2Text, false));
+    } else {
+      this.buttonList.add(new StyledButton(0, centerX - 58, y, 116, 24, btn1Text, true));
+    }
   }
 
   @Override
-  protected void actionPerformed(GuiButton button) throws IOException {
+  protected void actionPerformed(GuiButton button) {
     if (button.id == 0) {
-      try {
-        Desktop.getDesktop().browse(new URI(this.updateUrl));
-      } catch (Exception ignored) {
-      }
+      open(btn1Link);
     } else if (button.id == 1) {
+      open(btn2Link);
+    }
+  }
+
+  private void open(String link) {
+    if (link != null && !link.isEmpty()) {
+      try {
+        Desktop.getDesktop().browse(new URI(link));
+      } catch (Exception ignored) { }
+    } else {
       this.mc.displayGuiScreen(this.parent);
     }
   }
@@ -100,23 +107,19 @@ public class GuiUpdateClient extends GuiScreen {
     int contentX = left + 16;
     int y = top + 16;
 
-    drawScaledString("Client Outdated", contentX, y, 1.1f, TEXT_1, true);
-    drawPill(right - 16 - 50, top + 12, 50, 12, "UPDATE", PINK);
+    drawScaledString(this.title, contentX, y, 1.1f, TEXT_1, true);
 
     y += 17;
     drawRect(left + 16, y, right - 16, y + 1, DIVIDER);
     y += 14;
 
-    y = drawVersionRow(contentX, y, right - 16, CORAL, "Current version", currentVersion, TEXT_3);
-    y += 6;
-    y = drawVersionRow(contentX, y, right - 16, PINK, "Latest version", latestVersion, PINK);
+    this.fontRendererObj.drawSplitString(this.desc, contentX, y, panelWidth - 32, TEXT_2);
 
-    y += 8;
+    y += 40;
     drawRect(left + 16, y, right - 16, y + 1, DIVIDER);
 
     super.drawScreen(mouseX, mouseY, partialTicks);
   }
-
 
   private void drawPanel(int left, int top, int right, int bottom, int radius) {
     GlStateManager.enableBlend();
@@ -133,28 +136,6 @@ public class GuiUpdateClient extends GuiScreen {
         drawRect(x, y, x + 1, y + 1, DOT_GRID);
       }
     }
-  }
-
-  private void drawPill(int x, int y, int w, int h, String text, int accent) {
-    GlStateManager.enableBlend();
-    GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-    int radius = h / 2;
-    drawRoundedRect(x, y, x + w, y + h, radius, PANEL_BORDER);
-    drawRoundedRect(x + 1, y + 1, x + w - 1, y + h - 1, Math.max(0, radius - 1),
-        (accent & 0x00FFFFFF) | 0x22000000);
-    GlStateManager.disableBlend();
-
-    int strW = this.fontRendererObj.getStringWidth(text);
-    this.fontRendererObj.drawString(text, x + (w - strW) / 2, y + (h - 8) / 2, accent);
-  }
-
-  private int drawVersionRow(
-      int x, int y, int rightEdge, int dotColor, String label, String value, int valueColor) {
-    drawRoundedRect(x, y + 3, x + 5, y + 8, 2, dotColor);
-    drawString(this.fontRendererObj, label, x + 11, y, TEXT_2);
-    int valW = this.fontRendererObj.getStringWidth(value);
-    drawString(this.fontRendererObj, value, rightEdge - valW, y, valueColor);
-    return y + 13;
   }
 
   private void drawScaledString(String text, int x, int y, float scale, int color, boolean bold) {

@@ -57,6 +57,8 @@ public class HUD extends Module {
       new BooleanProperty("show-ping", true, this.showWatermark::getValue);
   public final BooleanProperty showBps =
       new BooleanProperty("show-bps", true, this.showWatermark::getValue);
+  public final BooleanProperty showBalance =
+      new BooleanProperty("show-balance", false, this.showWatermark::getValue);
 
   public final ModeProperty colorAnimation =
       new ModeProperty("color-animation", 1, new String[] {"STATIC", "FADE", "RAINBOW"});
@@ -217,12 +219,14 @@ public class HUD extends Module {
     java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("h:mm a");
     String formattedTime = sdf.format(new java.util.Date());
 
-    String text = customName.charAt(0) + "§7" + customName.substring(1);
+    String text = customName.charAt(0) + "\u00A77" + customName.substring(1);
 
-    if (this.showTime.getValue()) text += " [§f" + formattedTime + "§7]";
-    if (this.showFps.getValue()) text += " [§f" + Minecraft.getDebugFPS() + " FPS§7]";
-    if (this.showPing.getValue()) text += " [§f" + ping + "ms§7]";
-    if (this.showBps.getValue()) text += " [§f" + bpsString + " BPS§7]";
+    if (this.showTime.getValue()) text += " [\u00A7f" + formattedTime + "\u00A77]";
+    if (this.showFps.getValue()) text += " [\u00A7f" + Minecraft.getDebugFPS() + " FPS\u00A77]";
+    if (this.showPing.getValue()) text += " [\u00A7f" + ping + "ms\u00A77]";
+    if (this.showBps.getValue()) text += " [\u00A7f" + bpsString + " BPS\u00A77]";
+    if (this.showBalance.getValue())
+      text += " [\u00A7f" + miau.module.modules.misc.Balance.balance + " Balance\u00A77]";
     return text;
   }
 
@@ -365,12 +369,12 @@ public class HUD extends Module {
               String textA =
                   (lowerCase.getValue() ? nameA.toLowerCase() : nameA)
                       + (a.getAmplifier() > 0 ? " " + (a.getAmplifier() + 1) : "")
-                      + " §7"
+                      + " \u00A77"
                       + timeA;
               String textB =
                   (lowerCase.getValue() ? nameB.toLowerCase() : nameB)
                       + (b.getAmplifier() > 0 ? " " + (b.getAmplifier() + 1) : "")
-                      + " §7"
+                      + " \u00A77"
                       + timeB;
               return Float.compare(-font.getStringWidth(textA), -font.getStringWidth(textB));
             });
@@ -385,7 +389,7 @@ public class HUD extends Module {
           if (effect.getAmplifier() > 0) name += " " + (effect.getAmplifier() + 1);
 
           String time = net.minecraft.potion.Potion.getDurationString(effect);
-          String text = name + " §7" + time;
+          String text = name + " \u00A77" + time;
           int textWidth = font.getStringWidth(text);
           float drawX = sr.getScaledWidth() - 2;
 
@@ -466,6 +470,31 @@ public class HUD extends Module {
       }
     }
 
+    if (this.hudMode.getValue() == 0 && !backgroundsOnly) {
+      float yCoord = sr.getScaledHeight() - getFont().getFontHeight() - 2.0F;
+      int hudColor = this.getColor(l).getRGB();
+      int whiteColor = -1;
+
+      float currentX = 2.0F;
+      getFont().drawWithShadow("Version: ", currentX, yCoord, whiteColor);
+      currentX += getFont().getStringWidth("Version: ");
+
+      String ver = Miau.version;
+      if (ver != null && ver.length() > 0) {
+        String firstChar = ver.substring(0, 1);
+        String restVer = ver.substring(1);
+        getFont().drawWithShadow(firstChar, currentX, yCoord, hudColor);
+        currentX += getFont().getStringWidth(firstChar);
+        getFont().drawWithShadow(restVer, currentX, yCoord, whiteColor);
+        currentX += getFont().getStringWidth(restVer);
+      }
+
+      getFont().drawWithShadow(" Username: ", currentX, yCoord, whiteColor);
+      currentX += getFont().getStringWidth(" Username: ");
+
+      getFont().drawWithShadow(mc.getSession().getUsername(), currentX, yCoord, hudColor);
+    }
+
     if (this.hudMode.getValue() == 1) {
       if (this.showCoordinates.getValue() && mc.thePlayer != null) {
         String posX2 = String.valueOf(Math.round(mc.thePlayer.posX));
@@ -474,9 +503,9 @@ public class HUD extends Module {
         float yCoord = sr.getScaledHeight() - 10;
         float fontHeight = getFont().getFontHeight();
         int colour = this.getColor(l).getRGB();
-        getFont().drawWithShadow("X: §7" + posX2, 3.0F, yCoord - fontHeight * 2, colour);
-        getFont().drawWithShadow("Y: §7" + posY2, 3.0F, yCoord - fontHeight, colour);
-        getFont().drawWithShadow("Z: §7" + posZ2, 3.0F, yCoord, colour);
+        getFont().drawWithShadow("X: \u00A77" + posX2, 3.0F, yCoord - fontHeight * 2, colour);
+        getFont().drawWithShadow("Y: \u00A77" + posY2, 3.0F, yCoord - fontHeight, colour);
+        getFont().drawWithShadow("Z: \u00A77" + posZ2, 3.0F, yCoord, colour);
       }
 
       float height = heightExhibition;
