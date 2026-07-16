@@ -5,7 +5,6 @@ import miau.event.impl.LivingUpdateEvent;
 import miau.module.modules.misc.Disabler;
 import miau.module.modules.combat.KillAura;
 import miau.module.modules.player.Scaffold;
-import miau.module.modules.player.GrimTestScaffold;
 import miau.module.modules.ghost.AutoClicker;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.util.BlockPos;
@@ -28,10 +27,7 @@ public class GrimAutoclickDisabler extends DisablerMode {
     if (scaffold != null && scaffold.isEnabled()) {
       isScaffActive = true;
     }
-    GrimTestScaffold grimTest = (GrimTestScaffold) Miau.moduleManager.modules.get(GrimTestScaffold.class);
-    if (grimTest != null && grimTest.isEnabled()) {
-      isScaffActive = true;
-    }
+
 
     boolean isKuraActive = false;
     KillAura aura = (KillAura) Miau.moduleManager.modules.get(KillAura.class);

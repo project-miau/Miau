@@ -20,6 +20,9 @@ import miau.module.modules.player.scaffold.rotations.*;
 import miau.module.modules.render.*;
 import miau.property.*;
 import miau.property.properties.*;
+import miau.util.network.PacketUtil;
+import net.minecraft.network.play.client.C0BPacketEntityAction;
+import net.minecraft.network.play.client.C0CPacketInput;
 import miau.util.client.*;
 import miau.util.font.*;
 import miau.util.math.*;
@@ -27,6 +30,7 @@ import miau.util.player.*;
 import miau.util.shader.*;
 import miau.util.world.*;
 import net.minecraft.block.*;
+import net.minecraft.block.material.Material;
 import net.minecraft.client.*;
 import net.minecraft.client.gui.*;
 import net.minecraft.client.renderer.*;
@@ -125,6 +129,59 @@ public class Scaffold extends Module {
   public float lastMoveFixPacketYaw = Float.NaN;
   public float lastPlacedAbsPacketYawDelta = Float.NaN;
   public int duplicatePlaceRotNudgeSign = 1;
+
+  // Grim Test Scaffold fields
+  public GrimScaffoldUtils.BlockData grimBlockData;
+  public final float[] grimRots = new float[2];
+  public boolean grimSolvedRots;
+  public float grimTickYaw;
+  public float grimTickPitch;
+  public int grimLastSlot;
+
+  public final BooleanProperty grimTelly = new BooleanProperty("grim-telly", false, () -> rotationHandler.rotationMode.getValue() == 5);
+  public final BooleanProperty grimSprint = new BooleanProperty("grim-sprint", false, () -> rotationHandler.rotationMode.getValue() == 5) {
+    @Override
+    public Boolean getValue() {
+      if (rotationHandler.rotationMode.getValue() != 5) return false;
+      return super.getValue() || grimTelly.getValue();
+    }
+
+    @Override
+    public boolean setValue(Object value) {
+      boolean success = super.setValue(value);
+      if (success && !this.getValue()) {
+        grimTelly.setValue(false);
+      }
+      return success;
+    }
+  };
+
+  public final BooleanProperty grimKeepY = new BooleanProperty("grim-keep-y", false, () -> rotationHandler.rotationMode.getValue() == 5) {
+    @Override
+    public Boolean getValue() {
+      if (rotationHandler.rotationMode.getValue() != 5) return false;
+      return super.getValue() || grimTelly.getValue();
+    }
+
+    @Override
+    public boolean setValue(Object value) {
+      boolean success = super.setValue(value);
+      if (success && !this.getValue()) {
+        grimTelly.setValue(false);
+      }
+      return success;
+    }
+  };
+
+  public final FloatProperty grimMY = new FloatProperty("grim-mY", 0.0f, -0.5f, 0.5f, () -> rotationHandler.rotationMode.getValue() == 5 && grimTelly.getValue()) {
+    @Override
+    public Float getValue() {
+      if (rotationHandler.rotationMode.getValue() != 5) return 0.3f;
+      return grimTelly.getValue() ? super.getValue() : 0.3f;
+    }
+  };
+
+  public final BooleanProperty vulcanDisabler = new BooleanProperty("vulcan-disabler", false, () -> rotationHandler.rotationMode.getValue() == 5);
 
   public Scaffold() {
     super("Scaffold", false);
@@ -301,6 +358,12 @@ public class Scaffold extends Module {
   public void onUpdate(UpdateEvent event) {
     if (!isEnabled() || event.getType() != EventType.PRE) return;
 
+    if (rotationHandler.rotationMode.getValue() == 5) {
+      this.placedThisTick = false;
+      handle3fmcUpdate(event);
+      return;
+    }
+
     this.placedThisTick = false;
     betaFeature.onUpdate(event);
 
@@ -472,6 +535,9 @@ public class Scaffold extends Module {
   @EventTarget
   public void onStrafe(StrafeEvent event) {
     if (!isEnabled()) return;
+    if (rotationHandler.rotationMode.getValue() == 5) {
+      return;
+    }
     if (betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode()) {
       this.towerTick = 0;
       this.towerDelay = 0;
@@ -483,6 +549,19 @@ public class Scaffold extends Module {
   @EventTarget
   public void onMoveInput(MoveInputEvent event) {
     if (!isEnabled()) return;
+    if (rotationHandler.rotationMode.getValue() == 5) {
+      if (mc.thePlayer == null) {
+        return;
+      }
+      boolean isMoving = mc.gameSettings.keyBindForward.isKeyDown()
+          || mc.gameSettings.keyBindBack.isKeyDown()
+          || mc.gameSettings.keyBindLeft.isKeyDown()
+          || mc.gameSettings.keyBindRight.isKeyDown();
+      if (isMoving) {
+        miau.util.player.MoveUtil.fixStrafe(this.grimTickYaw);
+      }
+      return;
+    }
     betaFeature.onMoveInput(event);
     boolean applyMoveFix = options.movementCorrection.getValue();
     if (applyMoveFix
@@ -507,6 +586,12 @@ public class Scaffold extends Module {
   @EventTarget
   public void onLivingUpdate(LivingUpdateEvent event) {
     if (!isEnabled()) return;
+    if (rotationHandler.rotationMode.getValue() == 5) {
+      if (!grimSprint.getValue()) {
+        mc.thePlayer.setSprinting(false);
+      }
+      return;
+    }
     betaFeature.onLivingUpdate(event);
 
     float speed = betaFeature.isBetaMode() && !betaFeature.isBetaTellyMode() ? 1.0F : getSpeed();
@@ -644,6 +729,21 @@ public class Scaffold extends Module {
 
   @Override
   public void onEnabled() {
+    if (rotationHandler.rotationMode.getValue() == 5) {
+      if (mc.thePlayer != null) {
+        this.grimLastSlot = mc.thePlayer.inventory.currentItem;
+      }
+      KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+      grimBlockData = null;
+      if (mc.thePlayer != null) {
+        grimRots[0] = mc.thePlayer.rotationYaw;
+        grimRots[1] = mc.thePlayer.rotationPitch;
+        this.grimTickYaw = mc.thePlayer.rotationYaw;
+        this.grimTickPitch = mc.thePlayer.rotationPitch;
+      }
+      grimSolvedRots = false;
+      return;
+    }
     if (mc.thePlayer != null) {
       this.lastSlot = Miau.slotComponent.getItemIndex();
     } else {
@@ -676,6 +776,15 @@ public class Scaffold extends Module {
 
   @Override
   public void onDisabled() {
+    if (rotationHandler.rotationMode.getValue() == 5) {
+      KeyBinding.setKeyBindState(
+          mc.gameSettings.keyBindJump.getKeyCode(),
+          GameSettings.isKeyDown(mc.gameSettings.keyBindJump));
+      if (mc.thePlayer != null && this.grimLastSlot != -1) {
+        mc.thePlayer.inventory.currentItem = this.grimLastSlot;
+      }
+      return;
+    }
     if (mc.thePlayer != null && this.lastSlot != -1) {
       mc.thePlayer.inventory.currentItem = this.lastSlot;
     }
@@ -700,13 +809,133 @@ public class Scaffold extends Module {
     KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), false);
   }
 
+  private void handle3fmcUpdate(UpdateEvent event) {
+    if (mc.thePlayer == null || mc.theWorld == null) {
+      return;
+    }
+
+    if (vulcanDisabler.getValue() && mc.thePlayer.ticksExisted % 15 == 0 && !(mc.thePlayer.isInWater() || mc.thePlayer.isDead || mc.thePlayer.isOnLadder())) {
+      PacketUtil.sendPacket(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
+      PacketUtil.sendPacket(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
+      PacketUtil.sendPacket(new C0CPacketInput(0.0f, 0.0f, false, true));
+      PacketUtil.sendPacket(new C0CPacketInput(0.0f, 0.0f, false, false));
+    }
+
+    if (!grimSprint.getValue()) {
+      mc.thePlayer.setSprinting(false);
+    }
+
+    boolean wilLFall = GrimScaffoldUtils.willFallNextTick(mc, 1.0, grimTickYaw)
+        && mc.thePlayer.motionY < grimMY.getValue();
+    grimBlockData = GrimScaffoldUtils.findBestPlacement(mc, grimTickYaw, grimTickPitch, grimKeepY.getValue(), grimRots);
+    Item item = GrimScaffoldUtils.keyBlock(mc);
+
+    if (grimTelly.getValue()) {
+      KeyBinding.setKeyBindState(
+          mc.gameSettings.keyBindJump.getKeyCode(),
+          mc.gameSettings.keyBindJump.isKeyDown());
+    }
+
+    float delta = grimSprint.getValue() ? 0f : 180f;
+    float targetYaw = mc.thePlayer.rotationYaw + delta;
+    float targetPitch = grimRots[1];
+
+    if (item != null) {
+      if (wilLFall && (!grimTelly.getValue() || !mc.thePlayer.onGround)) {
+        if (grimBlockData != null) {
+          float[] solved = GrimScaffoldUtils.getRotationsForFace(mc, grimBlockData.getPosition(), grimBlockData.getFacing(), grimRots[1]);
+          if (solved != null) {
+            grimRots[0] = solved[0];
+            grimRots[1] = solved[1];
+            grimSolvedRots = true;
+          } else {
+            grimSolvedRots = false;
+            float[] free = GrimScaffoldUtils.getFreeRotationsForFace(mc, grimBlockData.getPosition(), grimBlockData.getFacing(), grimRots);
+            grimRots[0] = free[0];
+            grimRots[1] = free[1];
+          }
+        }
+        targetYaw = grimSolvedRots ? mc.thePlayer.rotationYaw + 180f : grimRots[0];
+        targetPitch = grimRots[1];
+      } else if (wilLFall && grimTelly.getValue() && mc.thePlayer.onGround) {
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
+      } else {
+        targetYaw = mc.thePlayer.rotationYaw + delta;
+        targetPitch = grimRots[1];
+      }
+    } else {
+      targetYaw = mc.thePlayer.rotationYaw + delta;
+      targetPitch = grimRots[1];
+    }
+
+    this.grimTickYaw = targetYaw;
+    this.grimTickPitch = targetPitch;
+
+    event.setRotation(targetYaw, targetPitch, 3);
+    event.setPervRotation(targetYaw, 3);
+
+    if (GrimScaffoldUtils.keyBlock(mc) != null && grimBlockData != null) {
+      Item heldItem = GrimScaffoldUtils.keyBlock(mc);
+      MovingObjectPosition mop = GrimScaffoldUtils.rayTracePost(mc, targetYaw, targetPitch);
+
+      if (heldItem instanceof ItemBlock) {
+        ItemBlock itemBlock = (ItemBlock) heldItem;
+        if (mop.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
+            && mop.sideHit != EnumFacing.DOWN
+            && (!grimKeepY.getValue() || mop.sideHit != EnumFacing.UP)
+            && itemBlock.canPlaceBlockOnSide(
+                mc.theWorld,
+                mop.getBlockPos(),
+                mop.sideHit,
+                mc.thePlayer,
+                mc.thePlayer.getHeldItem())) {
+          grimBlockData = new GrimScaffoldUtils.BlockData(mop.getBlockPos(), mop.sideHit);
+          grimPlacePost(targetYaw, targetPitch);
+        }
+      }
+    }
+  }
+
+  private void grimPlacePost(float yaw, float pitch) {
+    if (grimBlockData == null) {
+      return;
+    }
+
+    MovingObjectPosition objectOver = GrimScaffoldUtils.rayTracePost(mc, yaw, pitch);
+    BlockPos blockpos = objectOver.getBlockPos();
+    if (objectOver.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK
+        || mc.theWorld.getBlockState(blockpos).getBlock().getMaterial() == Material.air) {
+      return;
+    }
+
+    ItemStack currentItem = mc.thePlayer.inventory.getCurrentItem();
+    if (currentItem != null) {
+      mc.playerController.onPlayerRightClick(
+          mc.thePlayer,
+          mc.theWorld,
+          currentItem,
+          grimBlockData.getPosition(),
+          grimBlockData.getFacing(),
+          GrimScaffoldUtils.getNewVector(grimBlockData.getPosition(), grimBlockData.getFacing()));
+      mc.thePlayer.swingItem();
+    }
+  }
+
   @Override
   public List<Property<?>> getAdditionalProperties() {
     List<Property<?>> props = new ArrayList<>();
     props.addAll(rotationHandler.getProperties());
-    props.addAll(options.getProperties());
+    for (Property<?> prop : options.getProperties()) {
+      java.util.function.BooleanSupplier original = prop.getVisibleChecker();
+      prop.setVisibleChecker(() -> rotationHandler.rotationMode.getValue() != 5 && (original == null || original.getAsBoolean()));
+      props.add(prop);
+    }
     for (ScaffoldComponent comp : components) {
-      props.addAll(comp.getProperties());
+      for (Property<?> prop : comp.getProperties()) {
+        java.util.function.BooleanSupplier original = prop.getVisibleChecker();
+        prop.setVisibleChecker(() -> rotationHandler.rotationMode.getValue() != 5 && (original == null || original.getAsBoolean()));
+        props.add(prop);
+      }
     }
     return props;
   }

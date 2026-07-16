@@ -29,7 +29,7 @@ public class RotationHandler {
 
   public final ModeProperty rotationMode =
       new ModeProperty(
-          "rotations", 2, new String[] {"NONE", "Normal", "Backwards", "Sideways", "Beta"});
+          "rotations", 2, new String[] {"NONE", "Normal", "Backwards", "Sideways", "Beta", "3fmc"});
 
   public List<Property<?>> getProperties() {
     return Arrays.asList(rotationMode);
@@ -62,7 +62,7 @@ public class RotationHandler {
     boolean betaMode = mode == 4;
     boolean betaTelly = scaffold.betaFeature.isBetaTellyMode();
 
-    if (mode == 0) return; // NONE
+    if (mode == 0 || mode == 5) return; // NONE or 3fmc
 
     float targetYaw = scaffold.yaw;
     float targetPitch = scaffold.pitch;

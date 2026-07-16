@@ -195,7 +195,6 @@ public class Miau {
     moduleManager.modules.put(Refill.class, new Refill());
     moduleManager.modules.put(SafeWalk.class, new SafeWalk());
     moduleManager.modules.put(Scaffold.class, new Scaffold());
-    moduleManager.modules.put(GrimTestScaffold.class, new GrimTestScaffold());
     moduleManager.modules.put(Scoreboard.class, new Scoreboard());
     moduleManager.modules.put(Spammer.class, new Spammer());
     moduleManager.modules.put(Speed.class, new Speed());

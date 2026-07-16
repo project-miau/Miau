@@ -1,302 +1,46 @@
-package miau.module.modules.player;
+package miau.module.modules.player.scaffold;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import miau.event.EventTarget;
-import miau.event.impl.UpdateEvent;
-import miau.event.impl.MoveInputEvent;
-import miau.event.types.EventType;
-import miau.module.Module;
-import miau.property.properties.BooleanProperty;
-import miau.property.properties.FloatProperty;
 import net.minecraft.block.Block;
-import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.settings.GameSettings;
-import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.BlockPos;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.MathHelper;
-import net.minecraft.util.MovingObjectPosition;
-import net.minecraft.util.Vec3;
+import net.minecraft.util.*;
 
-public class GrimTestScaffold extends Module {
-  private static final Minecraft mc = Minecraft.getMinecraft();
+public class GrimScaffoldUtils {
   private static final ItemBlock placeholderBlock = new ItemBlock(Blocks.tnt);
 
-  public final BooleanProperty telly = new BooleanProperty("Telly", false);
+  public static class BlockData {
+    private final BlockPos position;
+    private final EnumFacing facing;
 
-  public final BooleanProperty sprint = new BooleanProperty("Sprint", false) {
-    @Override
-    public Boolean getValue() {
-      return super.getValue() || telly.getValue();
+    public BlockData(BlockPos position, EnumFacing facing) {
+      this.position = position;
+      this.facing = facing;
     }
 
-    @Override
-    public boolean setValue(Object value) {
-      boolean success = super.setValue(value);
-      if (success && !this.getValue()) {
-        telly.setValue(false);
-      }
-      return success;
-    }
-  };
-
-  public final BooleanProperty keepY = new BooleanProperty("KeepY", false) {
-    @Override
-    public Boolean getValue() {
-      return super.getValue() || telly.getValue();
+    public EnumFacing getFacing() {
+      return facing;
     }
 
-    @Override
-    public boolean setValue(Object value) {
-      boolean success = super.setValue(value);
-      if (success && !this.getValue()) {
-        telly.setValue(false);
-      }
-      return success;
-    }
-  };
-
-  public final FloatProperty mY = new FloatProperty("mY", 0.0f, -0.5f, 0.5f, () -> this.telly.getValue()) {
-    @Override
-    public Float getValue() {
-      return telly.getValue() ? super.getValue() : 0.3f;
-    }
-  };
-
-  private BlockData blockData;
-  private final float[] rots = new float[2];
-  private boolean solvedRots;
-
-  private float currentTickYaw;
-  private float currentTickPitch;
-
-  private int lastSlot;
-
-  public GrimTestScaffold() {
-    super("Grim Test", false);
-  }
-
-  @Override
-  public void onEnabled() {
-    if (mc.thePlayer != null) {
-      this.lastSlot = mc.thePlayer.inventory.currentItem;
-    }
-    KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
-    blockData = null;
-    rots[0] = mc.thePlayer.rotationYaw;
-    rots[1] = mc.thePlayer.rotationPitch;
-    this.currentTickYaw = mc.thePlayer.rotationYaw;
-    this.currentTickPitch = mc.thePlayer.rotationPitch;
-    solvedRots = false;
-  }
-
-  @Override
-  public void onDisabled() {
-    KeyBinding.setKeyBindState(
-        mc.gameSettings.keyBindJump.getKeyCode(),
-        GameSettings.isKeyDown(mc.gameSettings.keyBindJump));
-    if (mc.thePlayer != null) {
-      mc.thePlayer.inventory.currentItem = this.lastSlot;
+    public BlockPos getPosition() {
+      return position;
     }
   }
 
-  @EventTarget
-  public void onUpdate(UpdateEvent event) {
-    if (event.getType() != EventType.PRE) {
-      return;
-    }
-
-    if (mc.thePlayer == null || mc.theWorld == null) {
-      return;
-    }
-
-    if (!sprint.getValue()) {
-      mc.thePlayer.setSprinting(false);
-    }
-
-    boolean wilLFall = willFallNextTick() && mc.thePlayer.motionY < mY.getValue();
-    blockData = findBestPlacement();
-    Item item = keyBlock();
-
-    if (telly.getValue()) {
-      KeyBinding.setKeyBindState(
-          mc.gameSettings.keyBindJump.getKeyCode(),
-          mc.gameSettings.keyBindJump.isKeyDown());
-    }
-
-    float delta = sprint.getValue() ? 0f : 180f;
-    float targetYaw = mc.thePlayer.rotationYaw + delta;
-    float targetPitch = rots[1];
-
-    if (item != null) {
-      if (wilLFall && (!telly.getValue() || !mc.thePlayer.onGround)) {
-        if (blockData != null) {
-          float[] solved = getRotationsForFace(blockData.getPosition(), blockData.getFacing());
-          if (solved != null) {
-            rots[0] = solved[0];
-            rots[1] = solved[1];
-            solvedRots = true;
-          } else {
-            solvedRots = false;
-            float[] free = getFreeRotationsForFace(blockData.getPosition(), blockData.getFacing());
-            rots[0] = free[0];
-            rots[1] = free[1];
-          }
-        }
-        targetYaw = solvedRots ? mc.thePlayer.rotationYaw + 180f : rots[0];
-        targetPitch = rots[1];
-      } else if (wilLFall && telly.getValue() && mc.thePlayer.onGround) {
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
-      } else {
-        targetYaw = mc.thePlayer.rotationYaw + delta;
-        targetPitch = rots[1];
-      }
-    } else {
-      targetYaw = mc.thePlayer.rotationYaw + delta;
-      targetPitch = rots[1];
-    }
-
-    this.currentTickYaw = targetYaw;
-    this.currentTickPitch = targetPitch;
-
-    event.setRotation(targetYaw, targetPitch, 3);
-    event.setPervRotation(targetYaw, 3);
-
-    if (keyBlock() != null && blockData != null) {
-      Item heldItem = keyBlock();
-      MovingObjectPosition mop = rayTracePost(targetYaw, targetPitch);
-
-      if (heldItem instanceof ItemBlock) {
-        ItemBlock itemBlock = (ItemBlock) heldItem;
-        if (mop.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
-            && mop.sideHit != EnumFacing.DOWN
-            && (!keepY.getValue() || mop.sideHit != EnumFacing.UP)
-            && itemBlock.canPlaceBlockOnSide(
-                mc.theWorld,
-                mop.getBlockPos(),
-                mop.sideHit,
-                mc.thePlayer,
-                mc.thePlayer.getHeldItem())) {
-          blockData = new BlockData(mop.getBlockPos(), mop.sideHit);
-          placePost(targetYaw, targetPitch);
-        }
-      }
-    }
-  }
-
-  @EventTarget
-  public void onMoveInput(MoveInputEvent event) {
-    if (mc.thePlayer == null) {
-      return;
-    }
-    boolean isMoving = mc.gameSettings.keyBindForward.isKeyDown()
-        || mc.gameSettings.keyBindBack.isKeyDown()
-        || mc.gameSettings.keyBindLeft.isKeyDown()
-        || mc.gameSettings.keyBindRight.isKeyDown();
-    if (isMoving) {
-      miau.util.player.MoveUtil.fixStrafe(this.currentTickYaw);
-    }
-  }
-
-  private void placePost(float yaw, float pitch) {
-    if (blockData == null) {
-      return;
-    }
-
-    MovingObjectPosition objectOver = rayTracePost(yaw, pitch);
-    BlockPos blockpos = objectOver.getBlockPos();
-    if (objectOver.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK
-        || mc.theWorld.getBlockState(blockpos).getBlock().getMaterial() == Material.air) {
-      return;
-    }
-
-    ItemStack currentItem = mc.thePlayer.inventory.getCurrentItem();
-    if (currentItem != null) {
-      mc.playerController.onPlayerRightClick(
-          mc.thePlayer,
-          mc.theWorld,
-          currentItem,
-          blockData.position,
-          blockData.facing,
-          getNewVector(blockData));
-      mc.thePlayer.swingItem();
-    }
-  }
-
-  private MovingObjectPosition rayTracePost(float yaw, float pitch) {
-    Vec3 vec3 = mc.thePlayer.getPositionEyes(1.0f);
-    Vec3 vec31 = getVectorForRotation(pitch, yaw);
-    Vec3 vec32 = vec3.addVector(vec31.xCoord * 4.5, vec31.yCoord * 4.5, vec31.zCoord * 4.5);
-    return mc.thePlayer.worldObj.rayTraceBlocks(vec3, vec32, false, false, true);
-  }
-
-  private Vec3 getVectorForRotation(float pitch, float yaw) {
-    float f = MathHelper.cos(-yaw * 0.017453292F - (float) Math.PI);
-    float f1 = MathHelper.sin(-yaw * 0.017453292F - (float) Math.PI);
-    float f2 = -MathHelper.cos(-pitch * 0.017453292F);
-    float f3 = MathHelper.sin(-pitch * 0.017453292F);
-    return new Vec3((double) (f1 * f2), (double) f3, (double) (f * f2));
-  }
-
-  private Item keyBlock() {
-    ItemStack currentItem = mc.thePlayer.inventory.getCurrentItem();
-    if (currentItem == null || !(currentItem.getItem() instanceof ItemBlock)) {
-      mc.thePlayer.inventory.currentItem = getBlockSlot();
-    }
-    currentItem = mc.thePlayer.inventory.getCurrentItem();
-    if (currentItem == null) {
-      return null;
-    }
-    return currentItem.getItem();
-  }
-
-  private int getBlockSlot() {
-    for (int i = 0; i < 9; i++) {
-      ItemStack itemStack = mc.thePlayer.inventory.mainInventory[i];
-      if (itemStack != null && itemStack.getItem() instanceof ItemBlock && itemStack.stackSize > 0) {
-        ItemBlock itemBlock = (ItemBlock) itemStack.getItem();
-        if (isBlockValid(itemBlock.getBlock())) {
-          return i;
-        }
-      }
-    }
-    return mc.thePlayer.inventory.currentItem;
-  }
-
-  private boolean isBlockValid(Block block) {
-    return (block.isFullBlock() || block == Blocks.glass)
-        && block != Blocks.sand
-        && block != Blocks.gravel
-        && block != Blocks.dispenser
-        && block != Blocks.command_block
-        && block != Blocks.noteblock
-        && block != Blocks.furnace
-        && block != Blocks.crafting_table
-        && block != Blocks.tnt
-        && block != Blocks.dropper
-        && block != Blocks.beacon;
-  }
-
-  public boolean willFallNextTick() {
-    return willFallNextTick(1.0);
-  }
-
-  public boolean willFallNextTick(double precision) {
-    AxisAlignedBB predictedBB = getPredictedBoundingBox(precision).offset(0, -0.5, 0);
+  public static boolean willFallNextTick(Minecraft mc, double precision, float currentTickYaw) {
+    AxisAlignedBB predictedBB = getPredictedBoundingBox(mc, precision, currentTickYaw).offset(0, -0.5, 0);
     return mc.theWorld.getCollidingBoundingBoxes(mc.thePlayer, predictedBB).isEmpty();
   }
 
-  public AxisAlignedBB getPredictedBoundingBox(double precision) {
+  public static AxisAlignedBB getPredictedBoundingBox(Minecraft mc, double precision, float currentTickYaw) {
     EntityPlayerSP player = mc.thePlayer;
 
     double motionX = player.motionX;
@@ -354,8 +98,8 @@ public class GrimTestScaffold extends Module {
       f = f5 / f;
       moveStrafe *= f;
       moveForward *= f;
-      float f1 = MathHelper.sin(this.currentTickYaw * (float) Math.PI / 180.0F);
-      float f2 = MathHelper.cos(this.currentTickYaw * (float) Math.PI / 180.0F);
+      float f1 = MathHelper.sin(currentTickYaw * (float) Math.PI / 180.0F);
+      float f2 = MathHelper.cos(currentTickYaw * (float) Math.PI / 180.0F);
       motionX += (double) (moveStrafe * f2 - moveForward * f1);
       motionZ += (double) (moveForward * f2 + moveStrafe * f1);
     }
@@ -363,7 +107,7 @@ public class GrimTestScaffold extends Module {
     return player.getEntityBoundingBox().offset(motionX * precision, 0, motionZ * precision);
   }
 
-  public BlockData findBestPlacement() {
+  public static BlockData findBestPlacement(Minecraft mc, float currentTickYaw, float currentPitch, boolean keepYVal, float[] rots) {
     EntityPlayerSP player = mc.thePlayer;
     BlockPos playerPos = new BlockPos(player);
     BlockPos scanY = playerPos.down();
@@ -371,14 +115,14 @@ public class GrimTestScaffold extends Module {
     BlockData best = null;
     double bestScore = Double.MAX_VALUE;
 
-    AxisAlignedBB predicted = getPredictedBoundingBox(1.0);
+    AxisAlignedBB predicted = getPredictedBoundingBox(mc, 1.0, currentTickYaw);
     double targetX = (predicted.minX + predicted.maxX) * 0.5;
     double targetZ = (predicted.minZ + predicted.maxZ) * 0.5;
     double targetY = scanY.getY() + 0.5;
 
     double existingScore = Double.MAX_VALUE;
 
-    boolean tower = !player.onGround && !keepY.getValue();
+    boolean tower = !player.onGround && !keepYVal;
     int lowestLayer = tower ? -1 : 0;
 
     for (int layer = 0; layer >= lowestLayer; layer--) {
@@ -426,9 +170,9 @@ public class GrimTestScaffold extends Module {
 
             if (score >= bestScore) continue;
 
-            float[] resolvedRots = getRotationsForFace(pos, facing);
+            float[] resolvedRots = getRotationsForFace(mc, pos, facing, rots[1]);
             if (resolvedRots == null) {
-              resolvedRots = getFreeRotationsForFace(pos, facing);
+              resolvedRots = getFreeRotationsForFace(mc, pos, facing, rots);
             }
 
             Vec3 eyeVec = player.getPositionEyes(1.0f);
@@ -460,7 +204,7 @@ public class GrimTestScaffold extends Module {
     return best;
   }
 
-  public float[] getRotationsForFace(BlockPos blockPos, EnumFacing facing) {
+  public static float[] getRotationsForFace(Minecraft mc, BlockPos blockPos, EnumFacing facing, float currentPitch) {
     EntityPlayerSP player = mc.thePlayer;
 
     double eyeX = player.posX;
@@ -476,8 +220,6 @@ public class GrimTestScaffold extends Module {
     double bx0 = blockPos.getX(), bx1 = bx0 + 1.0;
     double by0 = blockPos.getY(), by1 = by0 + 1.0;
     double bz0 = blockPos.getZ(), bz1 = bz0 + 1.0;
-
-    float currentPitch = this.rots[1];
 
     float bestPitch = Float.MAX_VALUE;
     float bestDiff = Float.MAX_VALUE;
@@ -579,12 +321,12 @@ public class GrimTestScaffold extends Module {
 
     float[] lastRots = new float[] {lockedYaw, currentPitch};
     float[] targetRots = new float[] {lockedYaw, bestPitch};
-    float[] fixedRots = patchGCD(lastRots, targetRots);
+    float[] fixedRots = patchGCD(mc, lastRots, targetRots);
     fixedRots[0] = lockedYaw;
     return fixedRots;
   }
 
-  public float[] getFreeRotationsForFace(BlockPos blockPos, EnumFacing facing) {
+  public static float[] getFreeRotationsForFace(Minecraft mc, BlockPos blockPos, EnumFacing facing, float[] currentRots) {
     EntityPlayerSP player = mc.thePlayer;
 
     double eyeX = player.posX;
@@ -604,15 +346,15 @@ public class GrimTestScaffold extends Module {
 
     pitch = MathHelper.clamp_float(pitch, -90f, 90f);
 
-    float currentYaw = this.rots[0];
-    float currentPitch = this.rots[1];
+    float currentYaw = currentRots[0];
+    float currentPitch = currentRots[1];
 
     float[] lastRots = new float[] {currentYaw, currentPitch};
     float[] targetRots = new float[] {yaw, pitch};
-    return patchGCD(lastRots, targetRots);
+    return patchGCD(mc, lastRots, targetRots);
   }
 
-  private float pitchToHitPoint(
+  public static float pitchToHitPoint(
       double eyeX, double eyeY, double eyeZ,
       double hx, double hz,
       double targetX, double targetY, double targetZ) {
@@ -635,7 +377,7 @@ public class GrimTestScaffold extends Module {
     return (float) Math.toDegrees(Math.atan(tanPitch));
   }
 
-  private float[] pitchesToHitZPlane(
+  public static float[] pitchesToHitZPlane(
       double eyeX, double eyeY, double eyeZ,
       double hx, double hz,
       double faceZ,
@@ -647,16 +389,16 @@ public class GrimTestScaffold extends Module {
     if (tCosp <= 0) return new float[0];
 
     double[] sampleY = {
-      yMin + 0.1,
-      yMin + (yMax - yMin) * 0.2,
-      yMin + (yMax - yMin) * 0.3,
-      yMin + (yMax - yMin) * 0.4,
-      (yMin + yMax) * 0.5,
-      yMin + (yMax - yMin) * 0.6,
-      yMin + (yMax - yMin) * 0.7,
-      yMin + (yMax - yMin) * 0.8,
-      yMin + (yMax - yMin) * 0.9,
-      yMax - 0.1
+        yMin + 0.1,
+        yMin + (yMax - yMin) * 0.2,
+        yMin + (yMax - yMin) * 0.3,
+        yMin + (yMax - yMin) * 0.4,
+        (yMin + yMax) * 0.5,
+        yMin + (yMax - yMin) * 0.6,
+        yMin + (yMax - yMin) * 0.7,
+        yMin + (yMax - yMin) * 0.8,
+        yMin + (yMax - yMin) * 0.9,
+        yMax - 0.1
     };
 
     float[] results = new float[sampleY.length];
@@ -675,7 +417,7 @@ public class GrimTestScaffold extends Module {
     return trimmed;
   }
 
-  private float[] pitchesToHitXPlane(
+  public static float[] pitchesToHitXPlane(
       double eyeX, double eyeY, double eyeZ,
       double hx, double hz,
       double faceX,
@@ -687,16 +429,16 @@ public class GrimTestScaffold extends Module {
     if (tCosp <= 0) return new float[0];
 
     double[] sampleY = {
-      yMin + 0.1,
-      yMin + (yMax - yMin) * 0.2,
-      yMin + (yMax - yMin) * 0.3,
-      yMin + (yMax - yMin) * 0.4,
-      (yMin + yMax) * 0.5,
-      yMin + (yMax - yMin) * 0.6,
-      yMin + (yMax - yMin) * 0.7,
-      yMin + (yMax - yMin) * 0.8,
-      yMin + (yMax - yMin) * 0.9,
-      yMax - 0.1
+        yMin + 0.1,
+        yMin + (yMax - yMin) * 0.2,
+        yMin + (yMax - yMin) * 0.3,
+        yMin + (yMax - yMin) * 0.4,
+        (yMin + yMax) * 0.5,
+        yMin + (yMax - yMin) * 0.6,
+        yMin + (yMax - yMin) * 0.7,
+        yMin + (yMax - yMin) * 0.8,
+        yMin + (yMax - yMin) * 0.9,
+        yMax - 0.1
     };
 
     float[] results = new float[sampleY.length];
@@ -715,7 +457,7 @@ public class GrimTestScaffold extends Module {
     return trimmed;
   }
 
-  public float[] patchGCD(float[] prevRotation, float[] currentRotation) {
+  public static float[] patchGCD(Minecraft mc, float[] prevRotation, float[] currentRotation) {
     float f = mc.gameSettings.mouseSensitivity * 0.6F + 0.2F;
     float gcd = f * f * f * 8.0F * 0.15F;
     final float deltaYaw = currentRotation[0] - prevRotation[0],
@@ -726,12 +468,15 @@ public class GrimTestScaffold extends Module {
     return new float[] {yaw, pitch};
   }
 
-  public Vec3 getNewVector(BlockData lastblockdata) {
-    if (lastblockdata == null) {
-      return null;
-    }
-    BlockPos pos = lastblockdata.getPosition();
-    EnumFacing facing = lastblockdata.getFacing();
+  public static Vec3 getVectorForRotation(float pitch, float yaw) {
+    float f = MathHelper.cos(-yaw * 0.017453292F - (float) Math.PI);
+    float f1 = MathHelper.sin(-yaw * 0.017453292F - (float) Math.PI);
+    float f2 = -MathHelper.cos(-pitch * 0.017453292F);
+    float f3 = MathHelper.sin(-pitch * 0.017453292F);
+    return new Vec3((double) (f1 * f2), (double) f3, (double) (f * f2));
+  }
+
+  public static Vec3 getNewVector(BlockPos pos, EnumFacing facing) {
     Vec3 vec3 = new Vec3(pos);
 
     double amount1 = 0.45 + Math.random() * 0.1;
@@ -754,21 +499,49 @@ public class GrimTestScaffold extends Module {
     return vec3;
   }
 
-  public static class BlockData {
-    private final BlockPos position;
-    private final EnumFacing facing;
-
-    public BlockData(BlockPos position, EnumFacing facing) {
-      this.position = position;
-      this.facing = facing;
+  public static Item keyBlock(Minecraft mc) {
+    ItemStack currentItem = mc.thePlayer.inventory.getCurrentItem();
+    if (currentItem == null || !(currentItem.getItem() instanceof ItemBlock)) {
+      mc.thePlayer.inventory.currentItem = getBlockSlot(mc);
     }
-
-    public EnumFacing getFacing() {
-      return facing;
+    currentItem = mc.thePlayer.inventory.getCurrentItem();
+    if (currentItem == null) {
+      return null;
     }
+    return currentItem.getItem();
+  }
 
-    public BlockPos getPosition() {
-      return position;
+  public static int getBlockSlot(Minecraft mc) {
+    for (int i = 0; i < 9; i++) {
+      ItemStack itemStack = mc.thePlayer.inventory.mainInventory[i];
+      if (itemStack != null && itemStack.getItem() instanceof ItemBlock && itemStack.stackSize > 0) {
+        ItemBlock itemBlock = (ItemBlock) itemStack.getItem();
+        if (isBlockValid(itemBlock.getBlock())) {
+          return i;
+        }
+      }
     }
+    return mc.thePlayer.inventory.currentItem;
+  }
+
+  public static boolean isBlockValid(Block block) {
+    return (block.isFullBlock() || block == Blocks.glass)
+        && block != Blocks.sand
+        && block != Blocks.gravel
+        && block != Blocks.dispenser
+        && block != Blocks.command_block
+        && block != Blocks.noteblock
+        && block != Blocks.furnace
+        && block != Blocks.crafting_table
+        && block != Blocks.tnt
+        && block != Blocks.dropper
+        && block != Blocks.beacon;
+  }
+
+  public static MovingObjectPosition rayTracePost(Minecraft mc, float yaw, float pitch) {
+    Vec3 vec3 = mc.thePlayer.getPositionEyes(1.0f);
+    Vec3 vec31 = getVectorForRotation(pitch, yaw);
+    Vec3 vec32 = vec3.addVector(vec31.xCoord * 4.5, vec31.yCoord * 4.5, vec31.zCoord * 4.5);
+    return mc.thePlayer.worldObj.rayTraceBlocks(vec3, vec32, false, false, true);
   }
 }
