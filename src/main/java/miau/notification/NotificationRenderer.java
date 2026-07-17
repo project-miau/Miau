@@ -54,14 +54,18 @@ public final class NotificationRenderer {
 
     float potionOffset = 0;
     Minecraft mc = Minecraft.getMinecraft();
+    Font hudFont = TITLE_FONT;
     if (mc.thePlayer != null) {
       miau.module.modules.render.HUD hud =
           (miau.module.modules.render.HUD)
               Miau.moduleManager.getModule(miau.module.modules.render.HUD.class);
-      if (hud != null && hud.isEnabled() && !mc.gameSettings.showDebugInfo) {
-        int effectsCount = mc.thePlayer.getActivePotionEffects().size();
-        if (effectsCount > 0) {
-          potionOffset = effectsCount * (hud.getFont().height() + 1.5f);
+      if (hud != null) {
+        hudFont = hud.getFont();
+        if (hud.isEnabled() && !mc.gameSettings.showDebugInfo) {
+          int effectsCount = mc.thePlayer.getActivePotionEffects().size();
+          if (effectsCount > 0) {
+            potionOffset = effectsCount * (hudFont.height() + 1.5f);
+          }
         }
       }
     }
@@ -82,8 +86,8 @@ public final class NotificationRenderer {
                   100,
                   iconOffset
                       + Math.max(
-                          TITLE_FONT.getStringWidth(notification.getTitle()) + (padding * 4),
-                          DESCRIPTION_FONT.getStringWidth(notification.getDescription()))));
+                          hudFont.getStringWidth(notification.getTitle()) + (padding * 4),
+                          hudFont.getStringWidth(notification.getDescription()))));
 
       final float endX = scaledWidth - width - padding;
 
@@ -126,8 +130,8 @@ public final class NotificationRenderer {
       float iconDrawY = y + 7.5f;
       ICON_FONT.draw(notification.getType().getIcon(), x + padding + 2.25F, iconDrawY, iconColor);
 
-      TITLE_FONT.draw(notification.getTitle(), x + (padding * 2) + iconOffset, y + 4f, -1);
-      DESCRIPTION_FONT.draw(
+      hudFont.draw(notification.getTitle(), x + (padding * 2) + iconOffset, y + 4f, -1);
+      hudFont.draw(
           notification.getDescription(), x + (padding * 2) + iconOffset, y + 12f, 0xFFAAAAAA);
 
       if (notification.hasExpired() && animation.getValue() == scaledWidth) {

@@ -28,7 +28,7 @@ public class AimAssist extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
   private final Random random = new Random();
 
-  public final ModeProperty mode = new ModeProperty("mode", 0, new String[] {"NORMAL", "SILENT"});
+  public final ModeProperty mode = new ModeProperty("mode", 0, new String[] {"NORMAL"});
   public final IntProperty speed = new IntProperty("speed", 10, 1, 30);
   public final FloatProperty multipointHorizontal = new FloatProperty("multipoint-horizontal", 0.0F, 0.0F, 100.0F);
   public final FloatProperty multipointVertical = new FloatProperty("multipoint-vertical", 0.0F, 0.0F, 100.0F);
@@ -48,13 +48,7 @@ public class AimAssist extends Module {
   public final BooleanProperty weaponOnly = new BooleanProperty("weapon-only", false);
 
   private long miningStartTime = -1L;
-  private float silentYaw, silentPitch;
-  private float yawVelocity, pitchVelocity;
-  private float randomYawOffset, randomPitchOffset;
-  private float targetRandomYaw, targetRandomPitch;
-  private long lastRandomUpdate = 0L;
-  private boolean firstRotation = true;
-  private EntityPlayer lastTarget = null;
+
 
   public AimAssist() {
     super("AimAssist", false);
@@ -63,145 +57,16 @@ public class AimAssist extends Module {
   @Override
   public void onDisabled() {
     miningStartTime = -1L;
-    firstRotation = true;
-    yawVelocity = 0f;
-    pitchVelocity = 0f;
-    lastTarget = null;
     super.onDisabled();
   }
 
-  @EventTarget
-  public void onUpdate(UpdateEvent event) {
-    if (this.mode.getValue()!= 1 ||!conditionsMet()) {
-      if (conditionsMet()) firstRotation = true; 
-      return;
-    }
-    EntityPlayer target = getEnemy(true);
-    if (target == null) {
-      firstRotation = true;
-      lastTarget = null;
-      return;
-    }
 
-    boolean allowThroughBlocks =!this.ignoreBehindWalls.getValue();
-    boolean allowThroughEntities =!this.ignoreBehindEntities.getValue();
-
-    float baseYaw = firstRotation? mc.thePlayer.rotationYaw : RotationUtil.serverYaw;
-    float basePitch = firstRotation? mc.thePlayer.rotationPitch : RotationUtil.serverPitch;
-
-    if (firstRotation) {
-      silentYaw = baseYaw;
-      silentPitch = basePitch;
-      firstRotation = false;
-    }
-
-    if (lastTarget!= target) {
-      yawVelocity *= 0.3f;
-      pitchVelocity *= 0.3f;
-      lastTarget = target;
-    }
-
-    float[] rot = RotationUtil.getRotationsWithBackup(
-            target,
-            this.multipointHorizontal.getValue(),
-            this.multipointVertical.getValue(),
-            baseYaw,
-            basePitch,
-            this.range.getValue(),
-            allowThroughBlocks,
-            allowThroughEntities);
-    if (rot == null) return;
-
-    updateRandomization();
-
-    float targetYaw = rot[0] + randomYawOffset;
-    float targetPitch = rot[1] + randomPitchOffset;
-    targetPitch = MathHelper.clamp_float(targetPitch, -90f, 90f);
-
-    float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - silentYaw);
-    float deltaPitch = targetPitch - silentPitch;
-
-    if (Math.abs(deltaYaw) < 0.18f && Math.abs(deltaPitch) < 0.18f) {
-      event.setRotation(silentYaw, silentPitch, 10);
-      return;
-    }
-
-    float speedVal = this.speed.getValue();
-    float baseLerp = 0.03f + (speedVal / 30f) * 0.22f;
-    float angleDist = (float)Math.sqrt(deltaYaw * deltaYaw + deltaPitch * deltaPitch);
-    float distanceBoost = MathHelper.clamp_float(angleDist / 20f, 0f, 1.2f);
-    float lerpFactor = baseLerp * (1f + distanceBoost * 0.55f);
-    float smoothTime = 1.05f - lerpFactor; 
-    silentYaw = smoothDampAngle(silentYaw, targetYaw, 0, smoothTime, 120f);
-    silentPitch = smoothDampAngle(silentPitch, targetPitch, 1, smoothTime, 90f);
-
-    float maxYawStep = 8f + speedVal * 1.6f;
-    float maxPitchStep = 6f + speedVal * 1.1f;
-    float clampedYawDelta = MathHelper.clamp_float(MathHelper.wrapAngleTo180_float(silentYaw - baseYaw), -maxYawStep, maxYawStep);
-    float clampedPitchDelta = MathHelper.clamp_float(silentPitch - basePitch, -maxPitchStep, maxPitchStep);
-
-    float finalYaw = baseYaw + clampedYawDelta;
-    float finalPitch = MathHelper.clamp_float(basePitch + clampedPitchDelta, -90f, 90f);
-
-    silentYaw = finalYaw;
-    silentPitch = finalPitch;
-
-    event.setRotation(finalYaw, finalPitch, 10);
-  }
-
-  private void updateRandomization() {
-    if (this.randomization.getValue() <= 0.01f) {
-      randomYawOffset *= 0.85f;
-      randomPitchOffset *= 0.85f;
-      return;
-    }
-    long now = System.currentTimeMillis();
-    if (now - lastRandomUpdate > 180 + random.nextInt(170)) {
-      float str = this.randomization.getValue() / 100f;
-      targetRandomYaw = (random.nextFloat() - 0.5f) * 2f * str * 1.2f;
-      targetRandomPitch = (random.nextFloat() - 0.5f) * 2f * str * 0.9f;
-      lastRandomUpdate = now;
-    }
-    randomYawOffset += (targetRandomYaw - randomYawOffset) * 0.06f;
-    randomPitchOffset += (targetRandomPitch - randomPitchOffset) * 0.06f;
-  }
-
-  private float smoothDampAngle(float current, float target, int velocityIndex, float smoothTime, float maxSpeed) {
-    smoothTime = Math.max(0.0001f, smoothTime);
-    float delta = MathHelper.wrapAngleTo180_float(target - current);
-    float targetWrapped = current + delta;
-
-    float velocity = velocityIndex == 0? yawVelocity : pitchVelocity;
-    float omega = 2f / smoothTime;
-    float x = omega * 0.016f;
-    float exp = 1f / (1f + x + 0.48f * x * x + 0.235f * x * x * x);
-
-    float change = current - targetWrapped;
-    float originalTo = targetWrapped;
-
-    float maxChange = maxSpeed * smoothTime;
-    change = MathHelper.clamp_float(change, -maxChange, maxChange);
-    targetWrapped = current - change;
-
-    float temp = (velocity + omega * change) * 0.016f;
-    velocity = (velocity - omega * temp) * exp;
-    float output = targetWrapped + (change + temp) * exp;
-
-    if (velocityIndex == 0) yawVelocity = velocity;
-    else pitchVelocity = velocity;
-
-    if ((originalTo - current > 0) == (output > originalTo)) {
-      output = originalTo;
-      if (velocityIndex == 0) yawVelocity = 0; else pitchVelocity = 0;
-    }
-    return output;
-  }
 
   @EventTarget
   public void onTick(TickEvent event) {
     if (event.getType()!= EventType.POST) return;
     if (this.mode.getValue()!= 0 ||!conditionsMet()) return;
-    EntityPlayer target = getEnemy(false);
+    EntityPlayer target = getEnemy();
     if (target == null) return;
 
     boolean allowThroughBlocks =!this.ignoreBehindWalls.getValue();
@@ -215,8 +80,8 @@ public class AimAssist extends Module {
     mc.thePlayer.rotationPitch = smooth[1];
   }
 
-  private EntityPlayer getEnemy(boolean silentMode) {
-    float viewYaw = silentMode? (firstRotation? mc.thePlayer.rotationYaw : silentYaw) : mc.thePlayer.rotationYaw;
+  private EntityPlayer getEnemy() {
+    float viewYaw = mc.thePlayer.rotationYaw;
     List<EntityPlayer> candidates = new ArrayList<>();
     for (Entity player : mc.theWorld.playerEntities) {
       if (!(player instanceof EntityPlayer)) continue;

@@ -86,50 +86,6 @@ public abstract class MixinPlayerControllerMP {
     }
   }
 
-  @Inject(
-      method = {"onPlayerRightClick"},
-      at = {@At("RETURN")})
-  private void miau$playPlaceSound(
-      EntityPlayerSP player,
-      WorldClient worldIn,
-      ItemStack heldStack,
-      BlockPos hitPos,
-      EnumFacing side,
-      Vec3 hitVec,
-      CallbackInfoReturnable<Boolean> cir) {
-    if (!cir.getReturnValueZ() || heldStack == null || worldIn == null) {
-      return;
-    }
-    if (!(heldStack.getItem() instanceof ItemBlock)) {
-      return;
-    }
-    Block target = ((ItemBlock) heldStack.getItem()).getBlock();
-    if (target == null || target == Blocks.air) {
-      return;
-    }
-
-    BlockPos placedPos;
-    BlockPos sidePos = hitPos.offset(side);
-    if (worldIn.getBlockState(sidePos).getBlock() == target) {
-      placedPos = sidePos;
-    } else if (worldIn.getBlockState(hitPos).getBlock() == target) {
-      placedPos = hitPos;
-    } else {
-      return;
-    }
-    Block.SoundType sound = target.stepSound;
-    if (sound == null) {
-      return;
-    }
-    worldIn.playSound(
-        placedPos.getX() + 0.5,
-        placedPos.getY() + 0.5,
-        placedPos.getZ() + 0.5,
-        sound.getPlaceSound(),
-        (sound.getVolume() + 1.0F) / 2.0F,
-        sound.getFrequency() * 0.8F,
-        false);
-  }
 
   @Inject(method = "clickBlock", at = @At("HEAD"))
   private void onClickBlock(BlockPos loc, EnumFacing face, CallbackInfoReturnable<Boolean> cir) {

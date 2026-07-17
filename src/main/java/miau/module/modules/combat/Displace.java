@@ -23,6 +23,7 @@ import miau.property.properties.ModeProperty;
 import miau.util.player.CombatTargeting;
 import miau.util.player.MoveUtil;
 import miau.util.player.RotationUtil;
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
@@ -643,18 +644,7 @@ public class Displace extends Module {
     releaseBlinkNextGameTick = true;
   }
 
-  @EventTarget(Priority.HIGH)
-  public void onClientRotation(UpdateEvent e) {
-    if (e.getType() != EventType.PRE) return;
-    if (this.isEnabled() && this.renderDisplaceYaw != null) {
-      e.setRotation(this.renderDisplaceYaw, mc.thePlayer.rotationPitch, 100);
-      MoveUtil.fixMovement(this.renderDisplaceYaw);
-      if (this.wasDisplacingLastTick) {
-        e.setRotation(this.renderDisplaceYaw, mc.thePlayer.rotationPitch, 100);
-        MoveUtil.fixMovement(this.renderDisplaceYaw);
-      }
-    }
-  }
+
 
   @EventTarget(Priority.LOWEST)
   public void onUpdateLowest(UpdateEvent e) {
@@ -667,10 +657,7 @@ public class Displace extends Module {
 
     boolean passesItemCondition = true;
     if (hasKnockback.getValue() || itemWhitelistToggle.getValue()) {
-      boolean kbPass =
-          !hasKnockback.getValue()
-              || (mc.thePlayer.getHeldItem() != null
-                  && mc.thePlayer.getHeldItem().getItem() == net.minecraft.init.Items.stick);
+      boolean kbPass = !hasKnockback.getValue() || EnchantmentHelper.getKnockbackModifier(mc.thePlayer) > 0;
       boolean wlPass =
           !itemWhitelistToggle.getValue() || itemWhitelist.matches(mc.thePlayer.getHeldItem());
       passesItemCondition = kbPass || wlPass;
@@ -687,22 +674,10 @@ public class Displace extends Module {
                 && Miau.moduleManager.modules.get(KillAura.class).isEnabled()
                 && ((KillAura) Miau.moduleManager.modules.get(KillAura.class)).getTarget() != null);
     if (attacking) {
-      target =
-          (EntityPlayer)
-              CombatTargeting.getTarget(
-                  true,
-                  false,
-                  false,
-                  true,
-                  ignoreTeammates.getValue(),
-                  true,
-                  3.0,
-                  CombatTargeting.SortMode.DISTANCE);
+      target = CombatTargeting.findClosestTarget(9.0, ignoreTeammates.getValue());
     }
 
-    boolean hasKBEnchant =
-        mc.thePlayer.getHeldItem() != null
-            && mc.thePlayer.getHeldItem().getItem() == net.minecraft.init.Items.stick;
+    boolean hasKBEnchant = EnchantmentHelper.getKnockbackModifier(mc.thePlayer) > 0;
     active = target != null && (hasKBEnchant || anyMovementKey());
     if (!active) {
       clearActiveState();
@@ -748,7 +723,7 @@ public class Displace extends Module {
 
     if (!displaceThisTick || renderDisplaceYaw == null) return;
 
-    e.setRotation(renderDisplaceYaw, e.getPitch(), Integer.MAX_VALUE);
+    e.setRotation(renderDisplaceYaw, mc.thePlayer.rotationPitch, 100);
     MoveUtil.fixMovement(renderDisplaceYaw);
   }
 }

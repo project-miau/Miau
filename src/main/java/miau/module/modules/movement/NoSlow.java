@@ -24,20 +24,12 @@ public class NoSlow extends Module {
           0,
           new String[] {
             "Vanilla",
-            "NCP",
-            "NewNcp",
-            "Watchdog",
             "Intave",
             "Grim 1.9",
-            "New Grim",
-            "Verus",
-            "AAC",
-            "Spartan",
-            "Test",
             "Grim Test"
           });
   public final IntProperty grimTestMaxTicks =
-      new IntProperty("grim-test-max-ticks", 5, 1, 20, () -> this.mode.getValue() == 11);
+      new IntProperty("grim-test-max-ticks", 5, 1, 20, () -> this.mode.getValue() == 3);
   public final BooleanProperty swordValue = new BooleanProperty("sword", true);
   public final BooleanProperty foodValue = new BooleanProperty("food", true);
   public final BooleanProperty potionValue = new BooleanProperty("potion", true);
@@ -49,16 +41,8 @@ public class NoSlow extends Module {
   public NoSlow() {
     super("NoSlow", false);
     modes.add(new OMVanillaNoSlow("Vanilla", this));
-    modes.add(new OMNCPNoSlow("NCP", this));
-    modes.add(new OMNewNCPNoSlow("NewNcp", this));
-    modes.add(new OMWatchdogNoSlow("Watchdog", this));
     modes.add(new OMIntaveNoSlow("Intave", this));
     modes.add(new OMGrimNoSlow("Grim", this));
-    modes.add(new OMNewGrimNoSlow("New Grim", this));
-    modes.add(new OMVerusNoSlow("Verus", this));
-    modes.add(new OMAACNoSlow("AAC", this));
-    modes.add(new OMSpartanNoSlow("Spartan", this));
-    modes.add(new OMOpalWatchdogNoSlow("Test", this));
     modes.add(new OMGrimTestNoSlow("Grim Test", this));
   }
 
@@ -114,9 +98,6 @@ public class NoSlow extends Module {
   public boolean shouldCancelSlowdown() {
     if (!this.isEnabled()) return false;
     NoSlowMode activeMode = getActiveMode();
-    if (activeMode instanceof OMNewGrimNoSlow) {
-      return ((OMNewGrimNoSlow) activeMode).shouldCancelSlowdown();
-    }
     if (activeMode instanceof OMGrimTestNoSlow) {
       return ((OMGrimTestNoSlow) activeMode).shouldCancelSlowdown();
     }
@@ -128,7 +109,7 @@ public class NoSlow extends Module {
   }
 
   public float getMotionMultiplier() {
-    if (this.mode.getValue() == 5) {
+    if (this.mode.getValue() == 2) {
       return 0.35f;
     }
     return 1.0f;

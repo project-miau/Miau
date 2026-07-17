@@ -13,6 +13,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.function.BooleanSupplier;
 import miau.Miau;
 import miau.event.EventTarget;
 import miau.event.impl.Render2DEvent;
@@ -30,6 +31,7 @@ import miau.util.render.ColorUtil;
 import miau.util.render.RenderUtil;
 import miau.util.shader.RoundedUtils;
 import miau.util.spotify.LastFmAPI;
+import miau.util.spotify.SpotifyAPI;
 import miau.util.vector.Vector2d;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
@@ -43,8 +45,11 @@ public class SpotifyMod extends Module {
 
   private static final Minecraft mc = Minecraft.getMinecraft();
 
-  private final TextProperty lastFmUser = new TextProperty("Username", "");
-  private final TextProperty lastFmApiKey = new TextProperty("LASTFM API Key", "");
+  private final ModeProperty apiMode = new ModeProperty("API Mode", 1, new String[] {"LastFM", "Spotify"});
+  private final TextProperty lastFmUser = new TextProperty("Username", "", () -> apiMode.getModeString().equals("LastFM"));
+  private final TextProperty lastFmApiKey = new TextProperty("LASTFM API Key", "", () -> apiMode.getModeString().equals("LastFM"));
+  private final TextProperty spotifyClientId = new TextProperty("Spotify Client ID", "", () -> apiMode.getModeString().equals("Spotify"));
+  private final TextProperty spotifyClientSecret = new TextProperty("Spotify Client Secret", "", () -> apiMode.getModeString().equals("Spotify"));
   private final ModeProperty backgroundColor =
       new ModeProperty("Background", 0, new String[] {"Miau", "Average", "Spotify Grey", "Sync"});
 
@@ -59,6 +64,7 @@ public class SpotifyMod extends Module {
   private final Animation scrollArtist = new DecelerateAnimation(10000, 1, Direction.BACKWARDS);
 
   public LastFmAPI api;
+  public SpotifyAPI spotifyApi;
   private boolean downloadedCover;
   private ResourceLocation currentAlbumCover;
   private Color imageColor = Color.WHITE;
@@ -82,35 +88,86 @@ public class SpotifyMod extends Module {
       return;
     }
 
-    String user = this.lastFmUser.getValue();
-    String key = this.lastFmApiKey.getValue();
+    if (apiMode.getModeString().equals("Spotify")) {
+      String clientId = this.spotifyClientId.getValue();
+      String clientSecret = this.spotifyClientSecret.getValue();
 
-    if (api == null) api = new LastFmAPI();
+      if (spotifyApi == null) spotifyApi = new SpotifyAPI();
 
-    if (user.equals("") || key.equals("")) {
-      loadCredentials();
-      user = this.lastFmUser.getValue();
-      key = this.lastFmApiKey.getValue();
+      if (clientId.isEmpty() || clientSecret.isEmpty()) {
+        loadCredentials();
+        clientId = this.spotifyClientId.getValue();
+        clientSecret = this.spotifyClientSecret.getValue();
+
+        if (clientId.isEmpty() || clientSecret.isEmpty()) {
+          Miau.notificationManager.pop(
+              "Error", "Please input Spotify Client ID and Secret in settings", NotificationType.WARN);
+          this.toggle();
+          return;
+        }
+      }
+
+      saveCredentials();
+      spotifyApi.startConnection(clientId, clientSecret);
+    } else {
+      String user = this.lastFmUser.getValue();
+      String key = this.lastFmApiKey.getValue();
+
+      if (api == null) api = new LastFmAPI();
 
       if (user.equals("") || key.equals("")) {
-        Miau.notificationManager.pop(
-            "Error", "Please input Last.fm User and API Key in settings", NotificationType.WARN);
-        try {
-          if (java.awt.Desktop.isDesktopSupported()) {
-            java.awt.Desktop.getDesktop()
-                .browse(new java.net.URI("https://idle.e-z.tools/p/b8tsrcndhv"));
-          }
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
-        this.toggle();
-        return;
-      }
-    }
+        loadCredentials();
+        user = this.lastFmUser.getValue();
+        key = this.lastFmApiKey.getValue();
 
-    saveCredentials();
-    api.startConnection(user, key);
+        if (user.equals("") || key.equals("")) {
+          Miau.notificationManager.pop(
+              "Error", "Please input Last.fm User and API Key in settings", NotificationType.WARN);
+          try {
+            if (java.awt.Desktop.isDesktopSupported()) {
+              java.awt.Desktop.getDesktop()
+                  .browse(new java.net.URI("https://idle.e-z.tools/p/b8tsrcndhv"));
+            }
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+          this.toggle();
+          return;
+        }
+      }
+
+      saveCredentials();
+      api.startConnection(user, key);
+    }
     super.onEnabled();
+  }
+
+  @Override
+  public void onDisabled() {
+    if (spotifyApi != null) {
+      spotifyApi.stopConnection();
+    }
+    super.onDisabled();
+  }
+
+  public boolean isPlaying() {
+    return apiMode.getModeString().equals("Spotify") ? (spotifyApi != null && spotifyApi.isPlaying) : (api != null && api.isPlaying);
+  }
+
+  public String getTrackName() {
+    return apiMode.getModeString().equals("Spotify") ? (spotifyApi != null ? spotifyApi.trackName : "Unknown") : (api != null ? api.trackName : "Unknown");
+  }
+
+  public String getArtistName() {
+    return apiMode.getModeString().equals("Spotify") ? (spotifyApi != null ? spotifyApi.artistName : "Unknown") : (api != null ? api.artistName : "Unknown");
+  }
+
+  public String getAlbumUrl() {
+    return apiMode.getModeString().equals("Spotify") ? (spotifyApi != null ? spotifyApi.albumUrl : "") : (api != null ? api.albumUrl : "");
+  }
+
+  public String getCurrentMbid() {
+    return apiMode.getModeString().equals("Spotify") ? (spotifyApi != null ? spotifyApi.currentMbid : "") : (api != null ? api.currentMbid : "");
   }
 
   public static void scissor(double x, double y, double width, double height) {
@@ -126,7 +183,7 @@ public class SpotifyMod extends Module {
 
   @EventTarget
   public void onRender2DEvent(Render2DEvent event) {
-    if (api == null || !api.isPlaying) return;
+    if (!isPlaying()) return;
 
     float x = (float) drag.position.x;
     float y = (float) drag.position.y;
@@ -171,8 +228,8 @@ public class SpotifyMod extends Module {
     GL11.glEnable(GL11.GL_SCISSOR_TEST);
     scissor(x + albumCoverSize, y, playerWidth, height);
 
-    String currentTrackName = api.trackName;
-    String currentArtistName = api.artistName;
+    String currentTrackName = getTrackName();
+    String currentArtistName = getArtistName();
 
     if (scrollTrack.getDirection() == Direction.BACKWARDS && scrollTrack.getOutput() == 0) {
       scrollTrack.reset();
@@ -241,23 +298,26 @@ public class SpotifyMod extends Module {
     Font font19 = FontRepository.getFont("inter-bold", 19f);
     Font font13 = FontRepository.getFont("inter-medium", 13.5f);
 
-    String title = api.trackName != null ? api.trackName : "Unknown";
-    String artist = api.artistName != null ? api.artistName : "Unknown";
+    String title = getTrackName() != null ? getTrackName() : "Unknown";
+    String artist = getArtistName() != null ? getArtistName() : "Unknown";
 
     font19.draw(title, artX, infoY, Color.WHITE.getRGB());
     font13.draw(artist, artX, infoY + 11, new Color(255, 255, 255, 147).getRGB());
   }
 
   private void downloadAlbumArt() {
-    if (api.currentMbid != null && !api.currentMbid.equals(lastDownloadedId)) {
-      downloadedCover = false;
-      lastDownloadedId = api.currentMbid;
+    String currentMbid = getCurrentMbid();
+    String albumUrl = getAlbumUrl();
 
-      if (api.albumUrl != null && !api.albumUrl.isEmpty()) {
+    if (currentMbid != null && !currentMbid.equals(lastDownloadedId)) {
+      downloadedCover = false;
+      lastDownloadedId = currentMbid;
+
+      if (albumUrl != null && !albumUrl.isEmpty()) {
         final ThreadDownloadImageData albumCover =
             new ThreadDownloadImageData(
                 null,
-                api.albumUrl,
+                albumUrl,
                 null,
                 new IImageBuffer() {
                   @Override
@@ -283,6 +343,8 @@ public class SpotifyMod extends Module {
     JsonObject keyObject = new JsonObject();
     keyObject.addProperty("user", this.lastFmUser.getValue());
     keyObject.addProperty("key", this.lastFmApiKey.getValue());
+    keyObject.addProperty("spotify_client_id", this.spotifyClientId.getValue());
+    keyObject.addProperty("spotify_client_secret", this.spotifyClientSecret.getValue());
     try {
       Writer writer = new BufferedWriter(new FileWriter(LASTFM_CREDS_DIR));
       GSON.toJson(keyObject, writer);
@@ -302,6 +364,12 @@ public class SpotifyMod extends Module {
       }
       if (fileContent.has("key")) {
         this.lastFmApiKey.setValue(fileContent.get("key").getAsString());
+      }
+      if (fileContent.has("spotify_client_id")) {
+        this.spotifyClientId.setValue(fileContent.get("spotify_client_id").getAsString());
+      }
+      if (fileContent.has("spotify_client_secret")) {
+        this.spotifyClientSecret.setValue(fileContent.get("spotify_client_secret").getAsString());
       }
     } catch (FileNotFoundException e) {
     }

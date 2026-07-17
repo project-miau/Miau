@@ -109,7 +109,6 @@ public class Miau {
     moduleManager.modules.put(AutoAuth.class, new AutoAuth());
     moduleManager.modules.put(AutoGG.class, new AutoGG());
     moduleManager.modules.put(AutoPlay.class, new AutoPlay());
-    moduleManager.modules.put(BedDefender.class, new BedDefender());
     moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
     moduleManager.modules.put(AutoBlock.class, new AutoBlock());
     moduleManager.modules.put(AutoBuy.class, new AutoBuy());
@@ -153,7 +152,6 @@ public class Miau {
     moduleManager.modules.put(Freeze.class, new Freeze());
     moduleManager.modules.put(FullBright.class, new FullBright());
     moduleManager.modules.put(GhostHand.class, new GhostHand());
-    moduleManager.modules.put(HideWindow.class, new HideWindow());
     moduleManager.modules.put(JumpReset.class, new JumpReset());
     moduleManager.modules.put(HUD.class, new HUD());
     moduleManager.modules.put(HitBox.class, new HitBox());
@@ -172,7 +170,6 @@ public class Miau {
     moduleManager.modules.put(LagRange.class, new LagRange());
     moduleManager.modules.put(LightningTracker.class, new LightningTracker());
     moduleManager.modules.put(LongJump.class, new LongJump());
-    moduleManager.modules.put(MCF.class, new MCF());
     moduleManager.modules.put(MoveFix.class, new MoveFix());
     moduleManager.modules.put(MouseRawInput.class, new MouseRawInput());
     moduleManager.modules.put(MurderDetector.class, new MurderDetector());

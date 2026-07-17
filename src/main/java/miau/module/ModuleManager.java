@@ -36,7 +36,7 @@ public class ModuleManager {
 
   public Module getModule(String string) {
     return this.modules.values().stream()
-        .filter(mD -> mD.getName().equalsIgnoreCase(string))
+        .filter(mD -> mD.getName().replace(" ", "").equalsIgnoreCase(string.replace(" ", "")))
         .findFirst()
         .orElse(null);
   }

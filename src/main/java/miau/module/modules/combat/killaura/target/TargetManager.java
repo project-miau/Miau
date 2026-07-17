@@ -48,15 +48,11 @@ public class TargetManager {
         (e1, e2) -> {
           int sortBase = 0;
           switch (this.killAura.sort.getValue()) {
-            case 2:
+            case 1:
               sortBase = Integer.compare(e1.hurtTime, e2.hurtTime);
               break;
-            case 1:
+            case 0:
               sortBase = Float.compare(TeamUtil.getHealthScore(e1), TeamUtil.getHealthScore(e2));
-              break;
-            case 3:
-              sortBase =
-                  Float.compare(RotationUtil.angleToEntity(e1), RotationUtil.angleToEntity(e2));
               break;
           }
           return sortBase != 0
@@ -89,9 +85,6 @@ public class TargetManager {
 
   public boolean isValidTarget(EntityLivingBase entityLivingBase) {
     return this.isValid(entityLivingBase)
-        && (this.killAura.rotations.getValue() != 0
-            || RotationUtil.angleToEntity(entityLivingBase)
-                <= this.killAura.fov.getValue().floatValue())
         && (this.killAura.throughWalls.getValue()
             || RotationUtil.rayTrace(entityLivingBase) == null);
   }

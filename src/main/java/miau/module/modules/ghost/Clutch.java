@@ -9,6 +9,7 @@ import miau.module.modules.movement.Sprint;
 import miau.module.modules.player.Scaffold;
 import miau.property.properties.BooleanProperty;
 import miau.property.properties.IntProperty;
+import miau.property.properties.FloatProperty;
 import miau.property.properties.ModeProperty;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
@@ -22,6 +23,8 @@ public class Clutch extends Module {
   private static final Minecraft mc = Minecraft.getMinecraft();
 
   public final BooleanProperty hurtTime = new BooleanProperty("hurt-time", true);
+  public final BooleanProperty rotations = new BooleanProperty("rotations", false);
+  public final FloatProperty rotationSpeed = new FloatProperty("rotation-speed", 100.0F, 1.0F, 180.0F, rotations::getValue);
   public final ModeProperty turnOffMode =
       new ModeProperty("disable-mode", 0, new String[] {"MOVE", "FORWARD", "NONE"});
   public final IntProperty enableDelay = new IntProperty("enable-delay", 0, 0, 100);
@@ -136,6 +139,16 @@ public class Clutch extends Module {
       if (!falling) {
         landTimeStart = 0;
       }
+    }
+
+    if (falling && rotations.getValue()) {
+      float[] smoothed = miau.util.player.RotationUtil.smooth(
+          new float[] {mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch},
+          new float[] {mc.thePlayer.rotationYaw, 90.0F},
+          rotationSpeed.getValue(),
+          null,
+          0);
+      mc.thePlayer.rotationPitch = smoothed[1];
     }
 
     if (falling && (mc.thePlayer.onGround || (dist != -1 && dist < 1))) {
